@@ -163,8 +163,14 @@ export default function CheckoutPage() {
                 Order <span className="font-mono font-medium text-foreground break-all">{placedOrderNumber}</span>
               </p>
             )}
-            <p className="text-muted-foreground mb-8 text-sm sm:text-base px-4">
+            <p className="text-muted-foreground mb-2 text-sm sm:text-base px-4">
               A confirmation will be sent to <span className="font-medium break-all">{customerInfo.email}</span>
+            </p>
+            <p className="text-muted-foreground mb-8 text-sm sm:text-base px-4">
+              Questions? Reach us at{' '}
+              <a href="mailto:peptidexm@gmail.com" className="font-medium text-foreground underline underline-offset-4 break-all">
+                peptidexm@gmail.com
+              </a>
             </p>
             <Button asChild size="lg" className="h-12">
               <Link href="/">Return to Store</Link>

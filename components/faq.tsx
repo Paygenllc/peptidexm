@@ -28,7 +28,7 @@ const faqs = [
   },
   {
     question: "What is your return policy?",
-    answer: "We offer a 30-day satisfaction guarantee on all unopened products. If you receive a damaged or incorrect item, please contact us within 48 hours for a full replacement. Opened products cannot be returned due to quality control requirements."
+    answer: "We offer a 30-day satisfaction guarantee on all unopened products. If you receive a damaged or incorrect item, please contact us at peptidexm@gmail.com within 48 hours for a full replacement. Opened products cannot be returned due to quality control requirements."
   },
   {
     question: "How long does shipping take?",
@@ -36,7 +36,7 @@ const faqs = [
   },
   {
     question: "Do you provide bulk or wholesale pricing?",
-    answer: "Yes, we offer competitive pricing for bulk and wholesale orders. Contact our sales team for custom quotes on orders exceeding $500 or for establishing ongoing supply agreements for research institutions."
+    answer: "Yes, we offer competitive pricing for bulk and wholesale orders. Contact our sales team at peptidexm@gmail.com for custom quotes on orders exceeding $500 or for establishing ongoing supply agreements for research institutions."
   },
 ]
 

@@ -1,6 +1,7 @@
 import { Button } from "@/components/ui/button"
 import { ArrowRight } from "lucide-react"
 import Link from "next/link"
+import { mailto } from "@/lib/contact"
 
 export function CTA() {
   return (
@@ -31,11 +32,12 @@ export function CTA() {
                 </Link>
               </Button>
               <Button
+                asChild
                 size="lg"
                 variant="outline"
                 className="px-8 h-12 w-full sm:w-auto border-background/20 bg-transparent text-background hover:bg-background/10 hover:text-background"
               >
-                Contact Sales
+                <a href={mailto("PeptideXM sales inquiry")}>Contact Sales</a>
               </Button>
             </div>
           </div>

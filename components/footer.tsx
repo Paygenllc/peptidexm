@@ -1,6 +1,8 @@
 import Link from "next/link"
+import { Mail } from "lucide-react"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
+import { CONTACT_EMAIL, mailto } from "@/lib/contact"
 
 const navigation = {
   products: [
@@ -20,7 +22,7 @@ const navigation = {
     { name: "FAQ", href: "#faq" },
     { name: "Shipping", href: "#" },
     { name: "Returns", href: "#" },
-    { name: "Contact", href: "#contact" },
+    { name: "Contact", href: mailto("PeptideXM inquiry") },
   ],
   legal: [
     { name: "Privacy Policy", href: "#" },
@@ -65,6 +67,17 @@ export function Footer() {
                 Get updates on new products and research. No spam, unsubscribe anytime.
               </p>
             </div>
+
+            <div className="mt-8 sm:mt-10">
+              <p className="text-sm font-medium text-background mb-2">Get in touch</p>
+              <a
+                href={mailto("PeptideXM inquiry")}
+                className="inline-flex items-center gap-2 text-sm sm:text-base text-background/80 hover:text-background transition-colors break-all"
+              >
+                <Mail className="h-4 w-4 shrink-0" aria-hidden="true" />
+                <span>{CONTACT_EMAIL}</span>
+              </a>
+            </div>
           </div>
 
           {/* Right side - Links */}
@@ -102,16 +115,23 @@ export function Footer() {
             <div>
               <h3 className="text-sm font-medium text-background">Support</h3>
               <ul className="mt-3 sm:mt-4 space-y-2.5 sm:space-y-3">
-                {navigation.support.map((item) => (
-                  <li key={item.name}>
-                    <Link
-                      href={item.href}
-                      className="text-sm text-background/60 hover:text-background transition-colors"
-                    >
-                      {item.name}
-                    </Link>
-                  </li>
-                ))}
+                {navigation.support.map((item) => {
+                  const isMailto = item.href.startsWith("mailto:")
+                  const className = "text-sm text-background/60 hover:text-background transition-colors"
+                  return (
+                    <li key={item.name}>
+                      {isMailto ? (
+                        <a href={item.href} className={className}>
+                          {item.name}
+                        </a>
+                      ) : (
+                        <Link href={item.href} className={className}>
+                          {item.name}
+                        </Link>
+                      )}
+                    </li>
+                  )
+                })}
               </ul>
             </div>
             <div>
