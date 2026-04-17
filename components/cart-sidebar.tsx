@@ -25,13 +25,13 @@ export function CartSidebar({ isOpen, onClose }: CartSidebarProps) {
 
       {/* Sidebar */}
       <div
-        className={`fixed right-0 top-0 h-full w-full max-w-2xl bg-background border-l border-border shadow-2xl z-50 transform transition-transform duration-300 ease-out ${
+        className={`fixed right-0 top-0 h-full w-full max-w-2xl bg-background border-l-2 border-border shadow-2xl z-50 transform transition-transform duration-300 ease-out ${
           isOpen ? 'translate-x-0' : 'translate-x-full'
         }`}
       >
         <div className="flex flex-col h-full bg-background">
           {/* Header */}
-          <div className="flex items-center justify-between border-b border-border px-6 py-6 bg-background sticky top-0 z-10">
+          <div className="flex items-center justify-between border-b-2 border-border px-6 py-6 bg-background sticky top-0 z-10">
             <div className="flex items-center gap-3">
               <ShoppingBag className="h-6 w-6 text-accent" />
               <h2 className="font-serif text-3xl font-medium tracking-tight">Your Cart</h2>
@@ -68,10 +68,10 @@ export function CartSidebar({ isOpen, onClose }: CartSidebarProps) {
                 {items.map(item => (
                   <div
                     key={`${item.id}-${item.variant}`}
-                    className="group flex gap-5 bg-secondary rounded-2xl p-5 transition-all duration-200 border border-border hover:border-accent/50 hover:shadow-lg"
+                    className="group flex gap-5 bg-secondary rounded-2xl p-5 transition-all duration-200 border-2 border-border hover:border-accent hover:shadow-lg"
                   >
                     {/* Image - Larger and more prominent */}
-                    <div className="relative w-32 h-32 bg-background rounded-xl flex-shrink-0 overflow-hidden border border-border/50 flex items-center justify-center">
+                    <div className="relative w-32 h-32 bg-background rounded-xl flex-shrink-0 overflow-hidden border-2 border-border flex items-center justify-center">
                       <img
                         src={item.image}
                         alt={item.name}
@@ -96,7 +96,7 @@ export function CartSidebar({ isOpen, onClose }: CartSidebarProps) {
 
                       {/* Quantity Controls - More Prominent */}
                       <div className="flex items-center justify-between mt-4">
-                        <div className="flex items-center gap-2 bg-background rounded-xl p-2 border border-border">
+                        <div className="flex items-center gap-2 bg-background rounded-xl p-2 border-2 border-border">
                           <button
                             onClick={() => updateQuantity(item.id, item.variant, Math.max(1, item.quantity - 1))}
                             className="p-2 hover:bg-accent hover:text-accent-foreground rounded-lg transition-all duration-200 font-bold"
@@ -132,14 +132,14 @@ export function CartSidebar({ isOpen, onClose }: CartSidebarProps) {
 
           {/* Footer */}
           {items.length > 0 && (
-            <div className="border-t border-border bg-background p-6 space-y-4 sticky bottom-0">
+            <div className="border-t-2 border-border bg-background p-6 space-y-4 sticky bottom-0">
               {/* Pricing Details */}
-              <div className="bg-background rounded-xl p-4 space-y-3 border border-border">
+              <div className="bg-background rounded-xl p-4 space-y-3 border-2 border-border">
                 <div className="flex justify-between items-center text-sm">
                   <span className="text-muted-foreground">Items</span>
                   <span className="font-semibold text-foreground">{itemCount}</span>
                 </div>
-                <div className="border-t border-border/30 pt-3 flex justify-between items-center">
+                <div className="border-t-2 border-border pt-3 flex justify-between items-center">
                   <span className="font-semibold text-foreground text-lg">Total</span>
                   <span className="font-serif text-3xl font-bold text-accent">
                     ${total.toFixed(2)}
