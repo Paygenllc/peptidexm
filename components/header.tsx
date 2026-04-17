@@ -5,6 +5,8 @@ import { useState } from "react"
 import { Menu, ShoppingCart, X, User } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet"
+import { useCart } from "@/context/cart-context"
+import { CartSidebar } from "@/components/cart-sidebar"
 
 const navigation = [
   { name: "Products", href: "#products" },
@@ -15,7 +17,8 @@ const navigation = [
 ]
 
 export function Header() {
-  const [cartCount] = useState(0)
+  const [isCartOpen, setIsCartOpen] = useState(false)
+  const { itemCount } = useCart()
 
   return (
     <header className="fixed top-0 left-0 right-0 z-50 bg-background/80 backdrop-blur-md border-b border-border">
@@ -29,7 +32,21 @@ export function Header() {
         </div>
 
         {/* Mobile menu */}
-        <div className="flex lg:hidden">
+        <div className="flex lg:hidden items-center gap-2">
+          <Button 
+            variant="ghost" 
+            size="icon"
+            onClick={() => setIsCartOpen(true)}
+            className="relative"
+          >
+            <ShoppingCart className="h-5 w-5" />
+            {itemCount > 0 && (
+              <span className="absolute -top-1 -right-1 h-4 w-4 rounded-full bg-accent text-accent-foreground text-xs flex items-center justify-center font-medium">
+                {itemCount}
+              </span>
+            )}
+            <span className="sr-only">Cart</span>
+          </Button>
           <Sheet>
             <SheetTrigger asChild>
               <Button variant="ghost" size="icon">
@@ -72,11 +89,16 @@ export function Header() {
             <User className="h-5 w-5" />
             <span className="sr-only">Account</span>
           </Button>
-          <Button variant="ghost" size="icon" className="relative">
+          <Button 
+            variant="ghost" 
+            size="icon" 
+            className="relative"
+            onClick={() => setIsCartOpen(true)}
+          >
             <ShoppingCart className="h-5 w-5" />
-            {cartCount > 0 && (
-              <span className="absolute -top-1 -right-1 h-4 w-4 rounded-full bg-accent text-accent-foreground text-xs flex items-center justify-center">
-                {cartCount}
+            {itemCount > 0 && (
+              <span className="absolute -top-1 -right-1 h-4 w-4 rounded-full bg-accent text-accent-foreground text-xs flex items-center justify-center font-medium">
+                {itemCount}
               </span>
             )}
             <span className="sr-only">Cart</span>
@@ -84,6 +106,8 @@ export function Header() {
           <Button>Shop Now</Button>
         </div>
       </nav>
+
+      <CartSidebar isOpen={isCartOpen} onClose={() => setIsCartOpen(false)} />
     </header>
   )
 }

@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { ShoppingCart, Plus, Check } from "lucide-react"
+import { useCart } from "@/context/cart-context"
 
 const categories = ["All", "GLP-1", "Growth Hormone", "Recovery", "Cognitive", "Anti-Aging", "Research", "Accessories"]
 
@@ -744,6 +745,7 @@ const products: Product[] = [
 export function Products() {
   const [selectedCategory, setSelectedCategory] = useState("All")
   const [addedToCart, setAddedToCart] = useState<number[]>([])
+  const { addItem } = useCart()
   
   // Initialize with Kit of 10 (or equivalent) as default
   const [selectedVariant, setSelectedVariant] = useState<{ [key: number]: string }>(() => {
@@ -760,6 +762,23 @@ export function Products() {
     : products.filter(p => p.category === selectedCategory)
 
   const handleAddToCart = (id: number) => {
+    const product = products.find(p => p.id === id)
+    if (!product) return
+
+    const selectedVariantName = selectedVariant[id] || product.variants[0].name
+    const variantData = product.variants.find(v => v.name === selectedVariantName)
+    
+    if (!variantData) return
+
+    addItem({
+      id: product.id,
+      name: product.name,
+      variant: selectedVariantName,
+      price: variantData.price,
+      quantity: 1,
+      image: product.image,
+    })
+
     setAddedToCart(prev => [...prev, id])
     setTimeout(() => {
       setAddedToCart(prev => prev.filter(i => i !== id))
