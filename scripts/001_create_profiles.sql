@@ -1,3 +1,14 @@
+-- Global updated_at function (used across tables)
+create or replace function public.handle_updated_at()
+returns trigger
+language plpgsql
+as $$
+begin
+  new.updated_at = now();
+  return new;
+end;
+$$;
+
 -- Profiles table for admin users
 create table if not exists public.profiles (
   id uuid primary key references auth.users(id) on delete cascade,
