@@ -744,17 +744,22 @@ const products: Product[] = [
 export function Products() {
   const [selectedCategory, setSelectedCategory] = useState("All")
   const [addedToCart, setAddedToCart] = useState<number[]>([])
-  const [selectedVariant, setSelectedVariant] = useState<{ [key: number]: string }>({})
+  
+  // Initialize with Kit of 10 (or equivalent) as default
+  const [selectedVariant, setSelectedVariant] = useState<{ [key: number]: string }>(() => {
+    const initial: { [key: number]: string } = {}
+    products.forEach(product => {
+      // Default to second variant (Kit of 10 or equivalent), fallback to first if only one exists
+      initial[product.id] = product.variants.length > 1 ? product.variants[1].name : product.variants[0].name
+    })
+    return initial
+  })
 
   const filteredProducts = selectedCategory === "All" 
     ? products 
     : products.filter(p => p.category === selectedCategory)
 
   const handleAddToCart = (id: number) => {
-    if (!selectedVariant[id]) {
-      setSelectedVariant(prev => ({ ...prev, [id]: selectedVariant[id] || products.find(p => p.id === id)?.variants[0].name || "" }))
-      return
-    }
     setAddedToCart(prev => [...prev, id])
     setTimeout(() => {
       setAddedToCart(prev => prev.filter(i => i !== id))
@@ -842,7 +847,7 @@ export function Products() {
                       Select Option
                     </label>
                     <select 
-                      value={selectedVariant[product.id] || product.variants[0].name}
+                      value={selectedVariant[product.id]}
                       onChange={(e) => setSelectedVariant(prev => ({ ...prev, [product.id]: e.target.value }))}
                       className="w-full px-3 py-2 text-sm border border-border rounded-md bg-background text-foreground hover:border-border/80 focus:outline-none focus:ring-1 focus:ring-accent"
                     >
