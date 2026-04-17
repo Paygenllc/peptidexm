@@ -3,6 +3,16 @@
 import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { redirect } from "next/navigation"
+import { headers } from "next/headers"
+
+function getOrigin(headerList: Headers) {
+  const envUrl = process.env.NEXT_PUBLIC_SITE_URL
+  if (envUrl) return envUrl.replace(/\/$/, "")
+  const host = headerList.get("x-forwarded-host") ?? headerList.get("host")
+  const proto = headerList.get("x-forwarded-proto") ?? "https"
+  if (host) return `${proto}://${host}`
+  return ""
+}
 
 export async function signInAction(formData: FormData) {
   const email = String(formData.get("email") || "").trim()
@@ -39,12 +49,14 @@ export async function signUpAction(formData: FormData) {
   if (password.length < 8) return { error: "Password must be at least 8 characters" }
 
   const supabase = await createClient()
+  const origin = getOrigin(await headers())
 
   const { error } = await supabase.auth.signUp({
     email,
     password,
     options: {
       data: { full_name: fullName },
+      emailRedirectTo: origin ? `${origin}/auth/confirm?next=/admin/bootstrap` : undefined,
     },
   })
 
