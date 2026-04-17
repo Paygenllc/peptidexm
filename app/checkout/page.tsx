@@ -134,12 +134,12 @@ export default function CheckoutPage() {
 
   if (items.length === 0 && step !== 'success') {
     return (
-      <div className="min-h-screen bg-secondary/30 py-12">
-        <div className="mx-auto max-w-7xl px-6 lg:px-8">
-          <div className="text-center py-24">
-            <h1 className="font-serif text-4xl font-medium mb-4">Your cart is empty</h1>
+      <div className="min-h-screen bg-secondary/30 py-8 sm:py-12">
+        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+          <div className="text-center py-16 sm:py-24">
+            <h1 className="font-serif text-3xl sm:text-4xl font-medium mb-4">Your cart is empty</h1>
             <p className="text-muted-foreground mb-8">Add some peptides to get started</p>
-            <Button asChild>
+            <Button asChild size="lg" className="h-12">
               <Link href="/">Back to Store</Link>
             </Button>
           </div>
@@ -149,24 +149,24 @@ export default function CheckoutPage() {
   }
 
   return (
-    <div className="min-h-screen bg-secondary/30 py-12">
-      <div className="mx-auto max-w-4xl px-6 lg:px-8">
+    <div className="min-h-screen bg-secondary/30 py-6 sm:py-12">
+      <div className="mx-auto max-w-4xl px-4 sm:px-6 lg:px-8">
         {/* Success Page */}
         {step === 'success' && (
-          <div className="text-center py-24">
+          <div className="text-center py-16 sm:py-24">
             <div className="flex justify-center mb-6">
-              <CheckCircle className="h-16 w-16 text-green-600" />
+              <CheckCircle className="h-14 w-14 sm:h-16 sm:w-16 text-green-600" />
             </div>
-            <h1 className="font-serif text-4xl font-medium mb-4">Order Placed Successfully!</h1>
+            <h1 className="font-serif text-3xl sm:text-4xl font-medium mb-4 text-balance">Order Placed Successfully!</h1>
             {placedOrderNumber && (
-              <p className="text-muted-foreground mb-2">
-                Order <span className="font-mono font-medium text-foreground">{placedOrderNumber}</span>
+              <p className="text-muted-foreground mb-2 text-sm sm:text-base">
+                Order <span className="font-mono font-medium text-foreground break-all">{placedOrderNumber}</span>
               </p>
             )}
-            <p className="text-muted-foreground mb-8">
-              A confirmation will be sent to <span className="font-medium">{customerInfo.email}</span>
+            <p className="text-muted-foreground mb-8 text-sm sm:text-base px-4">
+              A confirmation will be sent to <span className="font-medium break-all">{customerInfo.email}</span>
             </p>
-            <Button asChild size="lg">
+            <Button asChild size="lg" className="h-12">
               <Link href="/">Return to Store</Link>
             </Button>
           </div>
@@ -176,46 +176,46 @@ export default function CheckoutPage() {
         {step !== 'success' && (
           <>
             {/* Header */}
-            <div className="mb-8">
-              <Link href="/" className="inline-flex items-center gap-2 text-muted-foreground hover:text-foreground mb-6 transition-colors">
+            <div className="mb-6 sm:mb-8">
+              <Link href="/" className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground mb-4 sm:mb-6 transition-colors">
                 <ArrowLeft className="h-4 w-4" />
                 Back to Store
               </Link>
 
-              <h1 className="font-serif text-4xl font-medium mb-4">Checkout</h1>
+              <h1 className="font-serif text-3xl sm:text-4xl font-medium mb-4">Checkout</h1>
 
-              {/* Step Indicator */}
-              <div className="flex gap-4">
-                <div className={`flex items-center gap-2 px-4 py-2 rounded-lg ${step === 'cart' || step === 'info' || step === 'summary' ? 'bg-accent text-accent-foreground' : 'bg-secondary text-foreground'}`}>
-                  <span className="text-sm font-medium">1. Cart Review</span>
+              {/* Step Indicator - compact on mobile */}
+              <div className="flex gap-2 sm:gap-3 -mx-4 sm:mx-0 px-4 sm:px-0 overflow-x-auto no-scrollbar">
+                <div className={`flex items-center gap-2 px-3 sm:px-4 py-2 rounded-lg shrink-0 ${step === 'cart' || step === 'info' || step === 'summary' ? 'bg-accent text-accent-foreground' : 'bg-secondary text-foreground'}`}>
+                  <span className="text-xs sm:text-sm font-medium whitespace-nowrap"><span className="sm:hidden">1. Cart</span><span className="hidden sm:inline">1. Cart Review</span></span>
                 </div>
-                <div className={`flex items-center gap-2 px-4 py-2 rounded-lg ${step === 'info' || step === 'summary' ? 'bg-accent text-accent-foreground' : 'bg-secondary text-foreground'}`}>
-                  <span className="text-sm font-medium">2. Shipping Info</span>
+                <div className={`flex items-center gap-2 px-3 sm:px-4 py-2 rounded-lg shrink-0 ${step === 'info' || step === 'summary' ? 'bg-accent text-accent-foreground' : 'bg-secondary text-foreground'}`}>
+                  <span className="text-xs sm:text-sm font-medium whitespace-nowrap"><span className="sm:hidden">2. Info</span><span className="hidden sm:inline">2. Shipping Info</span></span>
                 </div>
-                <div className={`flex items-center gap-2 px-4 py-2 rounded-lg ${step === 'summary' ? 'bg-accent text-accent-foreground' : 'bg-secondary text-foreground'}`}>
-                  <span className="text-sm font-medium">3. Order Summary</span>
+                <div className={`flex items-center gap-2 px-3 sm:px-4 py-2 rounded-lg shrink-0 ${step === 'summary' ? 'bg-accent text-accent-foreground' : 'bg-secondary text-foreground'}`}>
+                  <span className="text-xs sm:text-sm font-medium whitespace-nowrap"><span className="sm:hidden">3. Review</span><span className="hidden sm:inline">3. Order Summary</span></span>
                 </div>
               </div>
             </div>
 
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 sm:gap-8">
               {/* Main Content */}
               <div className="lg:col-span-2">
                 {/* Step 1: Cart Review */}
                 {step === 'cart' && (
                   <Card className="border-2 border-border">
-                    <CardContent className="p-8">
-                      <h2 className="font-serif text-2xl font-medium mb-6">Cart Review</h2>
-                      <div className="space-y-4 mb-8">
+                    <CardContent className="p-4 sm:p-6 lg:p-8">
+                      <h2 className="font-serif text-xl sm:text-2xl font-medium mb-4 sm:mb-6">Cart Review</h2>
+                      <div className="space-y-3 sm:space-y-4 mb-6 sm:mb-8">
                         {items.map(item => (
                           <div
                             key={`${item.id}-${item.variant}`}
-                            className="flex gap-4 p-4 bg-secondary rounded-xl border-2 border-border"
+                            className="flex gap-3 sm:gap-4 p-3 sm:p-4 bg-secondary rounded-xl border-2 border-border"
                           >
                             {/* Product Image */}
-                            <div className="w-24 h-24 bg-background rounded-lg flex-shrink-0 overflow-hidden border-2 border-border">
+                            <div className="w-20 h-20 sm:w-24 sm:h-24 bg-background rounded-lg flex-shrink-0 overflow-hidden border-2 border-border">
                               <img
-                                src={item.image}
+                                src={item.image || '/placeholder.svg'}
                                 alt={item.name}
                                 className="w-full h-full object-cover"
                               />
@@ -293,7 +293,7 @@ export default function CheckoutPage() {
                 {/* Step 2: Customer Info */}
                 {step === 'info' && (
                   <Card className="border-2 border-border">
-                    <CardContent className="p-8">
+                    <CardContent className="p-4 sm:p-6 lg:p-8">
                       <div className="flex items-center gap-3 mb-2">
                         <div className="w-10 h-10 rounded-lg bg-accent/10 flex items-center justify-center">
                           <MapPin className="h-5 w-5 text-accent" />
@@ -562,7 +562,7 @@ export default function CheckoutPage() {
                 {/* Step 3: Order Summary */}
                 {step === 'summary' && (
                   <Card className="border-border/50">
-                    <CardContent className="p-8">
+                    <CardContent className="p-4 sm:p-6 lg:p-8">
                       <h2 className="font-serif text-2xl font-medium mb-6">Order Summary</h2>
 
                       {/* Shipping Info */}
@@ -635,7 +635,7 @@ export default function CheckoutPage() {
               {/* Order Total Sidebar */}
               <div className="lg:col-span-1">
                 <Card className="border-border/50 sticky top-24">
-                  <CardContent className="p-8">
+                  <CardContent className="p-4 sm:p-6 lg:p-8">
                     <h3 className="font-serif text-xl font-medium mb-6">Order Total</h3>
 
                     <div className="space-y-3 mb-6 pb-6 border-b border-border">

@@ -42,31 +42,31 @@ const faqs = [
 
 export function FAQ() {
   return (
-    <section id="faq" className="py-24 lg:py-32 bg-secondary/30">
-      <div className="mx-auto max-w-4xl px-6 lg:px-8">
-        <div className="text-center mb-16">
-          <p className="text-sm font-medium uppercase tracking-widest text-muted-foreground mb-4">
+    <section id="faq" className="py-16 sm:py-24 lg:py-32 bg-secondary/30">
+      <div className="mx-auto max-w-4xl px-4 sm:px-6 lg:px-8">
+        <div className="text-center mb-10 sm:mb-16">
+          <p className="text-xs sm:text-sm font-medium uppercase tracking-widest text-muted-foreground mb-3 sm:mb-4">
             FAQ
           </p>
-          <h2 className="font-serif text-4xl md:text-5xl lg:text-6xl tracking-tight text-foreground">
+          <h2 className="font-serif text-3xl sm:text-4xl md:text-5xl lg:text-6xl tracking-tight text-foreground text-balance">
             Common questions
           </h2>
-          <p className="mt-4 text-lg text-muted-foreground max-w-2xl mx-auto">
+          <p className="mt-4 text-base sm:text-lg text-muted-foreground max-w-2xl mx-auto text-pretty">
             Find answers to frequently asked questions about our products and services.
           </p>
         </div>
 
         <Accordion type="single" collapsible className="w-full">
           {faqs.map((faq, index) => (
-            <AccordionItem 
-              key={index} 
+            <AccordionItem
+              key={index}
               value={`item-${index}`}
               className="border-b border-border/50"
             >
-              <AccordionTrigger className="text-left font-medium text-foreground hover:text-accent py-6 [&[data-state=open]>svg]:rotate-45">
+              <AccordionTrigger className="text-left font-medium text-base sm:text-lg text-foreground hover:text-accent py-5 sm:py-6 [&[data-state=open]>svg]:rotate-45 gap-3">
                 {faq.question}
               </AccordionTrigger>
-              <AccordionContent className="text-muted-foreground pb-6 leading-relaxed">
+              <AccordionContent className="text-sm sm:text-base text-muted-foreground pb-5 sm:pb-6 leading-relaxed">
                 {faq.answer}
               </AccordionContent>
             </AccordionItem>

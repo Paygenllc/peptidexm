@@ -26,41 +26,41 @@ export default async function AdminDashboardPage() {
   const processing = (ordersRes.data ?? []).filter((o) => o.status === "processing").length
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-6 sm:space-y-8">
       <div>
-        <h1 className="text-3xl font-bold text-foreground">Dashboard</h1>
-        <p className="text-muted-foreground mt-1">Overview of your store</p>
+        <h1 className="text-2xl sm:text-3xl font-bold text-foreground">Dashboard</h1>
+        <p className="text-sm sm:text-base text-muted-foreground mt-1">Overview of your store</p>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        <StatCard icon={<DollarSign className="w-5 h-5" />} label="Total Revenue" value={`$${totalRevenue.toFixed(2)}`} />
-        <StatCard icon={<ShoppingCart className="w-5 h-5" />} label="Total Orders" value={totalOrders.toString()} />
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+        <StatCard icon={<DollarSign className="w-5 h-5" />} label="Revenue" value={`$${totalRevenue.toFixed(2)}`} />
+        <StatCard icon={<ShoppingCart className="w-5 h-5" />} label="Orders" value={totalOrders.toString()} />
         <StatCard icon={<TrendingUp className="w-5 h-5" />} label="Processing" value={processing.toString()} />
         <StatCard icon={<Package className="w-5 h-5" />} label="Products" value={totalProducts.toString()} />
       </div>
 
-      <Card className="p-6">
+      <Card className="p-4 sm:p-6">
         <div className="flex items-center justify-between mb-4">
-          <h2 className="text-xl font-semibold text-foreground">Recent Orders</h2>
+          <h2 className="text-lg sm:text-xl font-semibold text-foreground">Recent Orders</h2>
           <Link href="/admin/orders" className="text-sm text-primary hover:underline">
             View all
           </Link>
         </div>
         {recentOrdersRes.data && recentOrdersRes.data.length > 0 ? (
-          <div className="space-y-2">
+          <div className="space-y-1">
             {recentOrdersRes.data.map((order) => (
               <Link
                 key={order.id}
                 href={`/admin/orders/${order.id}`}
-                className="flex items-center justify-between p-3 rounded-md hover:bg-accent transition-colors"
+                className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 p-3 rounded-md hover:bg-accent transition-colors"
               >
-                <div>
-                  <div className="font-medium text-foreground">{order.order_number}</div>
-                  <div className="text-sm text-muted-foreground">
+                <div className="min-w-0">
+                  <div className="font-medium text-foreground truncate">{order.order_number}</div>
+                  <div className="text-sm text-muted-foreground truncate">
                     {order.first_name} {order.last_name} &middot; {order.email}
                   </div>
                 </div>
-                <div className="flex items-center gap-4">
+                <div className="flex items-center justify-between sm:justify-end gap-3 sm:gap-4 shrink-0">
                   <Badge variant={statusVariant(order.status)}>{order.status}</Badge>
                   <div className="font-semibold text-foreground">${Number(order.total).toFixed(2)}</div>
                 </div>
@@ -77,12 +77,12 @@ export default async function AdminDashboardPage() {
 
 function StatCard({ icon, label, value }: { icon: React.ReactNode; label: string; value: string }) {
   return (
-    <Card className="p-6">
-      <div className="flex items-center gap-3 text-muted-foreground mb-2">
+    <Card className="p-4 sm:p-6">
+      <div className="flex items-center gap-2 sm:gap-3 text-muted-foreground mb-1.5 sm:mb-2">
         {icon}
-        <span className="text-sm">{label}</span>
+        <span className="text-xs sm:text-sm">{label}</span>
       </div>
-      <div className="text-2xl font-bold text-foreground">{value}</div>
+      <div className="text-xl sm:text-2xl font-bold text-foreground break-all">{value}</div>
     </Card>
   )
 }

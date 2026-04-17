@@ -94,33 +94,33 @@ export default async function OrdersPage({
               )}
               {orders?.map((order) => (
                 <tr key={order.id} className="border-b border-border last:border-0 hover:bg-muted/30">
-                  <td className="p-3">
+                  <td className="p-3 whitespace-nowrap">
                     <Link href={`/admin/orders/${order.id}`} className="font-medium text-primary hover:underline">
                       {order.order_number}
                     </Link>
                   </td>
-                  <td className="p-3">
+                  <td className="p-3 whitespace-nowrap">
                     <div className="font-medium text-foreground">
                       {order.first_name} {order.last_name}
                     </div>
                     <div className="text-xs text-muted-foreground">{order.email}</div>
                   </td>
-                  <td className="p-3 text-muted-foreground">
+                  <td className="p-3 text-muted-foreground whitespace-nowrap">
                     {new Date(order.created_at).toLocaleDateString("en-US", {
                       month: "short",
                       day: "numeric",
                       year: "numeric",
                     })}
                   </td>
-                  <td className="p-3">
+                  <td className="p-3 whitespace-nowrap">
                     <Badge variant={order.payment_status === "paid" ? "default" : "outline"}>
                       {order.payment_status}
                     </Badge>
                   </td>
-                  <td className="p-3">
+                  <td className="p-3 whitespace-nowrap">
                     <Badge variant={statusVariant(order.status)}>{order.status}</Badge>
                   </td>
-                  <td className="p-3 text-right font-semibold text-foreground">
+                  <td className="p-3 text-right font-semibold text-foreground whitespace-nowrap">
                     ${Number(order.total).toFixed(2)}
                   </td>
                 </tr>

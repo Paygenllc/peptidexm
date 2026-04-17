@@ -786,37 +786,39 @@ export function Products() {
   }
 
   return (
-    <section id="products" className="py-24 lg:py-32 bg-secondary/30">
-      <div className="mx-auto max-w-7xl px-6 lg:px-8">
-        <div className="text-center mb-16">
-          <p className="text-sm font-medium uppercase tracking-widest text-muted-foreground mb-4">
+    <section id="products" className="py-16 sm:py-24 lg:py-32 bg-secondary/30">
+      <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+        <div className="text-center mb-10 sm:mb-16">
+          <p className="text-xs sm:text-sm font-medium uppercase tracking-widest text-muted-foreground mb-3 sm:mb-4">
             Our Collection
           </p>
-          <h2 className="font-serif text-4xl md:text-5xl lg:text-6xl tracking-tight text-foreground">
+          <h2 className="font-serif text-3xl sm:text-4xl md:text-5xl lg:text-6xl tracking-tight text-foreground text-balance">
             Premium Research Peptides
           </h2>
-          <p className="mt-4 text-lg text-muted-foreground max-w-2xl mx-auto">
+          <p className="mt-4 text-base sm:text-lg text-muted-foreground max-w-2xl mx-auto text-pretty">
             All compounds undergo rigorous third-party testing to ensure the highest quality for your research needs.
           </p>
         </div>
 
-        {/* Category Filter */}
-        <div className="flex flex-wrap justify-center gap-2 mb-12">
-          {categories.map((category) => (
-            <Button
-              key={category}
-              variant={selectedCategory === category ? "default" : "outline"}
-              size="sm"
-              onClick={() => setSelectedCategory(category)}
-              className="rounded-full"
-            >
-              {category}
-            </Button>
-          ))}
+        {/* Category Filter - horizontally scrollable on mobile */}
+        <div className="mb-8 sm:mb-12 -mx-4 sm:mx-0">
+          <div className="flex sm:flex-wrap sm:justify-center gap-2 overflow-x-auto no-scrollbar px-4 sm:px-0 pb-1 snap-x snap-mandatory">
+            {categories.map((category) => (
+              <Button
+                key={category}
+                variant={selectedCategory === category ? "default" : "outline"}
+                size="sm"
+                onClick={() => setSelectedCategory(category)}
+                className="rounded-full shrink-0 snap-start h-9"
+              >
+                {category}
+              </Button>
+            ))}
+          </div>
         </div>
 
         {/* Products Grid */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
           {filteredProducts.map((product) => (
             <Card 
               key={product.id} 
@@ -843,20 +845,20 @@ export function Products() {
                 </div>
 
                 {/* Product Details */}
-                <div className="p-5">
-                  <div className="flex items-start justify-between mb-2">
-                    <div>
-                      <h3 className="font-medium text-lg text-foreground group-hover:text-accent transition-colors">
+                <div className="p-4 sm:p-5">
+                  <div className="flex items-start justify-between gap-2 mb-2">
+                    <div className="min-w-0">
+                      <h3 className="font-medium text-base sm:text-lg text-foreground group-hover:text-accent transition-colors truncate">
                         {product.name}
                       </h3>
-                      <p className="text-sm text-muted-foreground">{product.dosage}</p>
+                      <p className="text-xs sm:text-sm text-muted-foreground">{product.dosage}</p>
                     </div>
-                    <Badge variant="outline" className="text-xs">
+                    <Badge variant="outline" className="text-[10px] sm:text-xs shrink-0">
                       {product.purity}
                     </Badge>
                   </div>
-                  
-                  <p className="text-sm text-muted-foreground mb-4 line-clamp-2">
+
+                  <p className="text-xs sm:text-sm text-muted-foreground mb-4 line-clamp-2 leading-relaxed">
                     {product.description}
                   </p>
 
@@ -878,25 +880,25 @@ export function Products() {
                     </select>
                   </div>
 
-                  <div className="flex items-center justify-between">
-                    <span className="font-serif text-2xl text-foreground">
+                  <div className="flex items-center justify-between gap-3">
+                    <span className="font-serif text-xl sm:text-2xl text-foreground">
                       ${(product.variants.find(v => v.name === (selectedVariant[product.id] || product.variants[0].name))?.price || product.variants[0].price).toFixed(2)}
                     </span>
-                    <Button 
-                      size="sm" 
+                    <Button
+                      size="sm"
                       disabled={!product.inStock || addedToCart.includes(product.id)}
                       onClick={() => handleAddToCart(product.id)}
-                      className="gap-2"
+                      className="gap-1.5 h-9 px-3 sm:px-4 shrink-0"
                     >
                       {addedToCart.includes(product.id) ? (
                         <>
                           <Check className="h-4 w-4" />
-                          Added
+                          <span>Added</span>
                         </>
                       ) : (
                         <>
                           <Plus className="h-4 w-4" />
-                          Add
+                          <span>Add</span>
                         </>
                       )}
                     </Button>
