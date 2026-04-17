@@ -5,7 +5,7 @@ import { useCart } from '@/context/cart-context'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
-import { ArrowLeft, CheckCircle } from 'lucide-react'
+import { ArrowLeft, CheckCircle, Plus, Minus, Trash2 } from 'lucide-react'
 import Link from 'next/link'
 
 interface CustomerInfo {
@@ -21,7 +21,7 @@ interface CustomerInfo {
 }
 
 export default function CheckoutPage() {
-  const { items, total, clearCart } = useCart()
+  const { items, total, clearCart, updateQuantity, removeItem } = useCart()
   const [step, setStep] = useState<'cart' | 'info' | 'summary' | 'success'>('cart')
   const [customerInfo, setCustomerInfo] = useState<CustomerInfo>({
     email: '',
@@ -173,33 +173,89 @@ export default function CheckoutPage() {
               <div className="lg:col-span-2">
                 {/* Step 1: Cart Review */}
                 {step === 'cart' && (
-                  <Card className="border-border/50">
+                  <Card className="border-2 border-border">
                     <CardContent className="p-8">
                       <h2 className="font-serif text-2xl font-medium mb-6">Cart Review</h2>
                       <div className="space-y-4 mb-8">
                         {items.map(item => (
-                          <div key={`${item.id}-${item.variant}`} className="flex gap-4 pb-4 border-b border-border last:border-0">
-                            <div className="w-20 h-20 bg-secondary/50 rounded flex-shrink-0">
+                          <div
+                            key={`${item.id}-${item.variant}`}
+                            className="flex gap-4 p-4 bg-secondary rounded-xl border-2 border-border"
+                          >
+                            {/* Product Image */}
+                            <div className="w-24 h-24 bg-background rounded-lg flex-shrink-0 overflow-hidden border-2 border-border">
                               <img
                                 src={item.image}
                                 alt={item.name}
-                                className="w-full h-full object-cover rounded"
+                                className="w-full h-full object-cover"
                               />
                             </div>
-                            <div className="flex-1">
-                              <h3 className="font-medium text-foreground">{item.name}</h3>
-                              <p className="text-sm text-muted-foreground">{item.variant}</p>
-                              <div className="flex justify-between items-center mt-2">
-                                <span className="text-sm text-muted-foreground">Qty: {item.quantity}</span>
-                                <span className="font-serif font-medium">${(item.price * item.quantity).toFixed(2)}</span>
+
+                            {/* Details */}
+                            <div className="flex-1 flex flex-col justify-between min-w-0">
+                              <div>
+                                <h3 className="font-serif font-semibold text-foreground text-base line-clamp-1">
+                                  {item.name}
+                                </h3>
+                                <p className="text-sm text-accent font-medium mt-1">{item.variant}</p>
+                                <p className="text-xs text-muted-foreground mt-1">
+                                  ${item.price.toFixed(2)} each
+                                </p>
+                              </div>
+
+                              {/* Controls Row */}
+                              <div className="flex items-center justify-between gap-3 mt-3">
+                                {/* Quantity Controls */}
+                                <div className="flex items-center bg-background border-2 border-border rounded-lg p-1">
+                                  <button
+                                    type="button"
+                                    onClick={() => updateQuantity(item.id, item.variant, Math.max(1, item.quantity - 1))}
+                                    className="p-1.5 hover:bg-accent hover:text-accent-foreground rounded transition-colors"
+                                    aria-label="Decrease quantity"
+                                  >
+                                    <Minus className="h-4 w-4" />
+                                  </button>
+                                  <span className="text-sm font-bold w-8 text-center text-foreground">
+                                    {item.quantity}
+                                  </span>
+                                  <button
+                                    type="button"
+                                    onClick={() => updateQuantity(item.id, item.variant, item.quantity + 1)}
+                                    className="p-1.5 hover:bg-accent hover:text-accent-foreground rounded transition-colors"
+                                    aria-label="Increase quantity"
+                                  >
+                                    <Plus className="h-4 w-4" />
+                                  </button>
+                                </div>
+
+                                {/* Subtotal */}
+                                <span className="font-serif font-bold text-lg text-accent">
+                                  ${(item.price * item.quantity).toFixed(2)}
+                                </span>
+
+                                {/* Remove */}
+                                <button
+                                  type="button"
+                                  onClick={() => removeItem(item.id, item.variant)}
+                                  className="p-2 hover:bg-red-100 dark:hover:bg-red-950 text-red-600 hover:text-red-700 rounded-lg transition-colors"
+                                  aria-label="Remove item"
+                                >
+                                  <Trash2 className="h-4 w-4" />
+                                </button>
                               </div>
                             </div>
                           </div>
                         ))}
                       </div>
-                      <Button onClick={handleContinueToInfo} className="w-full h-12">
-                        Continue to Shipping Info
-                      </Button>
+
+                      <div className="flex flex-col sm:flex-row gap-3">
+                        <Button variant="outline" asChild className="h-12 sm:flex-1">
+                          <Link href="/#products">Add More Items</Link>
+                        </Button>
+                        <Button onClick={handleContinueToInfo} className="h-12 sm:flex-1">
+                          Continue to Shipping Info
+                        </Button>
+                      </div>
                     </CardContent>
                   </Card>
                 )}
