@@ -132,7 +132,7 @@ export function CartSidebar({ isOpen, onClose }: CartSidebarProps) {
 
           {/* Footer */}
           {items.length > 0 && (
-            <div className="border-t border-border bg-secondary/50 p-6 space-y-4 sticky bottom-0">
+            <div className="border-t border-border bg-background p-6 space-y-4 sticky bottom-0">
               {/* Pricing Details */}
               <div className="bg-background rounded-xl p-4 space-y-3 border border-border">
                 <div className="flex justify-between items-center text-sm">
