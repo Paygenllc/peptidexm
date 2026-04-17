@@ -5,8 +5,9 @@ import { useCart } from '@/context/cart-context'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
-import { ArrowLeft, CheckCircle, Plus, Minus, Trash2 } from 'lucide-react'
+import { ArrowLeft, CheckCircle, Plus, Minus, Trash2, Mail, Phone, User, MapPin, Building2, Globe, Hash, ChevronDown, Home } from 'lucide-react'
 import Link from 'next/link'
+import { US_STATES, COUNTRIES } from '@/lib/locations'
 
 interface CustomerInfo {
   email: string
@@ -14,6 +15,7 @@ interface CustomerInfo {
   firstName: string
   lastName: string
   address: string
+  address2: string
   city: string
   state: string
   zipCode: string
@@ -29,6 +31,7 @@ export default function CheckoutPage() {
     firstName: '',
     lastName: '',
     address: '',
+    address2: '',
     city: '',
     state: '',
     zipCode: '',
@@ -262,169 +265,266 @@ export default function CheckoutPage() {
 
                 {/* Step 2: Customer Info */}
                 {step === 'info' && (
-                  <Card className="border-border/50">
+                  <Card className="border-2 border-border">
                     <CardContent className="p-8">
-                      <h2 className="font-serif text-2xl font-medium mb-6">Shipping Information</h2>
-
-                      <form className="space-y-6">
-                        {/* Email and Phone */}
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                          <div>
-                            <label className="text-sm font-medium text-foreground block mb-2">
-                              Email Address *
-                            </label>
-                            <input
-                              type="email"
-                              value={customerInfo.email}
-                              onChange={(e) => handleInputChange('email', e.target.value)}
-                              className={`w-full px-4 py-2 border rounded-lg bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-accent ${
-                                errors.email ? 'border-red-500' : 'border-border'
-                              }`}
-                              placeholder="john@example.com"
-                            />
-                            {errors.email && <p className="text-red-600 text-sm mt-1">{errors.email}</p>}
-                          </div>
-
-                          <div>
-                            <label className="text-sm font-medium text-foreground block mb-2">
-                              Phone Number *
-                            </label>
-                            <input
-                              type="tel"
-                              value={customerInfo.phone}
-                              onChange={(e) => handleInputChange('phone', e.target.value)}
-                              className={`w-full px-4 py-2 border rounded-lg bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-accent ${
-                                errors.phone ? 'border-red-500' : 'border-border'
-                              }`}
-                              placeholder="(555) 123-4567"
-                            />
-                            {errors.phone && <p className="text-red-600 text-sm mt-1">{errors.phone}</p>}
-                          </div>
+                      <div className="flex items-center gap-3 mb-2">
+                        <div className="w-10 h-10 rounded-lg bg-accent/10 flex items-center justify-center">
+                          <MapPin className="h-5 w-5 text-accent" />
                         </div>
+                        <h2 className="font-serif text-2xl font-medium">Shipping Information</h2>
+                      </div>
+                      <p className="text-sm text-muted-foreground mb-8 ml-13">
+                        Enter your contact and shipping details below
+                      </p>
 
-                        {/* Name */}
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                          <div>
-                            <label className="text-sm font-medium text-foreground block mb-2">
-                              First Name *
-                            </label>
-                            <input
-                              type="text"
-                              value={customerInfo.firstName}
-                              onChange={(e) => handleInputChange('firstName', e.target.value)}
-                              className={`w-full px-4 py-2 border rounded-lg bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-accent ${
-                                errors.firstName ? 'border-red-500' : 'border-border'
-                              }`}
-                              placeholder="John"
-                            />
-                            {errors.firstName && <p className="text-red-600 text-sm mt-1">{errors.firstName}</p>}
-                          </div>
-
-                          <div>
-                            <label className="text-sm font-medium text-foreground block mb-2">
-                              Last Name *
-                            </label>
-                            <input
-                              type="text"
-                              value={customerInfo.lastName}
-                              onChange={(e) => handleInputChange('lastName', e.target.value)}
-                              className={`w-full px-4 py-2 border rounded-lg bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-accent ${
-                                errors.lastName ? 'border-red-500' : 'border-border'
-                              }`}
-                              placeholder="Doe"
-                            />
-                            {errors.lastName && <p className="text-red-600 text-sm mt-1">{errors.lastName}</p>}
-                          </div>
-                        </div>
-
-                        {/* Address */}
+                      <form className="space-y-8">
+                        {/* Contact Information Section */}
                         <div>
-                          <label className="text-sm font-medium text-foreground block mb-2">
-                            Address *
-                          </label>
-                          <input
-                            type="text"
-                            value={customerInfo.address}
-                            onChange={(e) => handleInputChange('address', e.target.value)}
-                            className={`w-full px-4 py-2 border rounded-lg bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-accent ${
-                              errors.address ? 'border-red-500' : 'border-border'
-                            }`}
-                            placeholder="123 Main Street"
-                          />
-                          {errors.address && <p className="text-red-600 text-sm mt-1">{errors.address}</p>}
+                          <div className="flex items-center gap-2 mb-4 pb-2 border-b border-border">
+                            <User className="h-4 w-4 text-accent" />
+                            <h3 className="font-medium text-sm text-foreground uppercase tracking-wide">
+                              Contact Information
+                            </h3>
+                          </div>
+
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                              <label className="text-sm font-medium text-foreground block mb-2">
+                                Email Address *
+                              </label>
+                              <div className="relative">
+                                <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
+                                <input
+                                  type="email"
+                                  value={customerInfo.email}
+                                  onChange={(e) => handleInputChange('email', e.target.value)}
+                                  className={`w-full pl-10 pr-4 py-2.5 border-2 rounded-lg bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-accent focus:border-accent transition-colors ${
+                                    errors.email ? 'border-red-500' : 'border-border'
+                                  }`}
+                                  placeholder="john@example.com"
+                                />
+                              </div>
+                              {errors.email && <p className="text-red-600 text-sm mt-1">{errors.email}</p>}
+                            </div>
+
+                            <div>
+                              <label className="text-sm font-medium text-foreground block mb-2">
+                                Phone Number *
+                              </label>
+                              <div className="relative">
+                                <Phone className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
+                                <input
+                                  type="tel"
+                                  value={customerInfo.phone}
+                                  onChange={(e) => handleInputChange('phone', e.target.value)}
+                                  className={`w-full pl-10 pr-4 py-2.5 border-2 rounded-lg bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-accent focus:border-accent transition-colors ${
+                                    errors.phone ? 'border-red-500' : 'border-border'
+                                  }`}
+                                  placeholder="(555) 123-4567"
+                                />
+                              </div>
+                              {errors.phone && <p className="text-red-600 text-sm mt-1">{errors.phone}</p>}
+                            </div>
+
+                            <div>
+                              <label className="text-sm font-medium text-foreground block mb-2">
+                                First Name *
+                              </label>
+                              <div className="relative">
+                                <User className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
+                                <input
+                                  type="text"
+                                  value={customerInfo.firstName}
+                                  onChange={(e) => handleInputChange('firstName', e.target.value)}
+                                  className={`w-full pl-10 pr-4 py-2.5 border-2 rounded-lg bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-accent focus:border-accent transition-colors ${
+                                    errors.firstName ? 'border-red-500' : 'border-border'
+                                  }`}
+                                  placeholder="John"
+                                />
+                              </div>
+                              {errors.firstName && <p className="text-red-600 text-sm mt-1">{errors.firstName}</p>}
+                            </div>
+
+                            <div>
+                              <label className="text-sm font-medium text-foreground block mb-2">
+                                Last Name *
+                              </label>
+                              <div className="relative">
+                                <User className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
+                                <input
+                                  type="text"
+                                  value={customerInfo.lastName}
+                                  onChange={(e) => handleInputChange('lastName', e.target.value)}
+                                  className={`w-full pl-10 pr-4 py-2.5 border-2 rounded-lg bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-accent focus:border-accent transition-colors ${
+                                    errors.lastName ? 'border-red-500' : 'border-border'
+                                  }`}
+                                  placeholder="Doe"
+                                />
+                              </div>
+                              {errors.lastName && <p className="text-red-600 text-sm mt-1">{errors.lastName}</p>}
+                            </div>
+                          </div>
                         </div>
 
-                        {/* City, State, ZIP */}
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                          <div>
-                            <label className="text-sm font-medium text-foreground block mb-2">
-                              City *
-                            </label>
-                            <input
-                              type="text"
-                              value={customerInfo.city}
-                              onChange={(e) => handleInputChange('city', e.target.value)}
-                              className={`w-full px-4 py-2 border rounded-lg bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-accent ${
-                                errors.city ? 'border-red-500' : 'border-border'
-                              }`}
-                              placeholder="New York"
-                            />
-                            {errors.city && <p className="text-red-600 text-sm mt-1">{errors.city}</p>}
-                          </div>
-
-                          <div>
-                            <label className="text-sm font-medium text-foreground block mb-2">
-                              State/Province *
-                            </label>
-                            <input
-                              type="text"
-                              value={customerInfo.state}
-                              onChange={(e) => handleInputChange('state', e.target.value)}
-                              className={`w-full px-4 py-2 border rounded-lg bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-accent ${
-                                errors.state ? 'border-red-500' : 'border-border'
-                              }`}
-                              placeholder="NY"
-                            />
-                            {errors.state && <p className="text-red-600 text-sm mt-1">{errors.state}</p>}
-                          </div>
-
-                          <div>
-                            <label className="text-sm font-medium text-foreground block mb-2">
-                              ZIP/Postal Code *
-                            </label>
-                            <input
-                              type="text"
-                              value={customerInfo.zipCode}
-                              onChange={(e) => handleInputChange('zipCode', e.target.value)}
-                              className={`w-full px-4 py-2 border rounded-lg bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-accent ${
-                                errors.zipCode ? 'border-red-500' : 'border-border'
-                              }`}
-                              placeholder="10001"
-                            />
-                            {errors.zipCode && <p className="text-red-600 text-sm mt-1">{errors.zipCode}</p>}
-                          </div>
-                        </div>
-
-                        {/* Country */}
+                        {/* Shipping Address Section */}
                         <div>
-                          <label className="text-sm font-medium text-foreground block mb-2">
-                            Country *
-                          </label>
-                          <input
-                            type="text"
-                            value={customerInfo.country}
-                            onChange={(e) => handleInputChange('country', e.target.value)}
-                            className="w-full px-4 py-2 border border-border rounded-lg bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-accent"
-                            placeholder="United States"
-                          />
+                          <div className="flex items-center gap-2 mb-4 pb-2 border-b border-border">
+                            <Home className="h-4 w-4 text-accent" />
+                            <h3 className="font-medium text-sm text-foreground uppercase tracking-wide">
+                              Shipping Address
+                            </h3>
+                          </div>
+
+                          <div className="space-y-4">
+                            {/* Country */}
+                            <div>
+                              <label className="text-sm font-medium text-foreground block mb-2">
+                                Country *
+                              </label>
+                              <div className="relative">
+                                <Globe className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
+                                <select
+                                  value={customerInfo.country}
+                                  onChange={(e) => handleInputChange('country', e.target.value)}
+                                  className="w-full pl-10 pr-10 py-2.5 border-2 border-border rounded-lg bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-accent focus:border-accent transition-colors appearance-none cursor-pointer"
+                                >
+                                  {COUNTRIES.map(country => (
+                                    <option key={country.code} value={country.name}>
+                                      {country.name}
+                                    </option>
+                                  ))}
+                                </select>
+                                <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
+                              </div>
+                            </div>
+
+                            {/* Street Address */}
+                            <div>
+                              <label className="text-sm font-medium text-foreground block mb-2">
+                                Street Address *
+                              </label>
+                              <div className="relative">
+                                <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
+                                <input
+                                  type="text"
+                                  value={customerInfo.address}
+                                  onChange={(e) => handleInputChange('address', e.target.value)}
+                                  className={`w-full pl-10 pr-4 py-2.5 border-2 rounded-lg bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-accent focus:border-accent transition-colors ${
+                                    errors.address ? 'border-red-500' : 'border-border'
+                                  }`}
+                                  placeholder="123 Main Street"
+                                />
+                              </div>
+                              {errors.address && <p className="text-red-600 text-sm mt-1">{errors.address}</p>}
+                            </div>
+
+                            {/* Address Line 2 */}
+                            <div>
+                              <label className="text-sm font-medium text-foreground block mb-2">
+                                Apartment, Suite, etc. <span className="text-muted-foreground font-normal">(optional)</span>
+                              </label>
+                              <div className="relative">
+                                <Building2 className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
+                                <input
+                                  type="text"
+                                  value={customerInfo.address2}
+                                  onChange={(e) => handleInputChange('address2', e.target.value)}
+                                  className="w-full pl-10 pr-4 py-2.5 border-2 border-border rounded-lg bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-accent focus:border-accent transition-colors"
+                                  placeholder="Apt 4B"
+                                />
+                              </div>
+                            </div>
+
+                            {/* City, State, ZIP */}
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                              <div>
+                                <label className="text-sm font-medium text-foreground block mb-2">
+                                  City *
+                                </label>
+                                <div className="relative">
+                                  <Building2 className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
+                                  <input
+                                    type="text"
+                                    value={customerInfo.city}
+                                    onChange={(e) => handleInputChange('city', e.target.value)}
+                                    className={`w-full pl-10 pr-4 py-2.5 border-2 rounded-lg bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-accent focus:border-accent transition-colors ${
+                                      errors.city ? 'border-red-500' : 'border-border'
+                                    }`}
+                                    placeholder="New York"
+                                  />
+                                </div>
+                                {errors.city && <p className="text-red-600 text-sm mt-1">{errors.city}</p>}
+                              </div>
+
+                              <div>
+                                <label className="text-sm font-medium text-foreground block mb-2">
+                                  State *
+                                </label>
+                                {customerInfo.country === 'United States' ? (
+                                  <div className="relative">
+                                    <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
+                                    <select
+                                      value={customerInfo.state}
+                                      onChange={(e) => handleInputChange('state', e.target.value)}
+                                      className={`w-full pl-10 pr-10 py-2.5 border-2 rounded-lg bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-accent focus:border-accent transition-colors appearance-none cursor-pointer ${
+                                        errors.state ? 'border-red-500' : 'border-border'
+                                      }`}
+                                    >
+                                      <option value="">Select state</option>
+                                      {US_STATES.map(state => (
+                                        <option key={state.code} value={state.code}>
+                                          {state.name}
+                                        </option>
+                                      ))}
+                                    </select>
+                                    <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
+                                  </div>
+                                ) : (
+                                  <div className="relative">
+                                    <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
+                                    <input
+                                      type="text"
+                                      value={customerInfo.state}
+                                      onChange={(e) => handleInputChange('state', e.target.value)}
+                                      className={`w-full pl-10 pr-4 py-2.5 border-2 rounded-lg bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-accent focus:border-accent transition-colors ${
+                                        errors.state ? 'border-red-500' : 'border-border'
+                                      }`}
+                                      placeholder="Province/Region"
+                                    />
+                                  </div>
+                                )}
+                                {errors.state && <p className="text-red-600 text-sm mt-1">{errors.state}</p>}
+                              </div>
+
+                              <div>
+                                <label className="text-sm font-medium text-foreground block mb-2">
+                                  ZIP Code *
+                                </label>
+                                <div className="relative">
+                                  <Hash className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
+                                  <input
+                                    type="text"
+                                    value={customerInfo.zipCode}
+                                    onChange={(e) => handleInputChange('zipCode', e.target.value)}
+                                    className={`w-full pl-10 pr-4 py-2.5 border-2 rounded-lg bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-accent focus:border-accent transition-colors ${
+                                      errors.zipCode ? 'border-red-500' : 'border-border'
+                                    }`}
+                                    placeholder="10001"
+                                  />
+                                </div>
+                                {errors.zipCode && <p className="text-red-600 text-sm mt-1">{errors.zipCode}</p>}
+                              </div>
+                            </div>
+                          </div>
                         </div>
                       </form>
 
-                      <div className="flex gap-4 mt-8">
-                        <Button variant="outline" onClick={() => setStep('cart')} className="h-12">
+                      <div className="flex flex-col sm:flex-row gap-3 mt-8 pt-6 border-t-2 border-border">
+                        <Button variant="outline" onClick={() => setStep('cart')} className="h-12 sm:flex-1">
+                          <ArrowLeft className="h-4 w-4 mr-2" />
                           Back to Cart
                         </Button>
-                        <Button onClick={handleContinueToSummary} className="flex-1 h-12">
+                        <Button onClick={handleContinueToSummary} className="h-12 sm:flex-[2]">
                           Continue to Summary
                         </Button>
                       </div>
@@ -447,6 +547,11 @@ export default function CheckoutPage() {
                         <p className="text-sm text-muted-foreground">
                           {customerInfo.address}
                         </p>
+                        {customerInfo.address2 && (
+                          <p className="text-sm text-muted-foreground">
+                            {customerInfo.address2}
+                          </p>
+                        )}
                         <p className="text-sm text-muted-foreground">
                           {customerInfo.city}, {customerInfo.state} {customerInfo.zipCode}
                         </p>
