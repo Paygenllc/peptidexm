@@ -4,7 +4,8 @@ import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { ShoppingCart, Plus, Check } from "lucide-react"
+import { ShoppingCart, Plus, Check, Search, X } from "lucide-react"
+import { Input } from "@/components/ui/input"
 import { useCart } from "@/context/cart-context"
 
 const categories = ["All", "GLP-1", "Growth Hormone", "Recovery", "Cognitive", "Anti-Aging", "Research", "Accessories"]
@@ -744,6 +745,7 @@ const products: Product[] = [
 
 export function Products() {
   const [selectedCategory, setSelectedCategory] = useState("All")
+  const [searchQuery, setSearchQuery] = useState("")
   const [addedToCart, setAddedToCart] = useState<number[]>([])
   const { addItem } = useCart()
   
@@ -757,9 +759,17 @@ export function Products() {
     return initial
   })
 
-  const filteredProducts = selectedCategory === "All" 
-    ? products 
-    : products.filter(p => p.category === selectedCategory)
+  const normalizedQuery = searchQuery.trim().toLowerCase()
+  const filteredProducts = products.filter((p) => {
+    const matchesCategory = selectedCategory === "All" || p.category === selectedCategory
+    if (!matchesCategory) return false
+    if (!normalizedQuery) return true
+    return (
+      p.name.toLowerCase().includes(normalizedQuery) ||
+      p.description.toLowerCase().includes(normalizedQuery) ||
+      p.category.toLowerCase().includes(normalizedQuery)
+    )
+  })
 
   const handleAddToCart = (id: number) => {
     const product = products.find(p => p.id === id)
@@ -800,8 +810,38 @@ export function Products() {
           </p>
         </div>
 
+        {/* Search bar */}
+        <div className="mx-auto max-w-xl mb-4 sm:mb-6">
+          <div className="relative">
+            <Search
+              aria-hidden="true"
+              className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground"
+            />
+            <Input
+              type="search"
+              inputMode="search"
+              autoComplete="off"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Search peptides by name, category, or description"
+              aria-label="Search products"
+              className="h-12 rounded-full pl-11 pr-11 bg-background shadow-sm"
+            />
+            {searchQuery && (
+              <button
+                type="button"
+                onClick={() => setSearchQuery("")}
+                aria-label="Clear search"
+                className="absolute right-3 top-1/2 -translate-y-1/2 flex h-7 w-7 items-center justify-center rounded-full text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            )}
+          </div>
+        </div>
+
         {/* Category Filter - horizontally scrollable on mobile */}
-        <div className="mb-8 sm:mb-12 -mx-4 sm:mx-0">
+        <div className="mb-6 sm:mb-10 -mx-4 sm:mx-0">
           <div className="flex sm:flex-wrap sm:justify-center gap-2 overflow-x-auto no-scrollbar px-4 sm:px-0 pb-1 snap-x snap-mandatory">
             {categories.map((category) => (
               <Button
@@ -816,6 +856,38 @@ export function Products() {
             ))}
           </div>
         </div>
+
+        {/* Results count */}
+        {(normalizedQuery || selectedCategory !== "All") && (
+          <p className="text-center text-sm text-muted-foreground mb-6 sm:mb-8" aria-live="polite">
+            {filteredProducts.length === 0
+              ? "No products found"
+              : `Showing ${filteredProducts.length} ${filteredProducts.length === 1 ? "product" : "products"}`}
+            {normalizedQuery && <> for &ldquo;{searchQuery}&rdquo;</>}
+          </p>
+        )}
+
+        {/* Empty state */}
+        {filteredProducts.length === 0 && (
+          <div className="text-center py-16 sm:py-24">
+            <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-secondary">
+              <Search className="h-5 w-5 text-muted-foreground" aria-hidden="true" />
+            </div>
+            <h3 className="font-serif text-xl sm:text-2xl text-foreground mb-2">No matches found</h3>
+            <p className="text-sm sm:text-base text-muted-foreground mb-6">
+              Try a different search term or clear the filters to see all products.
+            </p>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setSearchQuery("")
+                setSelectedCategory("All")
+              }}
+            >
+              Reset filters
+            </Button>
+          </div>
+        )}
 
         {/* Products Grid */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
