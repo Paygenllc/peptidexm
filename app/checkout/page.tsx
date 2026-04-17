@@ -8,6 +8,7 @@ import { Badge } from '@/components/ui/badge'
 import { ArrowLeft, CheckCircle, Plus, Minus, Trash2, Mail, Phone, User, MapPin, Building2, Globe, Hash, ChevronDown, Home } from 'lucide-react'
 import Link from 'next/link'
 import { US_STATES, COUNTRIES } from '@/lib/locations'
+import { placeOrderAction } from '@/app/actions/place-order'
 
 interface CustomerInfo {
   email: string
@@ -39,6 +40,8 @@ export default function CheckoutPage() {
   })
   const [errors, setErrors] = useState<{ [key: string]: string }>({})
   const [isProcessing, setIsProcessing] = useState(false)
+  const [placedOrderNumber, setPlacedOrderNumber] = useState<string | null>(null)
+  const [placeError, setPlaceError] = useState<string | null>(null)
 
   const validateInfo = (): boolean => {
     const newErrors: { [key: string]: string } = {}
@@ -84,22 +87,42 @@ export default function CheckoutPage() {
 
   const handlePlaceOrder = async () => {
     setIsProcessing(true)
-    // Simulate payment processing
-    setTimeout(() => {
-      // Save order to localStorage for demonstration
-      const order = {
-        id: `ORDER-${Date.now()}`,
-        date: new Date().toISOString(),
-        items,
-        total,
-        customerInfo,
+    setPlaceError(null)
+    try {
+      const result = await placeOrderAction({
+        email: customerInfo.email,
+        phone: customerInfo.phone,
+        firstName: customerInfo.firstName,
+        lastName: customerInfo.lastName,
+        address: customerInfo.address,
+        address2: customerInfo.address2,
+        city: customerInfo.city,
+        state: customerInfo.state,
+        zipCode: customerInfo.zipCode,
+        country: customerInfo.country,
+        items: items.map(item => ({
+          productName: item.name,
+          variantName: item.variant,
+          unitPrice: item.price,
+          quantity: item.quantity,
+          imageUrl: item.image,
+        })),
+      })
+
+      if (result.error) {
+        setPlaceError(result.error)
+        return
       }
-      localStorage.setItem('last-order', JSON.stringify(order))
-      
-      setIsProcessing(false)
+
+      setPlacedOrderNumber(result.orderNumber ?? null)
       setStep('success')
       clearCart()
-    }, 2000)
+    } catch (e) {
+      console.error('[v0] place order failed', e)
+      setPlaceError('Something went wrong placing your order. Please try again.')
+    } finally {
+      setIsProcessing(false)
+    }
   }
 
   const handleInputChange = (field: keyof CustomerInfo, value: string) => {
@@ -135,9 +158,13 @@ export default function CheckoutPage() {
               <CheckCircle className="h-16 w-16 text-green-600" />
             </div>
             <h1 className="font-serif text-4xl font-medium mb-4">Order Placed Successfully!</h1>
-            <p className="text-muted-foreground mb-2">Thank you for your order</p>
+            {placedOrderNumber && (
+              <p className="text-muted-foreground mb-2">
+                Order <span className="font-mono font-medium text-foreground">{placedOrderNumber}</span>
+              </p>
+            )}
             <p className="text-muted-foreground mb-8">
-              A confirmation email has been sent to <span className="font-medium">{customerInfo.email}</span>
+              A confirmation will be sent to <span className="font-medium">{customerInfo.email}</span>
             </p>
             <Button asChild size="lg">
               <Link href="/">Return to Store</Link>
@@ -583,6 +610,11 @@ export default function CheckoutPage() {
                         </div>
                       </div>
 
+                      {placeError && (
+                        <div className="mt-6 p-3 rounded-lg bg-destructive/10 border border-destructive/30 text-destructive text-sm" role="alert">
+                          {placeError}
+                        </div>
+                      )}
                       <div className="flex gap-4 mt-8">
                         <Button variant="outline" onClick={() => setStep('info')} className="h-12">
                           Back to Info

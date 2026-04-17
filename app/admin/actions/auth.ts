@@ -1,15 +1,15 @@
-'use server'
+"use server"
 
-import { createClient } from '@/lib/supabase/server'
-import { createAdminClient } from '@/lib/supabase/admin'
-import { redirect } from 'next/navigation'
+import { createClient } from "@/lib/supabase/server"
+import { createAdminClient } from "@/lib/supabase/admin"
+import { redirect } from "next/navigation"
 
-export async function signIn(formData: FormData) {
-  const email = String(formData.get('email') || '').trim()
-  const password = String(formData.get('password') || '')
+export async function signInAction(formData: FormData) {
+  const email = String(formData.get("email") || "").trim()
+  const password = String(formData.get("password") || "")
 
   if (!email || !password) {
-    return { error: 'Email and password are required' }
+    return { error: "Email and password are required" }
   }
 
   const supabase = await createClient()
@@ -17,87 +17,85 @@ export async function signIn(formData: FormData) {
   const { data, error } = await supabase.auth.signInWithPassword({ email, password })
 
   if (error || !data.user) {
-    return { error: error?.message || 'Invalid credentials' }
+    return { error: error?.message || "Invalid credentials" }
   }
 
-  // Check admin flag
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('is_admin')
-    .eq('id', data.user.id)
-    .single()
+  const { data: profile } = await supabase.from("profiles").select("is_admin").eq("id", data.user.id).single()
 
   if (!profile?.is_admin) {
     await supabase.auth.signOut()
-    return { error: 'This account does not have admin access.' }
+    return { error: "This account does not have admin access." }
   }
 
-  redirect('/admin')
+  redirect("/admin")
 }
 
-export async function signOut() {
+export async function signUpAction(formData: FormData) {
+  const email = String(formData.get("email") || "").trim()
+  const password = String(formData.get("password") || "")
+  const fullName = String(formData.get("full_name") || "").trim()
+
+  if (!email || !password) return { error: "Email and password are required" }
+  if (password.length < 8) return { error: "Password must be at least 8 characters" }
+
   const supabase = await createClient()
-  await supabase.auth.signOut()
-  redirect('/admin/login')
-}
 
-/**
- * Promote an email to admin. This uses the service role key and
- * is used for the initial admin bootstrap. It only works if there
- * are currently 0 admins in the system OR the caller is already an admin.
- */
-export async function promoteToAdmin(email: string) {
-  const supabase = await createClient()
-  const admin = createAdminClient()
-
-  // Count existing admins
-  const { count } = await admin
-    .from('profiles')
-    .select('*', { count: 'exact', head: true })
-    .eq('is_admin', true)
-
-  const existingAdmins = count ?? 0
-
-  if (existingAdmins > 0) {
-    // Only existing admins can promote others
-    const {
-      data: { user },
-    } = await supabase.auth.getUser()
-
-    if (!user) {
-      return { error: 'Not authenticated' }
-    }
-
-    const { data: me } = await supabase
-      .from('profiles')
-      .select('is_admin')
-      .eq('id', user.id)
-      .single()
-
-    if (!me?.is_admin) {
-      return { error: 'Not authorized' }
-    }
-  }
-
-  // Find the profile by email
-  const { data: profile, error: findError } = await admin
-    .from('profiles')
-    .select('id')
-    .eq('email', email)
-    .single()
-
-  if (findError || !profile) {
-    return { error: 'No user found with that email. Have them sign up first.' }
-  }
-
-  const { error } = await admin
-    .from('profiles')
-    .update({ is_admin: true })
-    .eq('id', profile.id)
+  const { error } = await supabase.auth.signUp({
+    email,
+    password,
+    options: {
+      data: { full_name: fullName },
+    },
+  })
 
   if (error) {
     return { error: error.message }
   }
+
+  return { success: true }
+}
+
+export async function logoutAction() {
+  const supabase = await createClient()
+  await supabase.auth.signOut()
+  redirect("/admin/login")
+}
+
+/**
+ * Bootstrap first admin. Only works when there are zero admins in the system.
+ * The target user must have already signed up.
+ */
+export async function bootstrapAdminAction(formData: FormData) {
+  const email = String(formData.get("email") || "").trim()
+  const secret = String(formData.get("secret") || "")
+
+  if (!email || !secret) return { error: "Email and bootstrap secret are required" }
+
+  const expectedSecret = process.env.ADMIN_BOOTSTRAP_SECRET
+  if (!expectedSecret) {
+    return { error: "ADMIN_BOOTSTRAP_SECRET is not configured on the server." }
+  }
+  if (secret !== expectedSecret) {
+    return { error: "Invalid bootstrap secret" }
+  }
+
+  const admin = createAdminClient()
+
+  const { count } = await admin.from("profiles").select("*", { count: "exact", head: true }).eq("is_admin", true)
+
+  if ((count ?? 0) > 0) {
+    return { error: "An admin already exists. Use an existing admin account to promote new admins." }
+  }
+
+  const { data: profile, error: findError } = await admin.from("profiles").select("id").eq("email", email).single()
+
+  if (findError || !profile) {
+    return { error: "No user found with that email. Have them sign up at /admin/signup first." }
+  }
+
+  const { error } = await admin.from("profiles").update({ is_admin: true }).eq("id", profile.id)
+
+  if (error) return { error: error.message }
 
   return { success: true }
 }
