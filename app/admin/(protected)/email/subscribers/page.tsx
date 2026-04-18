@@ -4,8 +4,9 @@ import { Card } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { ArrowLeft, Mail, Search, Users, UserCheck, UserX } from "lucide-react"
+import { ArrowLeft, Mail, Search, Users, UserCheck, UserX, Trash2 } from "lucide-react"
 import { toggleNewsletterAction } from "@/app/admin/actions/customers"
+import { removeStandaloneSubscriberAction } from "@/app/admin/actions/subscribers"
 
 export const dynamic = "force-dynamic"
 
@@ -33,9 +34,15 @@ export default async function SubscribersPage({
     query = query.or(`email.ilike.${term},full_name.ilike.${term}`)
   }
 
-  const [{ data: rows }, totalsRes] = await Promise.all([
+  const [{ data: rows }, totalsRes, standaloneRes] = await Promise.all([
     query.limit(500),
     supabase.from("profiles").select("newsletter_subscribed, banned_at"),
+    supabase
+      .from("newsletter_subscribers")
+      .select("id, email, source, subscribed_at")
+      .is("unsubscribed_at", null)
+      .order("subscribed_at", { ascending: false })
+      .limit(500),
   ])
 
   const totals = totalsRes.data ?? []
@@ -44,6 +51,25 @@ export default async function SubscribersPage({
   const totalAll = totals.length
 
   const list = rows ?? []
+  const standaloneRaw = standaloneRes.data ?? []
+
+  // Hide standalone rows whose email also exists on a profile — they'll
+  // already show up in the "subscribed customers" table above.
+  const profileEmailsRes = await supabase
+    .from("profiles")
+    .select("email")
+    .not("email", "is", null)
+  const profileEmails = new Set<string>()
+  for (const p of profileEmailsRes.data ?? []) {
+    if (p.email) profileEmails.add(p.email.toLowerCase())
+  }
+  const standalone = standaloneRaw.filter(
+    (s) => s.email && !profileEmails.has(s.email.toLowerCase()),
+  )
+
+  const filteredStandalone = q.trim()
+    ? standalone.filter((s) => s.email?.toLowerCase().includes(q.trim().toLowerCase()))
+    : standalone
 
   return (
     <div className="space-y-6">
@@ -185,6 +211,88 @@ export default async function SubscribersPage({
           Showing the most recent 500 matches. Refine your search to see more.
         </p>
       )}
+
+      <div className="pt-2">
+        <div className="flex items-end justify-between gap-3 mb-3">
+          <div>
+            <h2 className="text-lg sm:text-xl font-semibold text-foreground">
+              Newsletter signups
+            </h2>
+            <p className="text-sm text-muted-foreground">
+              Addresses collected from the public subscribe form who haven&apos;t
+              created an account yet. Included automatically when you broadcast
+              to the Subscribers audience.
+            </p>
+          </div>
+          <Badge variant="secondary" className="tabular-nums">
+            {standalone.length}
+          </Badge>
+        </div>
+        <Card className="overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead className="bg-secondary/60 border-b border-border text-left">
+                <tr>
+                  <th className="p-3 font-medium text-muted-foreground">Email</th>
+                  <th className="p-3 font-medium text-muted-foreground">Source</th>
+                  <th className="p-3 font-medium text-muted-foreground">Subscribed</th>
+                  <th className="p-3 font-medium text-muted-foreground text-right">Action</th>
+                </tr>
+              </thead>
+              <tbody>
+                {filteredStandalone.length === 0 && (
+                  <tr>
+                    <td colSpan={4} className="p-8 text-center text-muted-foreground">
+                      {q.trim()
+                        ? "No newsletter signups match your search."
+                        : "No standalone newsletter signups yet. They appear here when someone uses the footer form."}
+                    </td>
+                  </tr>
+                )}
+                {filteredStandalone.map((s) => (
+                  <tr
+                    key={s.id}
+                    className="border-b border-border last:border-0 hover:bg-accent/30"
+                  >
+                    <td className="p-3 font-medium text-foreground truncate max-w-[260px]">
+                      {s.email}
+                    </td>
+                    <td className="p-3 text-muted-foreground">
+                      <Badge variant="outline" className="font-normal">
+                        {s.source || "unknown"}
+                      </Badge>
+                    </td>
+                    <td className="p-3 text-muted-foreground whitespace-nowrap">
+                      {s.subscribed_at
+                        ? new Date(s.subscribed_at).toLocaleDateString("en-US", {
+                            month: "short",
+                            day: "numeric",
+                            year: "numeric",
+                          })
+                        : "—"}
+                    </td>
+                    <td className="p-3 text-right">
+                      <form action={removeStandaloneSubscriberAction}>
+                        <input type="hidden" name="id" value={s.id} />
+                        <Button
+                          type="submit"
+                          variant="outline"
+                          size="sm"
+                          className="gap-1"
+                          aria-label={`Remove ${s.email}`}
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                          Remove
+                        </Button>
+                      </form>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </Card>
+      </div>
     </div>
   )
 }
