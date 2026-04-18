@@ -64,8 +64,8 @@ export function BroadcastEditor({
       const result = mode === "create"
         ? await createBroadcastDraftAction(formData)
         : await updateBroadcastAction(formData)
-      if (result?.error) setError(result.error)
-      else if (result?.success) setMessage("Draft saved")
+      if ("error" in result && result.error) setError(result.error)
+      else if ("success" in result && result.success) setMessage("Draft saved")
     })
   }
 

@@ -200,7 +200,7 @@ export function RichEditor({
     if (!editor) return
     const current = editor.getHTML()
     if (current !== value && !editor.isFocused) {
-      editor.commands.setContent(value || "", false)
+      editor.commands.setContent(value || "", { emitUpdate: false })
     }
   }, [value, editor])
 

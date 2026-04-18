@@ -75,8 +75,8 @@ export function BlogPostEditor({
         mode === "create"
           ? await createBlogPostAction(formData)
           : await updateBlogPostAction(formData)
-      if (result?.error) setError(result.error)
-      else if (result?.success) setMessage("Saved")
+      if ("error" in result && result.error) setError(result.error)
+      else if ("success" in result && result.success) setMessage("Saved")
     })
   }
 

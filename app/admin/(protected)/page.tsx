@@ -160,9 +160,13 @@ export default async function AdminDashboardPage() {
             >
               <ul className="mt-3 space-y-1.5 text-sm">
                 {lowStock.slice(0, 3).map((v) => {
-                  // Supabase `products(name)` is a joined relation — always an object here.
-                  const productName =
-                    (v as { products: { name: string } | null }).products?.name ?? "Product"
+                  // The generated type for `products(name)` comes back as an array shape even
+                  // though it's a single row per FK, so we handle both defensively.
+                  const joined = (v as unknown as { products: { name?: string } | { name?: string }[] | null })
+                    .products
+                  const productName = Array.isArray(joined)
+                    ? joined[0]?.name ?? "Product"
+                    : joined?.name ?? "Product"
                   return (
                     <li key={v.id} className="flex items-center justify-between gap-2">
                       <span className="truncate">
