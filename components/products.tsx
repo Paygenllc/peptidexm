@@ -904,7 +904,7 @@ export function Products() {
         )}
 
         {/* Products Grid */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-6">
           {filteredProducts.map((product) => {
             const strengths = getUniqueStrengths(product.variants)
             const sel = selection[product.id]
@@ -940,30 +940,30 @@ export function Products() {
                   </div>
 
                   {/* Product Details */}
-                  <div className="p-4 sm:p-5">
-                    <div className="flex items-start justify-between gap-2 mb-2">
+                  <div className="p-3 sm:p-5">
+                    <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-1 sm:gap-2 mb-2">
                       <div className="min-w-0">
-                        <h3 className="font-medium text-base sm:text-lg text-foreground group-hover:text-accent transition-colors truncate">
+                        <h3 className="font-medium text-sm sm:text-lg text-foreground group-hover:text-accent transition-colors truncate">
                           {product.name}
                         </h3>
-                        <p className="text-xs sm:text-sm text-muted-foreground">{sel?.strength}</p>
+                        <p className="text-[11px] sm:text-sm text-muted-foreground">{sel?.strength}</p>
                       </div>
-                      <Badge variant="outline" className="text-[10px] sm:text-xs shrink-0">
+                      <Badge variant="outline" className="text-[9px] sm:text-xs shrink-0 self-start">
                         {product.purity}
                       </Badge>
                     </div>
 
-                    <p className="text-xs sm:text-sm text-muted-foreground mb-4 line-clamp-2 leading-relaxed">
+                    <p className="hidden sm:block text-xs sm:text-sm text-muted-foreground mb-4 line-clamp-2 leading-relaxed">
                       {product.description}
                     </p>
 
                     {/* Strength picker */}
                     {showStrengthPicker && (
-                      <div className="mb-3">
-                        <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground mb-1.5">
-                          1. Select strength
+                      <div className="mb-2 sm:mb-3">
+                        <p className="text-[10px] sm:text-[11px] font-medium uppercase tracking-wide text-muted-foreground mb-1 sm:mb-1.5">
+                          <span className="hidden sm:inline">1. </span>Strength
                         </p>
-                        <div className="flex flex-wrap gap-1.5">
+                        <div className="flex flex-wrap gap-1 sm:gap-1.5">
                           {strengths.map((s) => {
                             const active = s === sel?.strength
                             return (
@@ -972,7 +972,7 @@ export function Products() {
                                 type="button"
                                 onClick={() => setStrength(product.id, s)}
                                 aria-pressed={active}
-                                className={`h-8 px-3 rounded-full text-xs font-medium border transition-colors ${
+                                className={`h-7 sm:h-8 px-2 sm:px-3 rounded-full text-[11px] sm:text-xs font-medium border transition-colors ${
                                   active
                                     ? "bg-primary text-primary-foreground border-primary"
                                     : "bg-background text-foreground border-border hover:border-foreground/40"
@@ -988,11 +988,11 @@ export function Products() {
 
                     {/* Form picker */}
                     {showFormPicker && (
-                      <div className="mb-4">
-                        <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground mb-1.5">
-                          {showStrengthPicker ? "2. Select option" : "Select option"}
+                      <div className="mb-3 sm:mb-4">
+                        <p className="text-[10px] sm:text-[11px] font-medium uppercase tracking-wide text-muted-foreground mb-1 sm:mb-1.5">
+                          <span className="hidden sm:inline">{showStrengthPicker ? "2. " : ""}</span>Option
                         </p>
-                        <div className="flex flex-wrap gap-1.5">
+                        <div className="flex flex-wrap gap-1 sm:gap-1.5">
                           {forms.map((f) => {
                             const active = f === sel?.form
                             return (
@@ -1001,7 +1001,7 @@ export function Products() {
                                 type="button"
                                 onClick={() => setForm(product.id, f)}
                                 aria-pressed={active}
-                                className={`h-8 px-3 rounded-full text-xs font-medium border transition-colors ${
+                                className={`h-7 sm:h-8 px-2 sm:px-3 rounded-full text-[11px] sm:text-xs font-medium border transition-colors ${
                                   active
                                     ? "bg-primary text-primary-foreground border-primary"
                                     : "bg-background text-foreground border-border hover:border-foreground/40"
@@ -1015,13 +1015,15 @@ export function Products() {
                       </div>
                     )}
 
-                    <div className="flex items-center justify-between gap-3">
-                      <span className="font-serif text-xl sm:text-2xl text-foreground">${price.toFixed(2)}</span>
+                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 sm:gap-3">
+                      <span className="font-serif text-lg sm:text-2xl text-foreground tabular-nums">
+                        ${price.toFixed(2)}
+                      </span>
                       <Button
                         size="sm"
                         disabled={!product.inStock || addedToCart.includes(product.id)}
                         onClick={() => handleAddToCart(product.id)}
-                        className="gap-1.5 h-9 px-3 sm:px-4 shrink-0"
+                        className="gap-1.5 h-9 px-3 sm:px-4 w-full sm:w-auto shrink-0"
                       >
                         {addedToCart.includes(product.id) ? (
                           <>
