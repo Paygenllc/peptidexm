@@ -1,5 +1,6 @@
 import Link from "next/link"
 import { ResetPasswordForm } from "./reset-password-form"
+import { BackToStoreLink } from "@/components/back-to-store-link"
 
 export const metadata = {
   title: "Set New Password",
@@ -14,6 +15,9 @@ export default function ResetPasswordPage() {
   return (
     <div className="min-h-screen flex items-center justify-center bg-secondary/30 p-4 sm:p-6">
       <div className="w-full max-w-md">
+        <div className="mb-4">
+          <BackToStoreLink />
+        </div>
         <div className="mb-6 sm:mb-8 text-center">
           <Link
             href="/"
