@@ -37,20 +37,12 @@ interface Product {
   variants: Variant[]
 }
 
-// Helpers to keep the product data concise.
-// Each strength gets a Single Vial price; Kit of 10 is ~9× the single vial price (ends in .99).
-function sv(strength: string, single: number): Variant[] {
-  const kit = Math.round(single * 9) - 0.01
+// Helpers keep the product data concise.
+// Every kit is exactly 4.5× the single-vial price (a 10% bulk discount on 5 vials).
+function sv(strength: string, vialPrice: number): Variant[] {
   return [
-    { strength, form: "Single Vial", price: single },
-    { strength, form: "Kit of 10 Vials", price: kit },
-  ]
-}
-function tab(strength: string, single: number): Variant[] {
-  const kit = Math.round(single * 9) - 0.01
-  return [
-    { strength, form: "Single Bottle", price: single },
-    { strength, form: "Kit of 10 Bottles", price: kit },
+    { strength, form: "Single Vial", price: vialPrice },
+    { strength, form: "Kit of 5 Vials", price: Math.round(vialPrice * 4.5) },
   ]
 }
 
@@ -66,12 +58,12 @@ const products: Product[] = [
     popular: true,
     image: "/products/tirzepatide.jpg",
     variants: [
-      ...sv("2mg", 39.99),
-      ...sv("5mg", 99.99),
-      ...sv("10mg", 189.99),
-      ...sv("15mg", 269.99),
-      ...sv("30mg", 499.99),
-      ...sv("60mg", 929.99),
+      ...sv("2mg", 60),
+      ...sv("5mg", 80),
+      ...sv("10mg", 120),
+      ...sv("15mg", 180),
+      ...sv("30mg", 280),
+      ...sv("60mg", 540),
     ],
   },
   {
@@ -84,9 +76,9 @@ const products: Product[] = [
     popular: true,
     image: "/products/semaglutide.jpg",
     variants: [
-      ...sv("2mg", 69.99),
-      ...sv("5mg", 159.99),
-      ...sv("10mg", 299.99),
+      ...sv("2mg", 50),
+      ...sv("5mg", 76),
+      ...sv("10mg", 140),
     ],
   },
   {
@@ -99,8 +91,8 @@ const products: Product[] = [
     popular: true,
     image: "/products/retatrutide.jpg",
     variants: [
-      ...sv("10mg", 249.99),
-      ...sv("20mg", 479.99),
+      ...sv("10mg", 180),
+      ...sv("20mg", 260),
     ],
   },
   {
@@ -113,8 +105,8 @@ const products: Product[] = [
     popular: false,
     image: "/products/cagrilintide.jpg",
     variants: [
-      ...sv("5mg", 89.99),
-      ...sv("10mg", 169.99),
+      ...sv("5mg", 80),
+      ...sv("10mg", 160),
     ],
   },
   {
@@ -127,8 +119,8 @@ const products: Product[] = [
     popular: false,
     image: "/products/aod-9604.jpg",
     variants: [
-      ...sv("2mg", 29.99),
-      ...sv("5mg", 59.99),
+      ...sv("2mg", 60),
+      ...sv("5mg", 120),
     ],
   },
 
@@ -143,8 +135,8 @@ const products: Product[] = [
     popular: false,
     image: "/products/sermorelin.jpg",
     variants: [
-      ...sv("2mg", 24.99),
-      ...sv("5mg", 49.99),
+      ...sv("2mg", 60),
+      ...sv("5mg", 100),
     ],
   },
   {
@@ -157,9 +149,9 @@ const products: Product[] = [
     popular: false,
     image: "/products/tesamorelin.jpg",
     variants: [
-      ...sv("2mg", 39.99),
-      ...sv("5mg", 79.99),
-      ...sv("10mg", 149.99),
+      ...sv("2mg", 60),
+      ...sv("5mg", 120),
+      ...sv("10mg", 160),
     ],
   },
   {
@@ -172,7 +164,7 @@ const products: Product[] = [
     popular: true,
     image: "/products/cjc-1295-dac.jpg",
     variants: [
-      ...sv("2mg", 49.99),
+      ...sv("2mg", 60),
     ],
   },
   {
@@ -185,9 +177,9 @@ const products: Product[] = [
     popular: false,
     image: "/products/cjc-1295-no-dac.jpg",
     variants: [
-      ...sv("2mg", 24.99),
-      ...sv("5mg", 49.99),
-      ...sv("10mg", 89.99),
+      ...sv("2mg", 40),
+      ...sv("5mg", 60),
+      ...sv("10mg", 100),
     ],
   },
   {
@@ -200,9 +192,9 @@ const products: Product[] = [
     popular: true,
     image: "/products/ipamorelin.jpg",
     variants: [
-      ...sv("2mg", 19.99),
-      ...sv("5mg", 44.99),
-      ...sv("10mg", 84.99),
+      ...sv("2mg", 30),
+      ...sv("5mg", 40),
+      ...sv("10mg", 70),
     ],
   },
   {
@@ -215,8 +207,8 @@ const products: Product[] = [
     popular: false,
     image: "/products/hexarelin.jpg",
     variants: [
-      ...sv("2mg", 29.99),
-      ...sv("5mg", 54.99),
+      ...sv("2mg", 40),
+      ...sv("5mg", 80),
     ],
   },
   {
@@ -229,8 +221,8 @@ const products: Product[] = [
     popular: false,
     image: "/products/ghrp-2.jpg",
     variants: [
-      ...sv("2mg", 24.99),
-      ...sv("5mg", 49.99),
+      ...sv("2mg", 24),
+      ...sv("5mg", 36),
     ],
   },
   {
@@ -243,7 +235,7 @@ const products: Product[] = [
     popular: true,
     image: "/products/hgh.jpg",
     variants: [
-      ...sv("10 IU", 149.99),
+      ...sv("10 IU", 60),
     ],
   },
   {
@@ -256,8 +248,8 @@ const products: Product[] = [
     popular: false,
     image: "/products/igf-1-lr3.jpg",
     variants: [
-      ...sv("0.1mg", 24.99),
-      ...sv("1mg", 99.99),
+      ...sv("0.1mg", 60),
+      ...sv("1mg", 240),
     ],
   },
   {
@@ -270,7 +262,7 @@ const products: Product[] = [
     popular: false,
     image: "/products/peg-mgf.jpg",
     variants: [
-      ...sv("5mg", 69.99),
+      ...sv("5mg", 60),
     ],
   },
   {
@@ -283,7 +275,7 @@ const products: Product[] = [
     popular: true,
     image: "/products/mk-677.jpg",
     variants: [
-      ...tab("12mg tablets", 69.99),
+      { strength: "Tablets", form: "Bottle", price: 240 },
     ],
   },
 
@@ -298,14 +290,14 @@ const products: Product[] = [
     popular: true,
     image: "/products/bpc-157.jpg",
     variants: [
-      ...sv("2mg", 34.99),
-      ...sv("5mg", 79.99),
-      ...sv("10mg", 149.99),
+      ...sv("2mg", 30),
+      ...sv("5mg", 50),
+      ...sv("10mg", 90),
     ],
   },
   {
     id: 18,
-    name: "Thymosin B4 (TB-500)",
+    name: "Thymosin Beta-4 (TB-500)",
     category: "Recovery",
     description: "Beta-thymosin peptide for tissue regeneration research.",
     purity: "99.2%",
@@ -313,9 +305,9 @@ const products: Product[] = [
     popular: true,
     image: "/products/tb-500.jpg",
     variants: [
-      ...sv("2mg", 39.99),
-      ...sv("5mg", 89.99),
-      ...sv("10mg", 169.99),
+      ...sv("2mg", 50),
+      ...sv("5mg", 70),
+      ...sv("10mg", 120),
     ],
   },
   {
@@ -328,13 +320,13 @@ const products: Product[] = [
     popular: false,
     image: "/products/ghk-cu.jpg",
     variants: [
-      ...sv("50mg", 69.99),
-      ...sv("100mg", 129.99),
+      ...sv("50mg", 50),
+      ...sv("100mg", 80),
     ],
   },
   {
     id: 20,
-    name: "Thymosin Alpha 1",
+    name: "Thymosin Alpha-1",
     category: "Recovery",
     description: "Immunomodulatory peptide for immune function research.",
     purity: "99.0%",
@@ -342,8 +334,8 @@ const products: Product[] = [
     popular: false,
     image: "/products/thymosin-alpha-1.jpg",
     variants: [
-      ...sv("5mg", 89.99),
-      ...sv("10mg", 169.99),
+      ...sv("5mg", 100),
+      ...sv("10mg", 160),
     ],
   },
   {
@@ -356,7 +348,7 @@ const products: Product[] = [
     popular: false,
     image: "/products/kpv.jpg",
     variants: [
-      ...sv("10mg", 59.99),
+      ...sv("10mg", 60),
     ],
   },
   {
@@ -369,7 +361,7 @@ const products: Product[] = [
     popular: false,
     image: "/products/thymulin.jpg",
     variants: [
-      ...sv("10mg", 79.99),
+      ...sv("10mg", 80),
     ],
   },
 
@@ -384,7 +376,7 @@ const products: Product[] = [
     popular: false,
     image: "/products/semax.jpg",
     variants: [
-      ...sv("10mg", 49.99),
+      ...sv("10mg", 80),
     ],
   },
   {
@@ -397,7 +389,7 @@ const products: Product[] = [
     popular: false,
     image: "/products/selank.jpg",
     variants: [
-      ...sv("5mg", 49.99),
+      ...sv("5mg", 50),
     ],
   },
   {
@@ -410,7 +402,7 @@ const products: Product[] = [
     popular: false,
     image: "/products/dsip.jpg",
     variants: [
-      ...sv("5mg", 49.99),
+      ...sv("5mg", 80),
     ],
   },
   {
@@ -423,7 +415,7 @@ const products: Product[] = [
     popular: false,
     image: "/products/pinealon.jpg",
     variants: [
-      ...sv("16mg", 59.99),
+      ...sv("16mg", 80),
     ],
   },
 
@@ -438,7 +430,7 @@ const products: Product[] = [
     popular: true,
     image: "/products/epithalon.jpg",
     variants: [
-      ...sv("10mg", 59.99),
+      ...sv("10mg", 60),
     ],
   },
   {
@@ -451,7 +443,7 @@ const products: Product[] = [
     popular: true,
     image: "/products/nad.jpg",
     variants: [
-      ...sv("500mg", 89.99),
+      ...sv("500mg", 60),
     ],
   },
   {
@@ -464,7 +456,7 @@ const products: Product[] = [
     popular: false,
     image: "/products/nmn.jpg",
     variants: [
-      ...tab("50mg tablets", 49.99),
+      { strength: "Tablets", form: "Bottle", price: 120 },
     ],
   },
   {
@@ -477,7 +469,7 @@ const products: Product[] = [
     popular: false,
     image: "/products/mots-c.jpg",
     variants: [
-      ...sv("10mg", 79.99),
+      ...sv("10mg", 140),
     ],
   },
   {
@@ -490,7 +482,7 @@ const products: Product[] = [
     popular: false,
     image: "/products/ss31.jpg",
     variants: [
-      ...sv("10mg", 99.99),
+      ...sv("10mg", 140),
     ],
   },
   {
@@ -503,7 +495,7 @@ const products: Product[] = [
     popular: false,
     image: "/products/snap-8.jpg",
     variants: [
-      ...sv("10mg", 59.99),
+      ...sv("10mg", 60),
     ],
   },
   {
@@ -516,7 +508,7 @@ const products: Product[] = [
     popular: false,
     image: "/products/pe-22-28.jpg",
     variants: [
-      ...sv("8mg", 69.99),
+      ...sv("8mg", 60),
     ],
   },
 
@@ -531,8 +523,8 @@ const products: Product[] = [
     popular: true,
     image: "/products/pt-141.jpg",
     variants: [
-      ...sv("5mg", 39.99),
-      ...sv("10mg", 69.99),
+      ...sv("5mg", 50),
+      ...sv("10mg", 90),
     ],
   },
   {
@@ -545,7 +537,7 @@ const products: Product[] = [
     popular: false,
     image: "/products/melanotan-2.jpg",
     variants: [
-      ...sv("10mg", 49.99),
+      ...sv("10mg", 50),
     ],
   },
   {
@@ -558,7 +550,7 @@ const products: Product[] = [
     popular: false,
     image: "/products/oxytocin.jpg",
     variants: [
-      ...sv("2mg", 59.99),
+      ...sv("2mg", 60),
     ],
   },
   {
@@ -571,7 +563,7 @@ const products: Product[] = [
     popular: false,
     image: "/products/kisspeptin-10.jpg",
     variants: [
-      ...sv("5mg", 59.99),
+      ...sv("5mg", 80),
     ],
   },
   {
@@ -584,7 +576,7 @@ const products: Product[] = [
     popular: false,
     image: "/products/hcg.jpg",
     variants: [
-      ...sv("5000 IU", 69.99),
+      ...sv("5000 IU", 80),
     ],
   },
   {
@@ -597,7 +589,7 @@ const products: Product[] = [
     popular: false,
     image: "/products/hmg.jpg",
     variants: [
-      ...sv("75 IU", 79.99),
+      ...sv("75 IU", 60),
     ],
   },
   {
@@ -610,7 +602,7 @@ const products: Product[] = [
     popular: false,
     image: "/products/fst344.jpg",
     variants: [
-      ...sv("1mg", 149.99),
+      ...sv("1mg", 180),
     ],
   },
   {
@@ -623,7 +615,7 @@ const products: Product[] = [
     popular: false,
     image: "/products/gdf-8.jpg",
     variants: [
-      ...sv("1mg", 99.99),
+      ...sv("1mg", 160),
     ],
   },
   {
@@ -636,7 +628,7 @@ const products: Product[] = [
     popular: false,
     image: "/products/gw501516.jpg",
     variants: [
-      ...tab("10mg tablets", 49.99),
+      { strength: "Tablets", form: "Bottle", price: 160 },
     ],
   },
   {
@@ -649,7 +641,7 @@ const products: Product[] = [
     popular: false,
     image: "/products/slu-pp-332.jpg",
     variants: [
-      ...tab("250mcg tablets", 69.99),
+      { strength: "Tablets", form: "Bottle", price: 160 },
     ],
   },
   {
@@ -662,7 +654,7 @@ const products: Product[] = [
     popular: true,
     image: "/products/glow-blend.jpg",
     variants: [
-      ...sv("10/10/75mg", 129.99),
+      ...sv("10/10/75mg", 240),
     ],
   },
 
