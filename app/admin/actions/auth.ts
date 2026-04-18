@@ -85,9 +85,13 @@ export async function requestPasswordResetAction(formData: FormData) {
 
   const supabase = await createClient()
   const origin = getOrigin(await headers())
-  const redirectTo = origin
-    ? `${origin}/auth/confirm?next=${encodeURIComponent("/admin/reset-password")}`
-    : undefined
+  // Land the user DIRECTLY on the reset-password page. Verification happens
+  // client-side inside that page, so (a) the recovery session is established
+  // in the same URL where the form lives (no lost-cookie-across-redirect bug),
+  // and (b) email link scanners that pre-fetch URLs server-side (Outlook
+  // SafeLinks, Gmail scanners, corporate security gateways) can't consume the
+  // one-time token because the token handoff happens in JavaScript.
+  const redirectTo = origin ? `${origin}/admin/reset-password` : undefined
 
   const { error } = await supabase.auth.resetPasswordForEmail(email, { redirectTo })
 
