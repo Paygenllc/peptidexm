@@ -40,15 +40,31 @@ export default async function AccountPage() {
     redirect("/admin/login?error=auth_required")
   }
 
+  const userEmail = (user.email ?? "").toLowerCase()
+
+  // Match orders by user_id OR by matching email (case-insensitive).
+  // The trigger `link_guest_orders_to_new_user` back-links guest orders on
+  // signup, but this OR query also catches orders placed in the same session
+  // before the trigger fires and any with slight email casing differences.
+  const ordersQuery = userEmail
+    ? supabase
+        .from("orders")
+        .select(
+          "id, order_number, created_at, status, payment_status, payment_method, payment_reference, total, email, order_items(id, product_name, variant_name, quantity)",
+        )
+        .or(`user_id.eq.${user.id},email.ilike.${userEmail}`)
+        .order("created_at", { ascending: false })
+    : supabase
+        .from("orders")
+        .select(
+          "id, order_number, created_at, status, payment_status, payment_method, payment_reference, total, email, order_items(id, product_name, variant_name, quantity)",
+        )
+        .eq("user_id", user.id)
+        .order("created_at", { ascending: false })
+
   const [{ data: profile }, { data: orders }] = await Promise.all([
     supabase.from("profiles").select("full_name, is_admin").eq("id", user.id).single(),
-    supabase
-      .from("orders")
-      .select(
-        "id, order_number, created_at, status, payment_status, payment_method, payment_reference, total, email, order_items(id, product_name, variant_name, quantity)"
-      )
-      .eq("user_id", user.id)
-      .order("created_at", { ascending: false }),
+    ordersQuery,
   ])
 
   const displayName = profile?.full_name?.trim() || user.email?.split("@")[0] || "there"
