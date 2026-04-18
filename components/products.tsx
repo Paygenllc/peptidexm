@@ -38,11 +38,11 @@ interface Product {
 }
 
 // Helpers keep the product data concise.
-// Every kit is exactly 4.5× the single-vial price (a 10% bulk discount on 5 vials).
+// Every kit is exactly 4.5× the single-vial price (a 55% bulk discount on 10 vials).
 function sv(strength: string, vialPrice: number): Variant[] {
   return [
     { strength, form: "Single Vial", price: vialPrice },
-    { strength, form: "Kit of 5 Vials", price: Math.round(vialPrice * 4.5) },
+    { strength, form: "Kit of 10 Vials", price: Math.round(vialPrice * 4.5) },
   ]
 }
 
