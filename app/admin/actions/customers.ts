@@ -91,6 +91,8 @@ export async function toggleNewsletterAction(formData: FormData) {
 
   revalidatePath("/admin/customers")
   revalidatePath(`/admin/customers/${userId}`)
+  revalidatePath("/admin/email/subscribers")
+  revalidatePath("/admin/email")
   return { success: true }
 }
 

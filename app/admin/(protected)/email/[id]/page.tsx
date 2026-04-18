@@ -50,6 +50,7 @@ export default async function BroadcastDetailPage({
           preview: broadcast.preview,
           body_markdown: broadcast.body_markdown,
           audience: broadcast.audience,
+          custom_recipients: broadcast.custom_recipients ?? [],
           status: broadcast.status,
           sent_at: broadcast.sent_at,
           recipient_count: broadcast.recipient_count,
@@ -65,5 +66,6 @@ function audienceLabel(a: string) {
   if (a === "all_customers") return "All customers"
   if (a === "subscribers") return "Subscribers"
   if (a === "admins") return "Admins"
+  if (a === "custom") return "Custom list"
   return a
 }
