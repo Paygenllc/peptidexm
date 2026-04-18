@@ -27,17 +27,17 @@ export async function signInAction(formData: FormData) {
   const { data, error } = await supabase.auth.signInWithPassword({ email, password })
 
   if (error || !data.user) {
-    return { error: error?.message || "Invalid credentials" }
+    return { error: error?.message || "Invalid email or password" }
   }
 
-  const { data: profile } = await supabase.from("profiles").select("is_admin").eq("id", data.user.id).single()
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("is_admin")
+    .eq("id", data.user.id)
+    .single()
 
-  if (!profile?.is_admin) {
-    await supabase.auth.signOut()
-    return { error: "This account does not have admin access." }
-  }
-
-  redirect("/admin")
+  // Admins go to the admin dashboard, everyone else to their account page.
+  redirect(profile?.is_admin ? "/admin" : "/account")
 }
 
 export async function signUpAction(formData: FormData) {
@@ -56,7 +56,7 @@ export async function signUpAction(formData: FormData) {
     password,
     options: {
       data: { full_name: fullName },
-      emailRedirectTo: origin ? `${origin}/auth/confirm?next=/admin/bootstrap` : undefined,
+      emailRedirectTo: origin ? `${origin}/auth/confirm?next=/account` : undefined,
     },
   })
 
