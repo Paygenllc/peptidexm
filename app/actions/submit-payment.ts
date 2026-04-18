@@ -68,12 +68,15 @@ export async function submitPaymentAction(input: SubmitPaymentInput) {
     return { error: "A payment reference has already been submitted for this order." }
   }
 
+  // Note: we don't touch payment_status here — it stays "pending" until the admin
+  // verifies the Zelle transfer arrived, at which point they flip it to "paid".
+  // The orders.payment_status CHECK constraint only allows pending/paid/failed/refunded,
+  // so writing anything else (e.g. "submitted") would silently fail the update.
   const { error: updateError } = await admin
     .from("orders")
     .update({
       payment_reference: reference,
       payment_submitted_at: new Date().toISOString(),
-      payment_status: "submitted",
     })
     .eq("id", order.id)
 
