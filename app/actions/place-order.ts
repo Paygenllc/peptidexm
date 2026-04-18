@@ -2,6 +2,7 @@
 
 import { createAdminClient } from "@/lib/supabase/admin"
 import { createClient } from "@/lib/supabase/server"
+import { getShippingFee } from "@/lib/shipping"
 import { revalidatePath } from "next/cache"
 
 interface OrderItemInput {
@@ -31,7 +32,7 @@ export async function placeOrderAction(input: PlaceOrderInput) {
   if (!input.items || input.items.length === 0) return { error: "Cart is empty" }
 
   const subtotal = input.items.reduce((sum, i) => sum + i.unitPrice * i.quantity, 0)
-  const shipping = subtotal > 500 ? 0 : 15
+  const shipping = getShippingFee(input.country)
   const tax = 0
   const total = subtotal + shipping + tax
 

@@ -9,6 +9,7 @@ import { ArrowLeft, CheckCircle, Plus, Minus, Trash2, Mail, Phone, User, MapPin,
 import Link from 'next/link'
 import { US_STATES, COUNTRIES } from '@/lib/locations'
 import { placeOrderAction } from '@/app/actions/place-order'
+import { getShippingFee, isUSCountry } from '@/lib/shipping'
 
 interface CustomerInfo {
   email: string
@@ -42,6 +43,10 @@ export default function CheckoutPage() {
   const [isProcessing, setIsProcessing] = useState(false)
   const [placedOrderNumber, setPlacedOrderNumber] = useState<string | null>(null)
   const [placeError, setPlaceError] = useState<string | null>(null)
+
+  const shippingFee = getShippingFee(customerInfo.country)
+  const isUS = isUSCountry(customerInfo.country)
+  const orderTotal = total + shippingFee
 
   const validateInfo = (): boolean => {
     const newErrors: { [key: string]: string } = {}
@@ -616,6 +621,25 @@ export default function CheckoutPage() {
                         </div>
                       </div>
 
+                      {/* Totals */}
+                      <div className="mb-2">
+                        <h3 className="font-medium text-foreground mb-4">Totals</h3>
+                        <div className="space-y-2">
+                          <div className="flex justify-between text-sm text-muted-foreground">
+                            <span>Subtotal</span>
+                            <span>${total.toFixed(2)}</span>
+                          </div>
+                          <div className="flex justify-between text-sm text-muted-foreground">
+                            <span>Shipping {isUS ? '(US)' : '(International)'}</span>
+                            <span>${shippingFee.toFixed(2)}</span>
+                          </div>
+                          <div className="flex justify-between items-center pt-3 mt-2 border-t border-border">
+                            <span className="font-serif text-base font-medium">Total</span>
+                            <span className="font-serif text-xl font-medium">${orderTotal.toFixed(2)}</span>
+                          </div>
+                        </div>
+                      </div>
+
                       {placeError && (
                         <div className="mt-6 p-3 rounded-lg bg-destructive/10 border border-destructive/30 text-destructive text-sm" role="alert">
                           {placeError}
@@ -663,19 +687,19 @@ export default function CheckoutPage() {
                         <span>${total.toFixed(2)}</span>
                       </div>
                       <div className="flex justify-between text-sm text-muted-foreground">
-                        <span>Shipping</span>
-                        <span>Calculated at next step</span>
+                        <span>Shipping {isUS ? '(US)' : '(International)'}</span>
+                        <span>${shippingFee.toFixed(2)}</span>
                       </div>
-                      <div className="flex justify-between text-sm text-muted-foreground">
+                      <div className="flex justify-between text-xs text-muted-foreground/80">
                         <span>Tax</span>
-                        <span>Calculated at next step</span>
+                        <span>$0.00</span>
                       </div>
                     </div>
 
                     <div className="pt-6 border-t border-border flex justify-between items-center">
                       <span className="font-serif text-lg font-medium">Total</span>
                       <span className="font-serif text-2xl font-medium">
-                        ${total.toFixed(2)}
+                        ${orderTotal.toFixed(2)}
                       </span>
                     </div>
                   </CardContent>
