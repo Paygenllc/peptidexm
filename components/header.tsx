@@ -2,11 +2,12 @@
 
 import Link from "next/link"
 import { useState } from "react"
-import { Menu, ShoppingCart, User } from "lucide-react"
+import { Menu, Search, ShoppingCart, User } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Sheet, SheetContent, SheetTrigger, SheetTitle } from "@/components/ui/sheet"
 import { useCart } from "@/context/cart-context"
 import { CartSidebar } from "@/components/cart-sidebar"
+import { HeaderSearch } from "@/components/header-search"
 
 const navigation = [
   { name: "Products", href: "#products" },
@@ -19,6 +20,7 @@ const navigation = [
 export function Header() {
   const [isCartOpen, setIsCartOpen] = useState(false)
   const [isMenuOpen, setIsMenuOpen] = useState(false)
+  const [isSearchOpen, setIsSearchOpen] = useState(false)
   const { itemCount } = useCart()
 
   return (
@@ -37,6 +39,15 @@ export function Header() {
 
         {/* Mobile actions */}
         <div className="flex lg:hidden items-center gap-1">
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => setIsSearchOpen(true)}
+            className="h-11 w-11"
+            aria-label="Search products"
+          >
+            <Search className="h-5 w-5" />
+          </Button>
           <Button
             variant="ghost"
             size="icon"
@@ -111,7 +122,8 @@ export function Header() {
           ))}
         </div>
 
-        <div className="hidden lg:flex lg:flex-1 lg:justify-end lg:gap-x-2">
+        <div className="hidden lg:flex lg:flex-1 lg:justify-end lg:items-center lg:gap-x-2">
+          <HeaderSearch className="w-56 xl:w-72" />
           <Button variant="ghost" size="icon" asChild aria-label="Account">
             <Link href="/account">
               <User className="h-5 w-5" />
@@ -138,6 +150,18 @@ export function Header() {
       </nav>
 
       <CartSidebar isOpen={isCartOpen} onClose={() => setIsCartOpen(false)} />
+
+      <Sheet open={isSearchOpen} onOpenChange={setIsSearchOpen}>
+        <SheetContent side="top" className="p-0 border-b border-border">
+          <SheetTitle className="sr-only">Search products</SheetTitle>
+          <div className="mx-auto max-w-7xl px-4 sm:px-6 py-4">
+            <HeaderSearch autoFocus onSelectResult={() => setIsSearchOpen(false)} />
+            <p className="mt-3 px-1 text-xs text-muted-foreground">
+              Search by name, category, or strength. Results jump straight to the product.
+            </p>
+          </div>
+        </SheetContent>
+      </Sheet>
     </header>
   )
 }

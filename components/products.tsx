@@ -1,6 +1,6 @@
 "use client"
 
-import { useMemo, useState } from "react"
+import { useEffect, useMemo, useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
@@ -19,13 +19,13 @@ const categories = [
   "Accessories",
 ]
 
-interface Variant {
+export interface Variant {
   strength: string
   form: string
   price: number
 }
 
-interface Product {
+export interface Product {
   id: number
   name: string
   category: string
@@ -46,7 +46,7 @@ function sv(strength: string, vialPrice: number): Variant[] {
   ]
 }
 
-const products: Product[] = [
+export const products: Product[] = [
   // ===== GLP-1 =====
   {
     id: 1,
@@ -732,6 +732,29 @@ export function Products() {
   const [searchQuery, setSearchQuery] = useState("")
   const [addedToCart, setAddedToCart] = useState<number[]>([])
   const { addItem } = useCart()
+
+  // Sync from the header search bar (dispatched via CustomEvent on the window).
+  // Also drop any active category filter so the user sees the full match set.
+  useEffect(() => {
+    function handleHeaderSearch(event: Event) {
+      const detail = (event as CustomEvent<{ query: string }>).detail
+      if (!detail) return
+      setSearchQuery(detail.query)
+      setSelectedCategory("All")
+    }
+    window.addEventListener("peptidexm:search", handleHeaderSearch)
+    return () => window.removeEventListener("peptidexm:search", handleHeaderSearch)
+  }, [])
+
+  // Hydrate from ?q=... on first mount so a deep-link search works.
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search)
+    const q = params.get("q")
+    if (q) {
+      setSearchQuery(q)
+      setSelectedCategory("All")
+    }
+  }, [])
 
   // Initialize each product's selection: first strength, first form of that strength.
   const [selection, setSelection] = useState<Record<number, Selection>>(() => {
