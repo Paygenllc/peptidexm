@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { ArrowLeft, Package, LogOut, ShieldCheck } from "lucide-react"
+import { ZellePaymentPanel } from "@/components/zelle-payment-panel"
 
 export const metadata = {
   title: "My Account",
@@ -44,7 +45,7 @@ export default async function AccountPage() {
     supabase
       .from("orders")
       .select(
-        "id, order_number, created_at, status, payment_status, total, order_items(id, product_name, variant_name, quantity)"
+        "id, order_number, created_at, status, payment_status, payment_method, payment_reference, total, email, order_items(id, product_name, variant_name, quantity)"
       )
       .eq("user_id", user.id)
       .order("created_at", { ascending: false }),
@@ -171,6 +172,34 @@ export default async function AccountPage() {
                             </li>
                           ))}
                         </ul>
+                      )}
+
+                      {/* Zelle payment for orders awaiting payment */}
+                      {paymentStatus === "pending" && !order.payment_reference && status !== "cancelled" && (
+                        <div className="mt-5 pt-5 border-t border-border">
+                          <ZellePaymentPanel
+                            orderNumber={order.order_number}
+                            total={Number(order.total)}
+                            customerEmail={order.email ?? user.email ?? ""}
+                          />
+                        </div>
+                      )}
+
+                      {/* Reference submitted, awaiting verification */}
+                      {order.payment_reference && paymentStatus !== "paid" && (
+                        <div className="mt-4 rounded-lg bg-secondary/60 border border-border p-3 text-sm">
+                          <div className="flex items-start gap-2">
+                            <div className="min-w-0">
+                              <p className="font-medium text-foreground">Payment reference submitted</p>
+                              <p className="text-muted-foreground font-mono text-xs break-all mt-0.5">
+                                {order.payment_reference}
+                              </p>
+                              <p className="text-muted-foreground text-xs mt-1">
+                                We&apos;ll verify the Zelle transfer and ship shortly.
+                              </p>
+                            </div>
+                          </div>
+                        </div>
                       )}
                     </CardContent>
                   </Card>
