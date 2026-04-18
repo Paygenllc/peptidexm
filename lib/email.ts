@@ -262,6 +262,134 @@ Customer: ${args.customerName} <${args.customerEmail}>`
   })
 }
 
+// ---------- Order status update ----------
+
+export type OrderStatusKind = "status" | "payment" | "shipped" | "cancelled"
+
+export async function sendOrderStatusUpdateEmail(input: {
+  kind: OrderStatusKind
+  orderNumber: string
+  customerName: string
+  customerEmail: string
+  status?: string | null
+  paymentStatus?: string | null
+  trackingCarrier?: string | null
+  trackingNumber?: string | null
+  trackingUrl?: string | null
+  note?: string | null
+}) {
+  let subject = `PeptideXM — Order ${input.orderNumber} update`
+  let heroLabel = "Order update"
+  let heading = `Update on order ${input.orderNumber}`
+  let lead = ""
+
+  if (input.kind === "shipped" && input.trackingNumber) {
+    subject = `Your PeptideXM order ${input.orderNumber} has shipped`
+    heroLabel = "Shipped"
+    heading = "Your order is on its way"
+    lead = `We just handed your package off to ${escapeHtml(input.trackingCarrier || "the carrier")}.`
+  } else if (input.kind === "payment" && input.paymentStatus) {
+    subject = `PeptideXM — Payment ${input.paymentStatus} for order ${input.orderNumber}`
+    heroLabel = "Payment"
+    heading = input.paymentStatus === "paid" ? "Payment confirmed" : `Payment ${input.paymentStatus}`
+    lead =
+      input.paymentStatus === "paid"
+        ? "We've verified your Zelle transfer. Your order is being prepared for shipment."
+        : `Your payment status changed to ${escapeHtml(input.paymentStatus)}.`
+  } else if (input.kind === "cancelled") {
+    subject = `PeptideXM — Order ${input.orderNumber} cancelled`
+    heroLabel = "Cancelled"
+    heading = "Your order was cancelled"
+    lead = input.note || "If this was a mistake, just reply to this email and we'll sort it out."
+  } else if (input.kind === "status" && input.status) {
+    heroLabel = "Order update"
+    heading = `Order status: ${input.status}`
+    lead = `Your order is now marked as ${escapeHtml(input.status)}.`
+  }
+
+  const trackingHtml =
+    input.trackingNumber && input.trackingCarrier
+      ? `
+    <div style="background:#fdf6ee;border:1px solid #ecd8c0;border-radius:10px;padding:16px 20px;margin:0 0 20px;">
+      <div style="font-size:12px;color:${mutedText};text-transform:uppercase;letter-spacing:0.08em;margin-bottom:6px;">Tracking</div>
+      <div style="font-size:15px;margin-bottom:4px;"><strong>Carrier:</strong> ${escapeHtml(input.trackingCarrier)}</div>
+      <div style="font-size:15px;"><strong>Number:</strong> <span style="font-family:monospace;">${escapeHtml(input.trackingNumber)}</span></div>
+      ${input.trackingUrl ? `<div style="margin-top:12px;"><a href="${escapeHtml(input.trackingUrl)}" style="color:${brandColor};text-decoration:none;font-weight:500;">Track package →</a></div>` : ""}
+    </div>`
+      : ""
+
+  const noteHtml =
+    input.note && input.kind !== "cancelled"
+      ? `<div style="background:#f3f4f6;border:1px solid ${borderColor};border-radius:10px;padding:16px 20px;margin:0 0 20px;">
+          <div style="font-size:12px;color:${mutedText};text-transform:uppercase;letter-spacing:0.08em;margin-bottom:6px;">Note from us</div>
+          <div style="font-size:14px;line-height:1.6;white-space:pre-line;">${escapeHtml(input.note)}</div>
+        </div>`
+      : ""
+
+  const html = shell(`
+    <p style="margin:0 0 8px 0;font-size:14px;color:${mutedText};text-transform:uppercase;letter-spacing:0.08em;">${escapeHtml(heroLabel)}</p>
+    <h1 style="margin:0 0 16px 0;font-family:Georgia,serif;font-size:24px;font-weight:500;">${escapeHtml(heading)}</h1>
+    <p style="margin:0 0 24px 0;font-size:15px;line-height:1.6;">${lead}</p>
+
+    <div style="font-size:14px;color:${mutedText};margin-bottom:4px;">Order</div>
+    <div style="font-family:monospace;font-size:15px;margin-bottom:20px;">${escapeHtml(input.orderNumber)}</div>
+
+    ${trackingHtml}
+    ${noteHtml}
+
+    <p style="margin:0;font-size:13px;color:${mutedText};">Questions? Just reply to this email.</p>
+  `)
+
+  const lines = [
+    `PeptideXM — ${heading}`,
+    "",
+    lead,
+    "",
+    `Order: ${input.orderNumber}`,
+  ]
+  if (input.trackingNumber) {
+    lines.push(`Tracking: ${input.trackingCarrier || ""} ${input.trackingNumber}`.trim())
+    if (input.trackingUrl) lines.push(`Track: ${input.trackingUrl}`)
+  }
+  if (input.note && input.kind !== "cancelled") lines.push("", `Note: ${input.note}`)
+  const text = lines.join("\n")
+
+  return sendEmail({
+    to: input.customerEmail,
+    subject,
+    html,
+    text,
+    replyTo: CONTACT_EMAIL,
+  })
+}
+
+// ---------- Marketing broadcast ----------
+
+export async function sendBroadcastEmail(input: {
+  to: string
+  subject: string
+  preview?: string | null
+  bodyHtml: string
+  textFallback: string
+}) {
+  const preHeader = input.preview
+    ? `<div style="display:none;overflow:hidden;color:transparent;height:0;width:0;opacity:0;">${escapeHtml(input.preview)}</div>`
+    : ""
+
+  const html = shell(`
+    ${preHeader}
+    <div style="font-size:15px;line-height:1.7;color:#111827;">${input.bodyHtml}</div>
+  `)
+
+  return sendEmail({
+    to: input.to,
+    subject: input.subject,
+    html,
+    text: input.textFallback,
+    replyTo: CONTACT_EMAIL,
+  })
+}
+
 function escapeHtml(s: string) {
   return s
     .replace(/&/g, "&amp;")

@@ -1,35 +1,105 @@
 "use client"
 
 import Link from "next/link"
-import { useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import { Menu, Search, ShoppingCart, User } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Sheet, SheetContent, SheetTrigger, SheetTitle } from "@/components/ui/sheet"
 import { useCart } from "@/context/cart-context"
 import { CartSidebar } from "@/components/cart-sidebar"
-import { HeaderSearch } from "@/components/header-search"
+import { HeaderSearch, type HeaderSearchHandle } from "@/components/header-search"
 
-const navigation = [
-  { name: "Products", href: "#products" },
-  { name: "About", href: "#about" },
-  { name: "Science", href: "#science" },
-  { name: "FAQ", href: "#faq" },
-  { name: "Contact", href: "#contact" },
+type NavItem = { name: string; href: string; id: string }
+
+const navigation: NavItem[] = [
+  { name: "Products", href: "#products", id: "products" },
+  { name: "About", href: "#about", id: "about" },
+  { name: "Science", href: "#science", id: "science" },
+  { name: "FAQ", href: "#faq", id: "faq" },
+  { name: "Contact", href: "#contact", id: "contact" },
 ]
 
 export function Header() {
   const [isCartOpen, setIsCartOpen] = useState(false)
   const [isMenuOpen, setIsMenuOpen] = useState(false)
   const [isSearchOpen, setIsSearchOpen] = useState(false)
+  const [isScrolled, setIsScrolled] = useState(false)
+  const [activeSection, setActiveSection] = useState<string>("")
   const { itemCount } = useCart()
+  const desktopSearchRef = useRef<HeaderSearchHandle>(null)
+
+  // Scroll-state: crisp border + tighter background when scrolled past the hero edge.
+  useEffect(() => {
+    const onScroll = () => setIsScrolled(window.scrollY > 8)
+    onScroll()
+    window.addEventListener("scroll", onScroll, { passive: true })
+    return () => window.removeEventListener("scroll", onScroll)
+  }, [])
+
+  // Scroll-spy: highlight the nav item whose section is currently centered in the viewport.
+  useEffect(() => {
+    const ids = navigation.map((n) => n.id)
+    const sections = ids.map((id) => document.getElementById(id)).filter(Boolean) as HTMLElement[]
+    if (sections.length === 0) return
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        // Pick the entry that's intersecting and closest to the top.
+        const visible = entries
+          .filter((e) => e.isIntersecting)
+          .sort((a, b) => a.boundingClientRect.top - b.boundingClientRect.top)
+        if (visible[0]) setActiveSection(visible[0].target.id)
+      },
+      {
+        // Account for header height (~64px) at top; count a section "active" once
+        // it has passed the top and before its bottom has passed roughly mid-screen.
+        rootMargin: "-80px 0px -55% 0px",
+        threshold: 0,
+      },
+    )
+    sections.forEach((s) => observer.observe(s))
+    return () => observer.disconnect()
+  }, [])
+
+  // Cmd/Ctrl + K opens search. On desktop we focus the in-header input;
+  // on mobile we open the full-width search sheet.
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      const isMetaK = (e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k"
+      if (!isMetaK) return
+
+      // Respect native text fields — only intercept when not typing into another input,
+      // unless the shortcut originates from the search itself (no-op then).
+      const target = e.target as HTMLElement | null
+      const isEditing =
+        target?.tagName === "INPUT" || target?.tagName === "TEXTAREA" || target?.isContentEditable
+      if (isEditing) return
+
+      e.preventDefault()
+      if (window.matchMedia("(min-width: 1024px)").matches) {
+        desktopSearchRef.current?.focus()
+      } else {
+        setIsSearchOpen(true)
+      }
+    }
+    window.addEventListener("keydown", onKeyDown)
+    return () => window.removeEventListener("keydown", onKeyDown)
+  }, [])
 
   return (
-    <header className="fixed top-0 left-0 right-0 z-50 bg-background/85 backdrop-blur-md border-b border-border">
+    <header
+      className={`fixed top-0 left-0 right-0 z-50 transition-[background-color,border-color,box-shadow] duration-200 ${
+        isScrolled
+          ? "bg-background/95 backdrop-blur-md border-b border-border shadow-[0_1px_3px_rgba(0,0,0,0.04)]"
+          : "bg-background/70 backdrop-blur-sm border-b border-transparent"
+      }`}
+    >
       <nav
-        className="mx-auto flex max-w-7xl items-center justify-between px-4 sm:px-6 py-3 sm:py-4 lg:px-8"
+        className="mx-auto flex max-w-7xl items-center gap-4 px-4 sm:px-6 py-3 lg:px-8"
         aria-label="Primary"
       >
-        <div className="flex lg:flex-1">
+        {/* Logo */}
+        <div className="flex lg:flex-none">
           <Link href="/" className="-m-1.5 p-1.5" aria-label="PeptideXM home">
             <span className="font-serif text-xl sm:text-2xl tracking-tight text-foreground">
               Peptide<span className="text-accent">XM</span>
@@ -38,7 +108,7 @@ export function Header() {
         </div>
 
         {/* Mobile actions */}
-        <div className="flex lg:hidden items-center gap-1">
+        <div className="flex lg:hidden items-center gap-1 ml-auto">
           <Button
             variant="ghost"
             size="icon"
@@ -109,42 +179,57 @@ export function Header() {
           </Sheet>
         </div>
 
-        {/* Desktop navigation */}
-        <div className="hidden lg:flex lg:gap-x-10">
-          {navigation.map((item) => (
-            <Link
-              key={item.name}
-              href={item.href}
-              className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
-            >
-              {item.name}
-            </Link>
-          ))}
+        {/* Desktop navigation — centered between logo and actions */}
+        <div className="hidden lg:flex lg:flex-1 lg:justify-center lg:gap-x-1">
+          {navigation.map((item) => {
+            const isActive = activeSection === item.id
+            return (
+              <Link
+                key={item.name}
+                href={item.href}
+                className={`relative px-3 py-2 text-sm font-medium transition-colors ${
+                  isActive ? "text-foreground" : "text-muted-foreground hover:text-foreground"
+                }`}
+                aria-current={isActive ? "page" : undefined}
+              >
+                {item.name}
+                <span
+                  aria-hidden="true"
+                  className={`pointer-events-none absolute left-3 right-3 -bottom-0.5 h-0.5 rounded-full bg-accent transition-opacity duration-200 ${
+                    isActive ? "opacity-100" : "opacity-0"
+                  }`}
+                />
+              </Link>
+            )
+          })}
         </div>
 
-        <div className="hidden lg:flex lg:flex-1 lg:justify-end lg:items-center lg:gap-x-2">
-          <HeaderSearch className="w-56 xl:w-72" />
-          <Button variant="ghost" size="icon" asChild aria-label="Account">
+        {/* Desktop actions */}
+        <div className="hidden lg:flex lg:items-center lg:gap-1">
+          <HeaderSearch
+            ref={desktopSearchRef}
+            showShortcutHint
+            className="w-60 xl:w-72"
+          />
+          <div className="mx-1 h-6 w-px bg-border" aria-hidden="true" />
+          <Button variant="ghost" size="icon" asChild aria-label="Account" className="h-9 w-9">
             <Link href="/account">
-              <User className="h-5 w-5" />
+              <User className="h-[18px] w-[18px]" />
             </Link>
           </Button>
           <Button
             variant="ghost"
             size="icon"
-            className="relative"
+            className="relative h-9 w-9"
             onClick={() => setIsCartOpen(true)}
             aria-label={`Cart${itemCount > 0 ? `, ${itemCount} items` : ""}`}
           >
-            <ShoppingCart className="h-5 w-5" />
+            <ShoppingCart className="h-[18px] w-[18px]" />
             {itemCount > 0 && (
               <span className="absolute -top-0.5 -right-0.5 h-4 min-w-4 px-1 rounded-full bg-accent text-accent-foreground text-[10px] flex items-center justify-center font-medium leading-none">
                 {itemCount > 9 ? "9+" : itemCount}
               </span>
             )}
-          </Button>
-          <Button asChild>
-            <Link href="#products">Shop Now</Link>
           </Button>
         </div>
       </nav>

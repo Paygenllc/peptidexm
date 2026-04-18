@@ -1,7 +1,7 @@
 "use client"
 
 import Image from "next/image"
-import { useCallback, useEffect, useMemo, useRef, useState } from "react"
+import { forwardRef, useCallback, useEffect, useImperativeHandle, useMemo, useRef, useState } from "react"
 import { Search, X, ArrowRight } from "lucide-react"
 import { Input } from "@/components/ui/input"
 import { products, type Product } from "@/components/products"
@@ -20,40 +20,53 @@ function scoreProduct(p: Product, q: string): number {
   const desc = p.description.toLowerCase()
   const strengths = p.variants.map((v) => v.strength.toLowerCase()).join(" ")
 
-  // Exact name match beats everything
   if (name === q) return 100
-  // Name starts with query
   if (name.startsWith(q)) return 80
-  // Any word in name starts with query
   if (name.split(/[\s\-]+/).some((w) => w.startsWith(q))) return 70
-  // Category exact / starts with
   if (cat === q) return 60
   if (cat.startsWith(q)) return 50
-  // Strength match (e.g. "5mg")
   if (strengths.includes(q)) return 40
-  // Substring in name
   if (name.includes(q)) return 30
-  // Substring in description
   if (desc.includes(q)) return 15
-  // Substring in category
   if (cat.includes(q)) return 10
   return 0
 }
 
-export function HeaderSearch({
-  onSelectResult,
-  autoFocus = false,
-  className = "",
-}: {
+export interface HeaderSearchHandle {
+  focus: () => void
+}
+
+export interface HeaderSearchProps {
   onSelectResult?: () => void
   autoFocus?: boolean
   className?: string
-}) {
+  /** Shows a ⌘K / Ctrl+K hint on the right side of the empty input (desktop only). */
+  showShortcutHint?: boolean
+}
+
+export const HeaderSearch = forwardRef<HeaderSearchHandle, HeaderSearchProps>(function HeaderSearch(
+  { onSelectResult, autoFocus = false, className = "", showShortcutHint = false },
+  ref,
+) {
   const [query, setQuery] = useState("")
   const [open, setOpen] = useState(false)
   const [activeIdx, setActiveIdx] = useState(0)
+  const [isFocused, setIsFocused] = useState(false)
+  const [isMac, setIsMac] = useState(false)
   const containerRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
+
+  useImperativeHandle(ref, () => ({
+    focus: () => {
+      inputRef.current?.focus()
+      inputRef.current?.select()
+    },
+  }))
+
+  // Detect Mac for the ⌘ vs Ctrl hint — only runs client-side.
+  useEffect(() => {
+    setIsMac(/Mac|iPhone|iPad/i.test(navigator.platform) || /Mac/i.test(navigator.userAgent))
+  }, [])
 
   const results = useMemo<ScoredProduct[]>(() => {
     const q = query.trim().toLowerCase()
@@ -67,12 +80,10 @@ export function HeaderSearch({
     return scored.slice(0, MAX_RESULTS)
   }, [query])
 
-  // Reset active index when results change
   useEffect(() => {
     setActiveIdx(0)
   }, [results.length])
 
-  // Click outside closes the dropdown
   useEffect(() => {
     if (!open) return
     function onPointerDown(e: MouseEvent) {
@@ -82,7 +93,6 @@ export function HeaderSearch({
     return () => document.removeEventListener("mousedown", onPointerDown)
   }, [open])
 
-  // Auto focus if requested (mobile sheet)
   useEffect(() => {
     if (autoFocus) inputRef.current?.focus()
   }, [autoFocus])
@@ -90,16 +100,13 @@ export function HeaderSearch({
   const commitSearch = useCallback(
     (nextQuery: string) => {
       const trimmed = nextQuery.trim()
-      // Broadcast to the Products grid (same page) so it can sync its internal filter.
       window.dispatchEvent(new CustomEvent("peptidexm:search", { detail: { query: trimmed } }))
       setOpen(false)
 
-      // Scroll the products grid into view without a page jump.
       const el = document.getElementById("products")
       if (el) {
         el.scrollIntoView({ behavior: "smooth", block: "start" })
       } else {
-        // Grid not on this page — navigate home with a hash so the landing page opens scrolled.
         window.location.href = `/?q=${encodeURIComponent(trimmed)}#products`
       }
       onSelectResult?.()
@@ -134,6 +141,7 @@ export function HeaderSearch({
   }
 
   const showDropdown = open && query.trim().length > 0
+  const showHint = showShortcutHint && !query && !isFocused
 
   return (
     <div ref={containerRef} className={`relative ${className}`}>
@@ -152,16 +160,20 @@ export function HeaderSearch({
             setQuery(e.target.value)
             setOpen(true)
           }}
-          onFocus={() => setOpen(true)}
+          onFocus={() => {
+            setIsFocused(true)
+            setOpen(true)
+          }}
+          onBlur={() => setIsFocused(false)}
           onKeyDown={handleKeyDown}
           placeholder="Search peptides..."
           aria-label="Search products"
           aria-expanded={showDropdown}
           aria-controls="header-search-results"
           role="combobox"
-          className="h-10 rounded-full pl-9 pr-9 bg-secondary/60 border-border focus-visible:bg-background"
+          className="h-10 rounded-full pl-9 pr-10 bg-secondary/60 border-border focus-visible:bg-background"
         />
-        {query && (
+        {query ? (
           <button
             type="button"
             onClick={() => {
@@ -173,7 +185,14 @@ export function HeaderSearch({
           >
             <X className="h-3.5 w-3.5" />
           </button>
-        )}
+        ) : showHint ? (
+          <kbd
+            aria-hidden="true"
+            className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 hidden sm:flex items-center h-5 px-1.5 rounded border border-border bg-background text-[10px] font-mono font-medium text-muted-foreground"
+          >
+            {isMac ? "\u2318" : "Ctrl"} K
+          </kbd>
+        ) : null}
       </div>
 
       {showDropdown && (
@@ -239,4 +258,4 @@ export function HeaderSearch({
       )}
     </div>
   )
-}
+})

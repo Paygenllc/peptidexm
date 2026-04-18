@@ -1,6 +1,7 @@
 import Link from "next/link"
 import { Suspense } from "react"
 import { LoginForm } from "./login-form"
+import { BackToStoreLink } from "@/components/back-to-store-link"
 
 export const metadata = {
   title: "Sign In",
@@ -11,6 +12,9 @@ export default function LoginPage() {
   return (
     <div className="min-h-screen flex items-center justify-center bg-secondary/30 p-4 sm:p-6">
       <div className="w-full max-w-md">
+        <div className="mb-4">
+          <BackToStoreLink />
+        </div>
         <div className="mb-6 sm:mb-8 text-center">
           <Link
             href="/"
@@ -20,7 +24,7 @@ export default function LoginPage() {
           </Link>
           <h1 className="font-serif text-3xl sm:text-4xl font-medium text-balance">Welcome back</h1>
           <p className="text-sm sm:text-base text-muted-foreground mt-2 text-pretty">
-            Sign in to track orders, manage your account, or access the admin portal.
+            Sign in to track orders and manage your account.
           </p>
         </div>
         <Suspense fallback={null}>

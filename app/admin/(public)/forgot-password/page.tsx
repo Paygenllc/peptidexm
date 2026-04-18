@@ -1,6 +1,7 @@
 import Link from "next/link"
 import { AlertCircle } from "lucide-react"
 import { ForgotPasswordForm } from "./forgot-password-form"
+import { BackToStoreLink } from "@/components/back-to-store-link"
 
 export const metadata = {
   title: "Reset Password",
@@ -17,6 +18,9 @@ export default async function ForgotPasswordPage({
   return (
     <div className="min-h-screen flex items-center justify-center bg-secondary/30 p-4 sm:p-6">
       <div className="w-full max-w-md">
+        <div className="mb-4">
+          <BackToStoreLink />
+        </div>
         <div className="mb-6 sm:mb-8 text-center">
           <Link
             href="/"
