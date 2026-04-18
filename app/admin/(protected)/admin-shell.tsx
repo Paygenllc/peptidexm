@@ -11,15 +11,37 @@ import {
   LayoutDashboard,
   Package,
   ShoppingCart,
+  Users,
+  Mail,
+  FileText,
   LogOut,
   Home,
   Menu,
 } from "lucide-react"
 
-const navItems = [
-  { href: "/admin", icon: LayoutDashboard, label: "Dashboard", exact: true },
-  { href: "/admin/orders", icon: ShoppingCart, label: "Orders" },
-  { href: "/admin/products", icon: Package, label: "Products" },
+const navSections: Array<{
+  label: string
+  items: Array<{ href: string; icon: typeof LayoutDashboard; label: string; exact?: boolean }>
+}> = [
+  {
+    label: "Overview",
+    items: [{ href: "/admin", icon: LayoutDashboard, label: "Dashboard", exact: true }],
+  },
+  {
+    label: "Commerce",
+    items: [
+      { href: "/admin/orders", icon: ShoppingCart, label: "Orders" },
+      { href: "/admin/products", icon: Package, label: "Products" },
+      { href: "/admin/customers", icon: Users, label: "Customers" },
+    ],
+  },
+  {
+    label: "Content",
+    items: [
+      { href: "/admin/email", icon: Mail, label: "Email" },
+      { href: "/admin/blog", icon: FileText, label: "Blog" },
+    ],
+  },
 ]
 
 export function AdminShell({
@@ -88,28 +110,35 @@ function SidebarContents({
         <p className="text-xs text-muted-foreground mt-1 truncate">{email}</p>
       </div>
 
-      <nav className="flex-1 p-3 sm:p-4 space-y-1">
-        {navItems.map((item) => {
-          const active = item.exact
-            ? pathname === item.href
-            : pathname === item.href || pathname.startsWith(item.href + "/")
-          const Icon = item.icon
-          return (
-            <Link
-              key={item.href}
-              href={item.href}
-              onClick={onNavigate}
-              className={`flex items-center gap-3 px-3 py-2.5 rounded-md text-sm font-medium transition-colors ${
-                active
-                  ? "bg-secondary text-foreground"
-                  : "text-muted-foreground hover:bg-secondary hover:text-foreground"
-              }`}
-            >
-              <Icon className="w-4 h-4" />
-              <span>{item.label}</span>
-            </Link>
-          )
-        })}
+      <nav className="flex-1 p-3 sm:p-4 space-y-5 overflow-y-auto">
+        {navSections.map((section) => (
+          <div key={section.label} className="space-y-1">
+            <div className="px-3 text-[11px] font-medium uppercase tracking-wider text-muted-foreground/80">
+              {section.label}
+            </div>
+            {section.items.map((item) => {
+              const active = item.exact
+                ? pathname === item.href
+                : pathname === item.href || pathname.startsWith(item.href + "/")
+              const Icon = item.icon
+              return (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  onClick={onNavigate}
+                  className={`flex items-center gap-3 px-3 py-2.5 rounded-md text-sm font-medium transition-colors ${
+                    active
+                      ? "bg-secondary text-foreground"
+                      : "text-muted-foreground hover:bg-secondary hover:text-foreground"
+                  }`}
+                >
+                  <Icon className="w-4 h-4" />
+                  <span>{item.label}</span>
+                </Link>
+              )
+            })}
+          </div>
+        ))}
       </nav>
 
       <div className="p-3 sm:p-4 border-t border-border space-y-1 safe-pb">
