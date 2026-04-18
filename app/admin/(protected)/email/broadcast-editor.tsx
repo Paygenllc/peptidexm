@@ -30,6 +30,7 @@ type EditorInitial = {
   preview: string | null
   body_markdown: string
   audience: string
+  custom_recipients: string[] | null
   status: string
   sent_at: string | null
   recipient_count: number
@@ -48,6 +49,9 @@ export function BroadcastEditor({
   const [preview, setPreview] = useState(initial?.preview ?? "")
   const [body, setBody] = useState(initial?.body_markdown ?? "")
   const [audience, setAudience] = useState(initial?.audience ?? "subscribers")
+  const [customRecipients, setCustomRecipients] = useState(
+    (initial?.custom_recipients ?? []).join("\n"),
+  )
   const [tab, setTab] = useState<"write" | "preview">("write")
   const [message, setMessage] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -226,7 +230,7 @@ export function BroadcastEditor({
       </form>
 
       <aside className="space-y-5">
-        <Card className="p-5 space-y-4">
+        <Card className="p-5 space-y-5">
           <div>
             <Label htmlFor="audience">Audience</Label>
             <Select name="audience" value={audience} onValueChange={setAudience} disabled={locked}>
@@ -237,9 +241,35 @@ export function BroadcastEditor({
                 <SelectItem value="subscribers">Newsletter subscribers</SelectItem>
                 <SelectItem value="all_customers">All customers</SelectItem>
                 <SelectItem value="admins">Admins only (test)</SelectItem>
+                <SelectItem value="custom">Custom list only</SelectItem>
               </SelectContent>
             </Select>
             <p className="text-xs text-muted-foreground mt-2">{audienceDescription(audience)}</p>
+          </div>
+
+          <div className="border-t border-border pt-4 space-y-2">
+            <div className="flex items-center justify-between gap-2">
+              <Label htmlFor="custom_recipients">
+                {audience === "custom" ? "Recipients" : "Additional recipients"}
+              </Label>
+              <CustomCountBadge raw={customRecipients} />
+            </div>
+            <Textarea
+              id="custom_recipients"
+              name="custom_recipients"
+              value={customRecipients}
+              onChange={(e) => setCustomRecipients(e.target.value)}
+              disabled={locked}
+              rows={5}
+              placeholder={"press@example.com\nvip@company.com\ninvestor@fund.co"}
+              className="font-mono text-xs leading-relaxed"
+            />
+            <p className="text-xs text-muted-foreground">
+              {audience === "custom"
+                ? "This broadcast will only be sent to these addresses."
+                : "Sent in addition to the selected audience. Duplicates are skipped automatically."}
+              {" "}One email per line, or separate with commas or semicolons.
+            </p>
           </div>
         </Card>
 
@@ -292,7 +322,28 @@ function audienceDescription(a: string) {
   if (a === "subscribers") return "Active customers with marketing subscription turned on."
   if (a === "all_customers") return "Every customer with an account, excluding banned users."
   if (a === "admins") return "Your internal admin team only — useful for testing."
+  if (a === "custom") return "Only the custom recipients listed below — no DB lookup."
   return ""
+}
+
+/** Live-parse the textarea so the admin sees how many emails will actually send. */
+function CustomCountBadge({ raw }: { raw: string }) {
+  const tokens = raw.split(/[\s,;]+/).map((s) => s.trim()).filter(Boolean)
+  const emailRe = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+  const valid = new Set<string>()
+  let invalid = 0
+  for (const t of tokens) {
+    if (emailRe.test(t)) valid.add(t.toLowerCase())
+    else invalid += 1
+  }
+  if (valid.size === 0 && invalid === 0) {
+    return <span className="text-xs text-muted-foreground">none</span>
+  }
+  return (
+    <span className="text-xs tabular-nums text-muted-foreground">
+      {valid.size} valid{invalid > 0 && <span className="text-destructive"> · {invalid} invalid</span>}
+    </span>
+  )
 }
 
 function statusVariant(s: string): "default" | "secondary" | "destructive" | "outline" {

@@ -40,11 +40,18 @@ export default async function BroadcastsPage() {
             Compose and send broadcast emails to your customers.
           </p>
         </div>
-        <Button asChild>
-          <Link href="/admin/email/new" className="gap-2">
-            <Plus className="w-4 h-4" /> New broadcast
-          </Link>
-        </Button>
+        <div className="flex gap-2">
+          <Button asChild variant="outline">
+            <Link href="/admin/email/subscribers" className="gap-2">
+              <Users className="w-4 h-4" /> Subscribers
+            </Link>
+          </Button>
+          <Button asChild>
+            <Link href="/admin/email/new" className="gap-2">
+              <Plus className="w-4 h-4" /> New broadcast
+            </Link>
+          </Button>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -159,6 +166,7 @@ function audienceLabel(a: string) {
   if (a === "all_customers") return "All customers"
   if (a === "subscribers") return "Subscribers"
   if (a === "admins") return "Admins"
+  if (a === "custom") return "Custom list"
   return a
 }
 

@@ -7,7 +7,36 @@ import { markdownToHtml, markdownToPlainText } from "@/lib/markdown"
 import { revalidatePath } from "next/cache"
 import { redirect } from "next/navigation"
 
-export type BroadcastAudience = "subscribers" | "all_customers" | "admins"
+export type BroadcastAudience = "subscribers" | "all_customers" | "admins" | "custom"
+
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+
+/**
+ * Parse a free-form textarea of emails (comma, semicolon, or whitespace-separated)
+ * into a normalized, deduped, validated list. Also returns how many attempted
+ * tokens were invalid, so the UI can show "N addresses were skipped".
+ */
+function parseCustomRecipients(raw: string): { valid: string[]; invalid: number } {
+  const candidates = raw
+    .split(/[\s,;]+/)
+    .map((s) => s.trim())
+    .filter(Boolean)
+
+  const seen = new Set<string>()
+  const valid: string[] = []
+  let invalid = 0
+  for (const c of candidates) {
+    const lower = c.toLowerCase()
+    if (!EMAIL_RE.test(lower)) {
+      invalid += 1
+      continue
+    }
+    if (seen.has(lower)) continue
+    seen.add(lower)
+    valid.push(lower)
+  }
+  return { valid, invalid }
+}
 
 /**
  * Create a draft broadcast. Keeping drafts around so admins can compose,
@@ -20,9 +49,15 @@ export async function createBroadcastDraftAction(formData: FormData) {
   const preview = String(formData.get("preview") || "").trim()
   const bodyMarkdown = String(formData.get("body_markdown") || "").trim()
   const audience = (String(formData.get("audience") || "subscribers") as BroadcastAudience)
+  const { valid: customRecipients } = parseCustomRecipients(
+    String(formData.get("custom_recipients") || ""),
+  )
 
   if (!subject) return { error: "Subject is required" }
   if (!bodyMarkdown) return { error: "Body is required" }
+  if (audience === "custom" && customRecipients.length === 0) {
+    return { error: "Add at least one valid email address for the custom list." }
+  }
 
   const supabase = await createClient()
   const { data, error } = await supabase
@@ -32,6 +67,7 @@ export async function createBroadcastDraftAction(formData: FormData) {
       preview: preview || null,
       body_markdown: bodyMarkdown,
       audience,
+      custom_recipients: customRecipients,
       status: "draft",
       created_by: user.id,
     })
@@ -52,10 +88,16 @@ export async function updateBroadcastAction(formData: FormData) {
   const preview = String(formData.get("preview") || "").trim()
   const bodyMarkdown = String(formData.get("body_markdown") || "").trim()
   const audience = String(formData.get("audience") || "subscribers")
+  const { valid: customRecipients } = parseCustomRecipients(
+    String(formData.get("custom_recipients") || ""),
+  )
 
   if (!id) return { error: "Missing broadcast id" }
   if (!subject) return { error: "Subject is required" }
   if (!bodyMarkdown) return { error: "Body is required" }
+  if (audience === "custom" && customRecipients.length === 0) {
+    return { error: "Add at least one valid email address for the custom list." }
+  }
 
   const supabase = await createClient()
   // Never mutate a broadcast that has already been sent — keeps the audit trail honest.
@@ -73,6 +115,7 @@ export async function updateBroadcastAction(formData: FormData) {
       preview: preview || null,
       body_markdown: bodyMarkdown,
       audience,
+      custom_recipients: customRecipients,
     })
     .eq("id", id)
 
@@ -117,20 +160,38 @@ export async function sendBroadcastAction(formData: FormData) {
   if (loadErr || !broadcast) return { error: "Broadcast not found" }
   if (broadcast.status === "sent") return { error: "Already sent" }
 
-  // Build the audience query based on what the admin chose at composition time.
-  let q = supabase.from("profiles").select("email, full_name")
-  if (broadcast.audience === "subscribers") {
-    q = q.eq("newsletter_subscribed", true).is("banned_at", null)
-  } else if (broadcast.audience === "all_customers") {
-    q = q.is("banned_at", null)
-  } else if (broadcast.audience === "admins") {
-    q = q.eq("is_admin", true)
+  const customList: string[] = Array.isArray(broadcast.custom_recipients)
+    ? (broadcast.custom_recipients as string[])
+    : []
+
+  // Build the base audience list from the DB unless this is a pure "custom" send.
+  let base: Array<{ email: string; full_name: string | null }> = []
+  if (broadcast.audience !== "custom") {
+    let q = supabase.from("profiles").select("email, full_name")
+    if (broadcast.audience === "subscribers") {
+      q = q.eq("newsletter_subscribed", true).is("banned_at", null)
+    } else if (broadcast.audience === "all_customers") {
+      q = q.is("banned_at", null)
+    } else if (broadcast.audience === "admins") {
+      q = q.eq("is_admin", true)
+    }
+    const { data: recipients, error: recErr } = await q
+    if (recErr) return { error: recErr.message }
+    base = (recipients ?? []).filter(
+      (r): r is { email: string; full_name: string | null } => !!r.email,
+    )
   }
 
-  const { data: recipients, error: recErr } = await q
-  if (recErr) return { error: recErr.message }
-
-  const valid = (recipients ?? []).filter((r): r is { email: string; full_name: string | null } => !!r.email)
+  // Merge custom recipients on top, de-duping by lowercased email. This lets
+  // admins send to e.g. "Subscribers + these 3 extras" without double-emailing.
+  const seen = new Set(base.map((r) => r.email.toLowerCase()))
+  for (const email of customList) {
+    const lower = email.toLowerCase()
+    if (seen.has(lower)) continue
+    seen.add(lower)
+    base.push({ email, full_name: null })
+  }
+  const valid = base
 
   // Mark as "sending" so UI reflects state during long loops.
   await supabase
