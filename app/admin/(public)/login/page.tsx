@@ -20,7 +20,7 @@ export default function LoginPage() {
           </Link>
           <h1 className="font-serif text-3xl sm:text-4xl font-medium text-balance">Welcome back</h1>
           <p className="text-sm sm:text-base text-muted-foreground mt-2 text-pretty">
-            Sign in to track orders, manage your account, or access the admin portal.
+            Sign in to track orders and manage your account.
           </p>
         </div>
         <Suspense fallback={null}>
