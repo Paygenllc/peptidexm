@@ -88,15 +88,7 @@ export const metadata: Metadata = {
       "max-snippet": -1,
     },
   },
-  icons: {
-    icon: [
-      { url: "/icon.svg", type: "image/svg+xml" },
-      { url: "/icon-light-32x32.png", media: "(prefers-color-scheme: light)", sizes: "32x32" },
-      { url: "/icon-dark-32x32.png", media: "(prefers-color-scheme: dark)", sizes: "32x32" },
-    ],
-    apple: "/apple-icon.png",
-    shortcut: "/icon.svg",
-  },
+  // Favicon is served automatically from app/icon.svg (Next.js App Router convention).
   manifest: "/manifest.webmanifest",
   referrer: "origin-when-cross-origin",
   formatDetection: {

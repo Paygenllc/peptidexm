@@ -67,6 +67,53 @@ export async function signUpAction(formData: FormData) {
   return { success: true }
 }
 
+export async function requestPasswordResetAction(formData: FormData) {
+  const email = String(formData.get("email") || "").trim()
+  if (!email) return { error: "Enter the email for your account" }
+
+  const supabase = await createClient()
+  const origin = getOrigin(await headers())
+  const redirectTo = origin
+    ? `${origin}/auth/confirm?next=${encodeURIComponent("/admin/reset-password")}`
+    : undefined
+
+  const { error } = await supabase.auth.resetPasswordForEmail(email, { redirectTo })
+
+  // Don't leak whether the email exists — always report success.
+  if (error) {
+    console.error("[v0] requestPasswordReset error", error.message)
+  }
+  return { success: true }
+}
+
+export async function updatePasswordAction(formData: FormData) {
+  const password = String(formData.get("password") || "")
+  const confirmPassword = String(formData.get("confirm_password") || "")
+
+  if (password.length < 8) return { error: "Password must be at least 8 characters" }
+  if (password !== confirmPassword) return { error: "Passwords do not match" }
+
+  const supabase = await createClient()
+
+  // Must be called within a valid recovery session, which the /auth/confirm
+  // route establishes before redirecting here.
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+  if (!user) return { error: "Your reset link has expired. Request a new one." }
+
+  const { error } = await supabase.auth.updateUser({ password })
+  if (error) return { error: error.message }
+
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("is_admin")
+    .eq("id", user.id)
+    .single()
+
+  redirect(profile?.is_admin ? "/admin" : "/account")
+}
+
 export async function logoutAction() {
   const supabase = await createClient()
   await supabase.auth.signOut()
