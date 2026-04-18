@@ -1,6 +1,4 @@
 import Link from "next/link"
-import { redirect } from "next/navigation"
-import { createClient } from "@/lib/supabase/server"
 import { ResetPasswordForm } from "./reset-password-form"
 
 export const metadata = {
@@ -8,16 +6,11 @@ export const metadata = {
   description: "Choose a new password for your PeptideXM account.",
 }
 
-export default async function ResetPasswordPage() {
-  // Must be in a valid recovery session (set up by /auth/confirm).
-  const supabase = await createClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-  if (!user) {
-    redirect("/admin/forgot-password?expired=1")
-  }
-
+// NOTE: no server-side session check here on purpose. The recovery session is
+// established in the browser by the form (from either a hash fragment or a
+// token_hash query param), so gating server-side would redirect users away
+// before the browser ever gets a chance to verify.
+export default function ResetPasswordPage() {
   return (
     <div className="min-h-screen flex items-center justify-center bg-secondary/30 p-4 sm:p-6">
       <div className="w-full max-w-md">
