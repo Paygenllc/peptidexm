@@ -4,7 +4,8 @@ import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { ShoppingCart, Plus, Check } from "lucide-react"
+import { ShoppingCart, Plus, Check, Search, X } from "lucide-react"
+import { Input } from "@/components/ui/input"
 import { useCart } from "@/context/cart-context"
 
 const categories = ["All", "GLP-1", "Growth Hormone", "Recovery", "Cognitive", "Anti-Aging", "Research", "Accessories"]
@@ -744,6 +745,7 @@ const products: Product[] = [
 
 export function Products() {
   const [selectedCategory, setSelectedCategory] = useState("All")
+  const [searchQuery, setSearchQuery] = useState("")
   const [addedToCart, setAddedToCart] = useState<number[]>([])
   const { addItem } = useCart()
   
@@ -757,9 +759,17 @@ export function Products() {
     return initial
   })
 
-  const filteredProducts = selectedCategory === "All" 
-    ? products 
-    : products.filter(p => p.category === selectedCategory)
+  const normalizedQuery = searchQuery.trim().toLowerCase()
+  const filteredProducts = products.filter((p) => {
+    const matchesCategory = selectedCategory === "All" || p.category === selectedCategory
+    if (!matchesCategory) return false
+    if (!normalizedQuery) return true
+    return (
+      p.name.toLowerCase().includes(normalizedQuery) ||
+      p.description.toLowerCase().includes(normalizedQuery) ||
+      p.category.toLowerCase().includes(normalizedQuery)
+    )
+  })
 
   const handleAddToCart = (id: number) => {
     const product = products.find(p => p.id === id)
@@ -786,37 +796,101 @@ export function Products() {
   }
 
   return (
-    <section id="products" className="py-24 lg:py-32 bg-secondary/30">
-      <div className="mx-auto max-w-7xl px-6 lg:px-8">
-        <div className="text-center mb-16">
-          <p className="text-sm font-medium uppercase tracking-widest text-muted-foreground mb-4">
+    <section id="products" className="py-16 sm:py-24 lg:py-32 bg-secondary/30">
+      <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+        <div className="text-center mb-10 sm:mb-16">
+          <p className="text-xs sm:text-sm font-medium uppercase tracking-widest text-muted-foreground mb-3 sm:mb-4">
             Our Collection
           </p>
-          <h2 className="font-serif text-4xl md:text-5xl lg:text-6xl tracking-tight text-foreground">
+          <h2 className="font-serif text-3xl sm:text-4xl md:text-5xl lg:text-6xl tracking-tight text-foreground text-balance">
             Premium Research Peptides
           </h2>
-          <p className="mt-4 text-lg text-muted-foreground max-w-2xl mx-auto">
+          <p className="mt-4 text-base sm:text-lg text-muted-foreground max-w-2xl mx-auto text-pretty">
             All compounds undergo rigorous third-party testing to ensure the highest quality for your research needs.
           </p>
         </div>
 
-        {/* Category Filter */}
-        <div className="flex flex-wrap justify-center gap-2 mb-12">
-          {categories.map((category) => (
-            <Button
-              key={category}
-              variant={selectedCategory === category ? "default" : "outline"}
-              size="sm"
-              onClick={() => setSelectedCategory(category)}
-              className="rounded-full"
-            >
-              {category}
-            </Button>
-          ))}
+        {/* Search bar */}
+        <div className="mx-auto max-w-xl mb-4 sm:mb-6">
+          <div className="relative">
+            <Search
+              aria-hidden="true"
+              className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground"
+            />
+            <Input
+              type="search"
+              inputMode="search"
+              autoComplete="off"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Search peptides by name, category, or description"
+              aria-label="Search products"
+              className="h-12 rounded-full pl-11 pr-11 bg-background shadow-sm"
+            />
+            {searchQuery && (
+              <button
+                type="button"
+                onClick={() => setSearchQuery("")}
+                aria-label="Clear search"
+                className="absolute right-3 top-1/2 -translate-y-1/2 flex h-7 w-7 items-center justify-center rounded-full text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            )}
+          </div>
         </div>
 
+        {/* Category Filter - horizontally scrollable on mobile */}
+        <div className="mb-6 sm:mb-10 -mx-4 sm:mx-0">
+          <div className="flex sm:flex-wrap sm:justify-center gap-2 overflow-x-auto no-scrollbar px-4 sm:px-0 pb-1 snap-x snap-mandatory">
+            {categories.map((category) => (
+              <Button
+                key={category}
+                variant={selectedCategory === category ? "default" : "outline"}
+                size="sm"
+                onClick={() => setSelectedCategory(category)}
+                className="rounded-full shrink-0 snap-start h-9"
+              >
+                {category}
+              </Button>
+            ))}
+          </div>
+        </div>
+
+        {/* Results count */}
+        {(normalizedQuery || selectedCategory !== "All") && (
+          <p className="text-center text-sm text-muted-foreground mb-6 sm:mb-8" aria-live="polite">
+            {filteredProducts.length === 0
+              ? "No products found"
+              : `Showing ${filteredProducts.length} ${filteredProducts.length === 1 ? "product" : "products"}`}
+            {normalizedQuery && <> for &ldquo;{searchQuery}&rdquo;</>}
+          </p>
+        )}
+
+        {/* Empty state */}
+        {filteredProducts.length === 0 && (
+          <div className="text-center py-16 sm:py-24">
+            <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-secondary">
+              <Search className="h-5 w-5 text-muted-foreground" aria-hidden="true" />
+            </div>
+            <h3 className="font-serif text-xl sm:text-2xl text-foreground mb-2">No matches found</h3>
+            <p className="text-sm sm:text-base text-muted-foreground mb-6">
+              Try a different search term or clear the filters to see all products.
+            </p>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setSearchQuery("")
+                setSelectedCategory("All")
+              }}
+            >
+              Reset filters
+            </Button>
+          </div>
+        )}
+
         {/* Products Grid */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
           {filteredProducts.map((product) => (
             <Card 
               key={product.id} 
@@ -843,20 +917,20 @@ export function Products() {
                 </div>
 
                 {/* Product Details */}
-                <div className="p-5">
-                  <div className="flex items-start justify-between mb-2">
-                    <div>
-                      <h3 className="font-medium text-lg text-foreground group-hover:text-accent transition-colors">
+                <div className="p-4 sm:p-5">
+                  <div className="flex items-start justify-between gap-2 mb-2">
+                    <div className="min-w-0">
+                      <h3 className="font-medium text-base sm:text-lg text-foreground group-hover:text-accent transition-colors truncate">
                         {product.name}
                       </h3>
-                      <p className="text-sm text-muted-foreground">{product.dosage}</p>
+                      <p className="text-xs sm:text-sm text-muted-foreground">{product.dosage}</p>
                     </div>
-                    <Badge variant="outline" className="text-xs">
+                    <Badge variant="outline" className="text-[10px] sm:text-xs shrink-0">
                       {product.purity}
                     </Badge>
                   </div>
-                  
-                  <p className="text-sm text-muted-foreground mb-4 line-clamp-2">
+
+                  <p className="text-xs sm:text-sm text-muted-foreground mb-4 line-clamp-2 leading-relaxed">
                     {product.description}
                   </p>
 
@@ -878,25 +952,25 @@ export function Products() {
                     </select>
                   </div>
 
-                  <div className="flex items-center justify-between">
-                    <span className="font-serif text-2xl text-foreground">
+                  <div className="flex items-center justify-between gap-3">
+                    <span className="font-serif text-xl sm:text-2xl text-foreground">
                       ${(product.variants.find(v => v.name === (selectedVariant[product.id] || product.variants[0].name))?.price || product.variants[0].price).toFixed(2)}
                     </span>
-                    <Button 
-                      size="sm" 
+                    <Button
+                      size="sm"
                       disabled={!product.inStock || addedToCart.includes(product.id)}
                       onClick={() => handleAddToCart(product.id)}
-                      className="gap-2"
+                      className="gap-1.5 h-9 px-3 sm:px-4 shrink-0"
                     >
                       {addedToCart.includes(product.id) ? (
                         <>
                           <Check className="h-4 w-4" />
-                          Added
+                          <span>Added</span>
                         </>
                       ) : (
                         <>
                           <Plus className="h-4 w-4" />
-                          Add
+                          <span>Add</span>
                         </>
                       )}
                     </Button>
