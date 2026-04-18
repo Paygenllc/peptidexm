@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useMemo, useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
@@ -8,10 +8,20 @@ import { ShoppingCart, Plus, Check, Search, X } from "lucide-react"
 import { Input } from "@/components/ui/input"
 import { useCart } from "@/context/cart-context"
 
-const categories = ["All", "GLP-1", "Growth Hormone", "Recovery", "Cognitive", "Anti-Aging", "Research", "Accessories"]
+const categories = [
+  "All",
+  "GLP-1",
+  "Growth Hormone",
+  "Recovery",
+  "Cognitive",
+  "Anti-Aging",
+  "Research",
+  "Accessories",
+]
 
 interface Variant {
-  name: string
+  strength: string
+  form: string
   price: number
 }
 
@@ -21,29 +31,48 @@ interface Product {
   category: string
   description: string
   purity: string
-  dosage: string
   inStock: boolean
   popular: boolean
   image: string
   variants: Variant[]
 }
 
+// Helpers to keep the product data concise.
+// Each strength gets a Single Vial price; Kit of 10 is ~9× the single vial price (ends in .99).
+function sv(strength: string, single: number): Variant[] {
+  const kit = Math.round(single * 9) - 0.01
+  return [
+    { strength, form: "Single Vial", price: single },
+    { strength, form: "Kit of 10 Vials", price: kit },
+  ]
+}
+function tab(strength: string, single: number): Variant[] {
+  const kit = Math.round(single * 9) - 0.01
+  return [
+    { strength, form: "Single Bottle", price: single },
+    { strength, form: "Kit of 10 Bottles", price: kit },
+  ]
+}
+
 const products: Product[] = [
-  // GLP-1 Category
+  // ===== GLP-1 =====
   {
     id: 1,
     name: "Tirzepatide",
     category: "GLP-1",
     description: "Dual GIP and GLP-1 receptor agonist for metabolic research applications.",
     purity: "99.1%",
-    dosage: "10mg",
     inStock: true,
     popular: true,
     image: "/products/tirzepatide.jpg",
     variants: [
-      { name: "Single Vial", price: 189.99 },
-      { name: "Kit of 10 Vials", price: 1699.99 }
-    ]
+      ...sv("2mg", 39.99),
+      ...sv("5mg", 99.99),
+      ...sv("10mg", 189.99),
+      ...sv("15mg", 269.99),
+      ...sv("30mg", 499.99),
+      ...sv("60mg", 929.99),
+    ],
   },
   {
     id: 2,
@@ -51,680 +80,619 @@ const products: Product[] = [
     category: "GLP-1",
     description: "GLP-1 receptor agonist peptide for metabolic and appetite research.",
     purity: "99.3%",
-    dosage: "5mg",
     inStock: true,
     popular: true,
     image: "/products/semaglutide.jpg",
     variants: [
-      { name: "Single Vial", price: 159.99 },
-      { name: "Kit of 10 Vials", price: 1439.99 }
-    ]
+      ...sv("2mg", 69.99),
+      ...sv("5mg", 159.99),
+      ...sv("10mg", 299.99),
+    ],
   },
   {
     id: 3,
     name: "Retatrutide",
     category: "GLP-1",
-    description: "Triple agonist peptide targeting GLP-1, GIP, and glucagon receptors.",
-    purity: "99.1%",
-    dosage: "10mg",
+    description: "Triple agonist targeting GLP-1, GIP, and glucagon receptors.",
+    purity: "99.2%",
     inStock: true,
     popular: true,
     image: "/products/retatrutide.jpg",
     variants: [
-      { name: "Single Vial", price: 219.99 },
-      { name: "Kit of 10 Vials", price: 1979.99 }
-    ]
+      ...sv("10mg", 249.99),
+      ...sv("20mg", 479.99),
+    ],
   },
   {
     id: 4,
     name: "Cagrilintide",
     category: "GLP-1",
-    description: "Long-acting amylin analog for metabolic and satiety research.",
+    description: "Amylin analogue for appetite and metabolic research.",
     purity: "99.0%",
-    dosage: "5mg",
     inStock: true,
     popular: false,
     image: "/products/cagrilintide.jpg",
     variants: [
-      { name: "Single Vial", price: 179.99 },
-      { name: "Kit of 10 Vials", price: 1619.99 }
-    ]
+      ...sv("5mg", 89.99),
+      ...sv("10mg", 169.99),
+    ],
   },
   {
     id: 5,
     name: "AOD-9604",
     category: "GLP-1",
-    description: "Modified fragment of HGH for lipolysis and metabolic research.",
-    purity: "99.2%",
-    dosage: "5mg",
+    description: "Synthetic fragment of human growth hormone for fat metabolism research.",
+    purity: "98.9%",
     inStock: true,
     popular: false,
     image: "/products/aod-9604.jpg",
     variants: [
-      { name: "Single Vial", price: 89.99 },
-      { name: "Kit of 10 Vials", price: 809.99 }
-    ]
+      ...sv("2mg", 29.99),
+      ...sv("5mg", 59.99),
+    ],
   },
-  // Growth Hormone Category
+
+  // ===== Growth Hormone =====
   {
     id: 6,
     name: "Sermorelin",
     category: "Growth Hormone",
-    description: "Growth hormone releasing hormone analog for GHRH receptor studies.",
-    purity: "99.0%",
-    dosage: "5mg",
+    description: "Growth hormone releasing hormone analog for research.",
+    purity: "98.8%",
     inStock: true,
-    popular: true,
+    popular: false,
     image: "/products/sermorelin.jpg",
     variants: [
-      { name: "Single Vial", price: 79.99 },
-      { name: "Kit of 10 Vials", price: 719.99 }
-    ]
+      ...sv("2mg", 24.99),
+      ...sv("5mg", 49.99),
+    ],
   },
   {
     id: 7,
     name: "Tesamorelin",
     category: "Growth Hormone",
-    description: "Growth hormone releasing factor analog for body composition research.",
-    purity: "99.2%",
-    dosage: "5mg",
+    description: "Stabilized GHRH analog used in visceral adipose research.",
+    purity: "99.0%",
     inStock: true,
-    popular: true,
+    popular: false,
     image: "/products/tesamorelin.jpg",
     variants: [
-      { name: "Single Vial", price: 134.99 },
-      { name: "Kit of 10 Vials", price: 1214.99 }
-    ]
+      ...sv("2mg", 39.99),
+      ...sv("5mg", 79.99),
+      ...sv("10mg", 149.99),
+    ],
   },
   {
     id: 8,
     name: "CJC-1295 (with DAC)",
     category: "Growth Hormone",
-    description: "Modified GHRH with Drug Affinity Complex for extended half-life studies.",
-    purity: "99.0%",
-    dosage: "5mg",
+    description: "Long-acting GHRH analog with drug affinity complex for sustained release.",
+    purity: "99.1%",
     inStock: true,
-    popular: false,
+    popular: true,
     image: "/products/cjc-1295-dac.jpg",
     variants: [
-      { name: "Single Vial", price: 89.99 },
-      { name: "Kit of 10 Vials", price: 809.99 }
-    ]
+      ...sv("2mg", 49.99),
+    ],
   },
   {
     id: 9,
     name: "CJC-1295 (no DAC)",
     category: "Growth Hormone",
-    description: "Modified GHRH without DAC for pulsatile GH release research.",
-    purity: "99.1%",
-    dosage: "5mg",
+    description: "Short-acting GHRH analog without drug affinity complex.",
+    purity: "99.0%",
     inStock: true,
     popular: false,
-    image: "/products/cjc-1295.jpg",
+    image: "/products/cjc-1295-no-dac.jpg",
     variants: [
-      { name: "Single Vial", price: 79.99 },
-      { name: "Kit of 10 Vials", price: 719.99 }
-    ]
+      ...sv("2mg", 24.99),
+      ...sv("5mg", 49.99),
+      ...sv("10mg", 89.99),
+    ],
   },
   {
     id: 10,
     name: "Ipamorelin",
     category: "Growth Hormone",
-    description: "Selective growth hormone secretagogue for GH pulse research.",
-    purity: "99.1%",
-    dosage: "5mg",
+    description: "Selective growth hormone secretagogue peptide.",
+    purity: "99.2%",
     inStock: true,
     popular: true,
     image: "/products/ipamorelin.jpg",
     variants: [
-      { name: "Single Vial", price: 69.99 },
-      { name: "Kit of 10 Vials", price: 629.99 }
-    ]
+      ...sv("2mg", 19.99),
+      ...sv("5mg", 44.99),
+      ...sv("10mg", 84.99),
+    ],
   },
   {
     id: 11,
     name: "Hexarelin",
     category: "Growth Hormone",
-    description: "Potent hexapeptide GHRP for growth hormone secretion studies.",
-    purity: "99.0%",
-    dosage: "5mg",
+    description: "Potent growth hormone releasing peptide.",
+    purity: "98.9%",
     inStock: true,
     popular: false,
     image: "/products/hexarelin.jpg",
     variants: [
-      { name: "Single Vial", price: 74.99 },
-      { name: "Kit of 10 Vials", price: 674.99 }
-    ]
+      ...sv("2mg", 29.99),
+      ...sv("5mg", 54.99),
+    ],
   },
   {
     id: 12,
     name: "GHRP-2",
     category: "Growth Hormone",
-    description: "Growth hormone releasing peptide-2 for GH secretion research.",
-    purity: "99.2%",
-    dosage: "5mg",
+    description: "Growth hormone releasing peptide with potent GH-stimulating effects.",
+    purity: "99.0%",
     inStock: true,
     popular: false,
     image: "/products/ghrp-2.jpg",
     variants: [
-      { name: "Single Vial", price: 64.99 },
-      { name: "Kit of 10 Vials", price: 584.99 }
-    ]
+      ...sv("2mg", 24.99),
+      ...sv("5mg", 49.99),
+    ],
   },
   {
     id: 13,
     name: "HGH",
     category: "Growth Hormone",
-    description: "Human growth hormone for comprehensive GH research applications.",
+    description: "Recombinant human growth hormone for somatropin research.",
     purity: "99.5%",
-    dosage: "10IU",
     inStock: true,
     popular: true,
     image: "/products/hgh.jpg",
     variants: [
-      { name: "Single Vial", price: 299.99 },
-      { name: "Kit of 10 Vials", price: 2699.99 }
-    ]
+      ...sv("10 IU", 149.99),
+    ],
   },
   {
     id: 14,
     name: "IGF-1 LR3",
     category: "Growth Hormone",
-    description: "Long-acting insulin-like growth factor for muscle research.",
-    purity: "99.1%",
-    dosage: "1mg",
+    description: "Long R3 insulin-like growth factor for cellular research.",
+    purity: "98.8%",
     inStock: true,
     popular: false,
     image: "/products/igf-1-lr3.jpg",
     variants: [
-      { name: "Single Vial", price: 149.99 },
-      { name: "Kit of 10 Vials", price: 1349.99 }
-    ]
+      ...sv("0.1mg", 24.99),
+      ...sv("1mg", 99.99),
+    ],
   },
   {
     id: 15,
     name: "PEG MGF",
     category: "Growth Hormone",
-    description: "PEGylated mechano growth factor for tissue repair research.",
-    purity: "99.0%",
-    dosage: "2mg",
+    description: "PEGylated mechano growth factor for extended activity research.",
+    purity: "98.7%",
     inStock: true,
     popular: false,
     image: "/products/peg-mgf.jpg",
     variants: [
-      { name: "Single Vial", price: 119.99 },
-      { name: "Kit of 10 Vials", price: 1079.99 }
-    ]
+      ...sv("5mg", 69.99),
+    ],
   },
   {
     id: 16,
     name: "MK-677 (Ibutamoren)",
     category: "Growth Hormone",
-    description: "Non-peptide ghrelin mimetic for oral GH secretagogue research.",
-    purity: "99.3%",
-    dosage: "25mg/mL",
+    description: "Oral ghrelin receptor agonist for growth hormone research (tablets).",
+    purity: "99.0%",
     inStock: true,
     popular: true,
     image: "/products/mk-677.jpg",
     variants: [
-      { name: "Single Vial", price: 79.99 },
-      { name: "Kit of 10 Vials", price: 719.99 }
-    ]
+      ...tab("12mg tablets", 69.99),
+    ],
   },
-  // Recovery Category
+
+  // ===== Recovery =====
   {
     id: 17,
     name: "BPC-157",
     category: "Recovery",
-    description: "Body protection compound for tissue healing and repair research.",
-    purity: "99.2%",
-    dosage: "5mg",
+    description: "Body protective compound for tissue repair and gut health research.",
+    purity: "99.4%",
     inStock: true,
     popular: true,
     image: "/products/bpc-157.jpg",
     variants: [
-      { name: "Single Vial", price: 54.99 },
-      { name: "Kit of 10 Vials", price: 494.99 }
-    ]
+      ...sv("2mg", 34.99),
+      ...sv("5mg", 79.99),
+      ...sv("10mg", 149.99),
+    ],
   },
   {
     id: 18,
     name: "Thymosin B4 (TB-500)",
     category: "Recovery",
-    description: "Thymosin beta-4 for cell migration and tissue repair research.",
-    purity: "99.1%",
-    dosage: "5mg",
+    description: "Beta-thymosin peptide for tissue regeneration research.",
+    purity: "99.2%",
     inStock: true,
     popular: true,
     image: "/products/tb-500.jpg",
     variants: [
-      { name: "Single Vial", price: 74.99 },
-      { name: "Kit of 10 Vials", price: 674.99 }
-    ]
+      ...sv("2mg", 39.99),
+      ...sv("5mg", 89.99),
+      ...sv("10mg", 169.99),
+    ],
   },
   {
     id: 19,
     name: "GHK-Cu",
     category: "Recovery",
-    description: "Copper peptide complex for skin regeneration and wound healing research.",
-    purity: "99.0%",
-    dosage: "5mg",
+    description: "Copper tripeptide for skin and tissue healing research.",
+    purity: "98.9%",
     inStock: true,
     popular: false,
     image: "/products/ghk-cu.jpg",
     variants: [
-      { name: "Single Vial", price: 64.99 },
-      { name: "Kit of 10 Vials", price: 584.99 }
-    ]
+      ...sv("50mg", 69.99),
+      ...sv("100mg", 129.99),
+    ],
   },
   {
     id: 20,
     name: "Thymosin Alpha 1",
     category: "Recovery",
-    description: "Immune-modulating peptide for immunology research applications.",
+    description: "Immunomodulatory peptide for immune function research.",
     purity: "99.0%",
-    dosage: "5mg",
     inStock: true,
     popular: false,
     image: "/products/thymosin-alpha-1.jpg",
     variants: [
-      { name: "Single Vial", price: 89.99 },
-      { name: "Kit of 10 Vials", price: 809.99 }
-    ]
+      ...sv("5mg", 89.99),
+      ...sv("10mg", 169.99),
+    ],
   },
   {
     id: 21,
     name: "KPV",
     category: "Recovery",
-    description: "Anti-inflammatory tripeptide for inflammation and healing research.",
-    purity: "99.1%",
-    dosage: "5mg",
+    description: "Anti-inflammatory tripeptide for gut and tissue research.",
+    purity: "98.8%",
     inStock: true,
     popular: false,
     image: "/products/kpv.jpg",
     variants: [
-      { name: "Single Vial", price: 59.99 },
-      { name: "Kit of 10 Vials", price: 539.99 }
-    ]
+      ...sv("10mg", 59.99),
+    ],
   },
   {
     id: 22,
     name: "Thymulin",
     category: "Recovery",
-    description: "Zinc-dependent thymic peptide for immune function research.",
-    purity: "99.0%",
-    dosage: "5mg",
+    description: "Zinc-bound thymic peptide for immune research applications.",
+    purity: "98.9%",
     inStock: true,
     popular: false,
     image: "/products/thymulin.jpg",
     variants: [
-      { name: "Single Vial", price: 69.99 },
-      { name: "Kit of 10 Vials", price: 629.99 }
-    ]
+      ...sv("10mg", 79.99),
+    ],
   },
-  // Cognitive Category
+
+  // ===== Cognitive =====
   {
     id: 23,
     name: "Semax",
     category: "Cognitive",
-    description: "Nootropic heptapeptide for cognitive enhancement research.",
-    purity: "99.2%",
-    dosage: "30mg",
+    description: "Neuropeptide for cognitive and neuroprotective research.",
+    purity: "99.1%",
     inStock: true,
-    popular: true,
+    popular: false,
     image: "/products/semax.jpg",
     variants: [
-      { name: "Single Vial", price: 49.99 },
-      { name: "Kit of 10 Vials", price: 449.99 }
-    ]
+      ...sv("10mg", 49.99),
+    ],
   },
   {
     id: 24,
     name: "Selank",
     category: "Cognitive",
-    description: "Anxiolytic peptide for stress and cognition research.",
-    purity: "99.1%",
-    dosage: "30mg",
+    description: "Anxiolytic peptide for anxiety and cognition research.",
+    purity: "99.0%",
     inStock: true,
-    popular: true,
+    popular: false,
     image: "/products/selank.jpg",
     variants: [
-      { name: "Single Vial", price: 49.99 },
-      { name: "Kit of 10 Vials", price: 449.99 }
-    ]
+      ...sv("5mg", 49.99),
+    ],
   },
   {
     id: 25,
     name: "DSIP",
     category: "Cognitive",
     description: "Delta sleep-inducing peptide for sleep cycle research.",
-    purity: "99.0%",
-    dosage: "5mg",
+    purity: "98.8%",
     inStock: true,
     popular: false,
     image: "/products/dsip.jpg",
     variants: [
-      { name: "Single Vial", price: 59.99 },
-      { name: "Kit of 10 Vials", price: 539.99 }
-    ]
+      ...sv("5mg", 49.99),
+    ],
   },
   {
     id: 26,
     name: "Pinealon",
     category: "Cognitive",
-    description: "Bioregulator peptide for brain and nervous system research.",
-    purity: "99.0%",
-    dosage: "20mg",
+    description: "Tripeptide bioregulator for neuronal and cognitive research.",
+    purity: "98.9%",
     inStock: true,
     popular: false,
     image: "/products/pinealon.jpg",
     variants: [
-      { name: "Single Vial", price: 54.99 },
-      { name: "Kit of 10 Vials", price: 494.99 }
-    ]
+      ...sv("16mg", 59.99),
+    ],
   },
-  // Anti-Aging Category
+
+  // ===== Anti-Aging =====
   {
     id: 27,
     name: "Epithalon",
     category: "Anti-Aging",
-    description: "Tetrapeptide for telomerase activation and longevity research.",
-    purity: "99.1%",
-    dosage: "10mg",
+    description: "Tetrapeptide for telomere and longevity research.",
+    purity: "99.0%",
     inStock: true,
     popular: true,
     image: "/products/epithalon.jpg",
     variants: [
-      { name: "Single Vial", price: 89.99 },
-      { name: "Kit of 10 Vials", price: 809.99 }
-    ]
+      ...sv("10mg", 59.99),
+    ],
   },
   {
     id: 28,
     name: "NAD+",
     category: "Anti-Aging",
-    description: "Nicotinamide adenine dinucleotide for cellular energy research.",
-    purity: "99.5%",
-    dosage: "500mg",
+    description: "Nicotinamide adenine dinucleotide for mitochondrial research.",
+    purity: "99.2%",
     inStock: true,
     popular: true,
-    image: "/products/nad-plus.jpg",
+    image: "/products/nad.jpg",
     variants: [
-      { name: "Single Vial", price: 129.99 },
-      { name: "Kit of 10 Vials", price: 1169.99 }
-    ]
+      ...sv("500mg", 89.99),
+    ],
   },
   {
     id: 29,
     name: "NMN",
     category: "Anti-Aging",
-    description: "Nicotinamide mononucleotide for NAD+ precursor research.",
-    purity: "99.3%",
-    dosage: "500mg",
+    description: "Nicotinamide mononucleotide for NAD+ precursor research (tablets).",
+    purity: "99.0%",
     inStock: true,
-    popular: true,
+    popular: false,
     image: "/products/nmn.jpg",
     variants: [
-      { name: "Single Vial", price: 99.99 },
-      { name: "Kit of 10 Vials", price: 899.99 }
-    ]
+      ...tab("50mg tablets", 49.99),
+    ],
   },
   {
     id: 30,
     name: "MOTS-C",
     category: "Anti-Aging",
     description: "Mitochondrial-derived peptide for metabolic and aging research.",
-    purity: "99.0%",
-    dosage: "5mg",
+    purity: "99.1%",
     inStock: true,
     popular: false,
     image: "/products/mots-c.jpg",
     variants: [
-      { name: "Single Vial", price: 119.99 },
-      { name: "Kit of 10 Vials", price: 1079.99 }
-    ]
+      ...sv("10mg", 79.99),
+    ],
   },
   {
     id: 31,
     name: "SS31",
     category: "Anti-Aging",
-    description: "Mitochondria-targeted antioxidant peptide for cellular research.",
-    purity: "99.1%",
-    dosage: "5mg",
+    description: "Mitochondria-targeted peptide for oxidative stress research.",
+    purity: "98.9%",
     inStock: true,
     popular: false,
     image: "/products/ss31.jpg",
     variants: [
-      { name: "Single Vial", price: 109.99 },
-      { name: "Kit of 10 Vials", price: 989.99 }
-    ]
+      ...sv("10mg", 99.99),
+    ],
   },
   {
     id: 32,
     name: "Snap-8",
     category: "Anti-Aging",
-    description: "Octapeptide for wrinkle reduction and cosmetic research.",
-    purity: "99.0%",
-    dosage: "500mg",
+    description: "Octapeptide for skincare and neuromodulatory research.",
+    purity: "98.8%",
     inStock: true,
     popular: false,
     image: "/products/snap-8.jpg",
     variants: [
-      { name: "Single Vial", price: 69.99 },
-      { name: "Kit of 10 Vials", price: 629.99 }
-    ]
+      ...sv("10mg", 59.99),
+    ],
   },
   {
     id: 33,
     name: "PE 22-28",
     category: "Anti-Aging",
-    description: "Spadin analog peptide for neuroplasticity and mood research.",
-    purity: "99.0%",
-    dosage: "10mg",
+    description: "Spadin derivative for neuroplasticity and mood research.",
+    purity: "98.9%",
     inStock: true,
     popular: false,
     image: "/products/pe-22-28.jpg",
     variants: [
-      { name: "Single Vial", price: 79.99 },
-      { name: "Kit of 10 Vials", price: 719.99 }
-    ]
+      ...sv("8mg", 69.99),
+    ],
   },
-  // Research Category
+
+  // ===== Research =====
   {
     id: 34,
     name: "PT-141",
     category: "Research",
-    description: "Melanocortin receptor agonist for sexual function research.",
-    purity: "99.2%",
-    dosage: "10mg",
+    description: "Melanocortin receptor agonist for sexual health research.",
+    purity: "99.0%",
     inStock: true,
     popular: true,
     image: "/products/pt-141.jpg",
     variants: [
-      { name: "Single Vial", price: 64.99 },
-      { name: "Kit of 10 Vials", price: 584.99 }
-    ]
+      ...sv("5mg", 39.99),
+      ...sv("10mg", 69.99),
+    ],
   },
   {
     id: 35,
     name: "Melanotan 2",
     category: "Research",
-    description: "Synthetic melanocortin peptide for tanning and libido research.",
-    purity: "99.1%",
-    dosage: "10mg",
+    description: "Synthetic analog of alpha-melanocyte-stimulating hormone.",
+    purity: "98.7%",
     inStock: true,
-    popular: true,
+    popular: false,
     image: "/products/melanotan-2.jpg",
     variants: [
-      { name: "Single Vial", price: 54.99 },
-      { name: "Kit of 10 Vials", price: 494.99 }
-    ]
+      ...sv("10mg", 49.99),
+    ],
   },
   {
     id: 36,
     name: "Oxytocin Acetate",
     category: "Research",
-    description: "Neuropeptide hormone for social bonding and behavior research.",
-    purity: "99.0%",
-    dosage: "5mg",
+    description: "Nine-amino-acid peptide hormone for social behavior research.",
+    purity: "99.1%",
     inStock: true,
     popular: false,
     image: "/products/oxytocin.jpg",
     variants: [
-      { name: "Single Vial", price: 79.99 },
-      { name: "Kit of 10 Vials", price: 719.99 }
-    ]
+      ...sv("2mg", 59.99),
+    ],
   },
   {
     id: 37,
     name: "Kisspeptin-10",
     category: "Research",
-    description: "Hypothalamic peptide for reproductive endocrinology research.",
-    purity: "99.0%",
-    dosage: "5mg",
+    description: "GPR54 agonist peptide for reproductive endocrinology research.",
+    purity: "98.9%",
     inStock: true,
     popular: false,
     image: "/products/kisspeptin-10.jpg",
     variants: [
-      { name: "Single Vial", price: 89.99 },
-      { name: "Kit of 10 Vials", price: 809.99 }
-    ]
+      ...sv("5mg", 59.99),
+    ],
   },
   {
     id: 38,
     name: "HCG",
     category: "Research",
-    description: "Human chorionic gonadotropin for fertility research applications.",
-    purity: "99.3%",
-    dosage: "5000IU",
+    description: "Human chorionic gonadotropin for endocrine research.",
+    purity: "99.0%",
     inStock: true,
     popular: false,
     image: "/products/hcg.jpg",
     variants: [
-      { name: "Single Vial", price: 99.99 },
-      { name: "Kit of 10 Vials", price: 899.99 }
-    ]
+      ...sv("5000 IU", 69.99),
+    ],
   },
   {
     id: 39,
     name: "HMG",
     category: "Research",
-    description: "Human menopausal gonadotropin for gonadotropin research.",
-    purity: "99.0%",
-    dosage: "75IU",
+    description: "Human menopausal gonadotropin for reproductive research.",
+    purity: "98.8%",
     inStock: true,
     popular: false,
     image: "/products/hmg.jpg",
     variants: [
-      { name: "Single Vial", price: 109.99 },
-      { name: "Kit of 10 Vials", price: 989.99 }
-    ]
+      ...sv("75 IU", 79.99),
+    ],
   },
   {
     id: 40,
     name: "FST344",
     category: "Research",
-    description: "Follistatin 344 for myostatin inhibition research applications.",
-    purity: "99.0%",
-    dosage: "1mg",
+    description: "Follistatin 344 for myostatin inhibition research.",
+    purity: "98.7%",
     inStock: true,
     popular: false,
     image: "/products/fst344.jpg",
     variants: [
-      { name: "Single Vial", price: 199.99 },
-      { name: "Kit of 10 Vials", price: 1799.99 }
-    ]
+      ...sv("1mg", 149.99),
+    ],
   },
   {
     id: 41,
     name: "GDF-8 (Myostatin)",
     category: "Research",
-    description: "Growth differentiation factor for muscle regulation research.",
-    purity: "99.0%",
-    dosage: "1mg",
+    description: "Growth differentiation factor 8 for muscle biology research.",
+    purity: "98.9%",
     inStock: true,
     popular: false,
     image: "/products/gdf-8.jpg",
     variants: [
-      { name: "Single Vial", price: 179.99 },
-      { name: "Kit of 10 Vials", price: 1619.99 }
-    ]
+      ...sv("1mg", 99.99),
+    ],
   },
   {
     id: 42,
     name: "GW501516 (Cardarine)",
     category: "Research",
-    description: "PPAR-delta agonist for endurance and metabolic research.",
-    purity: "99.2%",
-    dosage: "20mg/mL",
+    description: "PPAR-delta agonist research compound (tablets).",
+    purity: "99.0%",
     inStock: true,
     popular: false,
     image: "/products/gw501516.jpg",
     variants: [
-      { name: "Single Vial", price: 69.99 },
-      { name: "Kit of 10 Vials", price: 629.99 }
-    ]
+      ...tab("10mg tablets", 49.99),
+    ],
   },
   {
     id: 43,
     name: "SLU-PP-332",
     category: "Research",
-    description: "ERR agonist for exercise mimetic and metabolic research.",
+    description: "ERR agonist research compound (tablets).",
     purity: "99.0%",
-    dosage: "10mg",
     inStock: true,
     popular: false,
     image: "/products/slu-pp-332.jpg",
     variants: [
-      { name: "Single Vial", price: 89.99 },
-      { name: "Kit of 10 Vials", price: 809.99 }
-    ]
+      ...tab("250mcg tablets", 69.99),
+    ],
   },
   {
     id: 44,
     name: "GLOW Blend",
     category: "Research",
-    description: "Custom peptide blend for skin and aesthetic research.",
+    description: "Blend of BPC-157 / TB-500 / GHK-Cu for tissue research.",
     purity: "99.0%",
-    dosage: "10mg",
     inStock: true,
-    popular: false,
+    popular: true,
     image: "/products/glow-blend.jpg",
     variants: [
-      { name: "Single Vial", price: 129.99 },
-      { name: "Kit of 10 Vials", price: 1169.99 }
-    ]
+      ...sv("10/10/75mg", 129.99),
+    ],
   },
+
+  // ===== Accessories =====
   {
     id: 45,
     name: "Starter Bundle",
-    category: "Research",
-    description: "Curated peptide bundle for new researchers getting started.",
-    purity: "99.0%",
-    dosage: "Various",
+    category: "Accessories",
+    description: "Complete starter kit with bacteriostatic water and syringes.",
+    purity: "Sterile",
     inStock: true,
     popular: true,
     image: "/products/starter-bundle.jpg",
     variants: [
-      { name: "Single Kit", price: 249.99 },
-      { name: "Bundle of 5", price: 1199.99 }
-    ]
+      { strength: "Standard", form: "Bundle", price: 39.99 },
+    ],
   },
-  // Accessories Category
   {
     id: 46,
     name: "Bacteriostatic Water",
     category: "Accessories",
-    description: "Sterile water with 0.9% benzyl alcohol for peptide reconstitution.",
-    purity: "USP",
-    dosage: "30mL",
+    description: "Sterile bacteriostatic water for reconstitution.",
+    purity: "Sterile",
     inStock: true,
     popular: true,
-    image: "/products/bac-water.jpg",
+    image: "/products/bacteriostatic-water.jpg",
     variants: [
-      { name: "Single Vial", price: 14.99 },
-      { name: "Pack of 10", price: 134.99 }
-    ]
+      { strength: "30ml", form: "Single Vial", price: 9.99 },
+      { strength: "30ml", form: "10 Vials", price: 79.99 },
+    ],
   },
   {
     id: 47,
@@ -732,66 +700,105 @@ const products: Product[] = [
     category: "Accessories",
     description: "Sterile insulin syringes for precise peptide administration.",
     purity: "Sterile",
-    dosage: "100ct",
     inStock: true,
     popular: true,
     image: "/products/insulin-syringes.jpg",
     variants: [
-      { name: "Single Pack", price: 19.99 },
-      { name: "10 Packs", price: 179.99 }
-    ]
+      { strength: "100ct", form: "Single Pack", price: 19.99 },
+      { strength: "100ct", form: "10 Packs", price: 179.99 },
+    ],
   },
 ]
+
+// Selection shape stored per product: { strength, form }
+type Selection = { strength: string; form: string }
+
+function getUniqueStrengths(variants: Variant[]): string[] {
+  return Array.from(new Set(variants.map((v) => v.strength)))
+}
+function getFormsForStrength(variants: Variant[], strength: string): string[] {
+  return Array.from(new Set(variants.filter((v) => v.strength === strength).map((v) => v.form)))
+}
 
 export function Products() {
   const [selectedCategory, setSelectedCategory] = useState("All")
   const [searchQuery, setSearchQuery] = useState("")
   const [addedToCart, setAddedToCart] = useState<number[]>([])
   const { addItem } = useCart()
-  
-  // Initialize with Kit of 10 (or equivalent) as default
-  const [selectedVariant, setSelectedVariant] = useState<{ [key: number]: string }>(() => {
-    const initial: { [key: number]: string } = {}
-    products.forEach(product => {
-      // Default to second variant (Kit of 10 or equivalent), fallback to first if only one exists
-      initial[product.id] = product.variants.length > 1 ? product.variants[1].name : product.variants[0].name
-    })
+
+  // Initialize each product's selection: first strength, first form of that strength.
+  const [selection, setSelection] = useState<Record<number, Selection>>(() => {
+    const initial: Record<number, Selection> = {}
+    for (const product of products) {
+      const strengths = getUniqueStrengths(product.variants)
+      const defaultStrength = strengths[0]
+      const defaultForm = getFormsForStrength(product.variants, defaultStrength)[0]
+      initial[product.id] = { strength: defaultStrength, form: defaultForm }
+    }
     return initial
   })
 
+  function setStrength(productId: number, strength: string) {
+    const product = products.find((p) => p.id === productId)
+    if (!product) return
+    const forms = getFormsForStrength(product.variants, strength)
+    setSelection((prev) => ({
+      ...prev,
+      [productId]: {
+        strength,
+        // Preserve the previously selected form if it exists for this strength, else pick first.
+        form: forms.includes(prev[productId]?.form) ? prev[productId].form : forms[0],
+      },
+    }))
+  }
+
+  function setForm(productId: number, form: string) {
+    setSelection((prev) => ({
+      ...prev,
+      [productId]: { ...prev[productId], form },
+    }))
+  }
+
   const normalizedQuery = searchQuery.trim().toLowerCase()
-  const filteredProducts = products.filter((p) => {
-    const matchesCategory = selectedCategory === "All" || p.category === selectedCategory
-    if (!matchesCategory) return false
-    if (!normalizedQuery) return true
-    return (
-      p.name.toLowerCase().includes(normalizedQuery) ||
-      p.description.toLowerCase().includes(normalizedQuery) ||
-      p.category.toLowerCase().includes(normalizedQuery)
-    )
-  })
+  const filteredProducts = useMemo(
+    () =>
+      products.filter((p) => {
+        const matchesCategory = selectedCategory === "All" || p.category === selectedCategory
+        if (!matchesCategory) return false
+        if (!normalizedQuery) return true
+        return (
+          p.name.toLowerCase().includes(normalizedQuery) ||
+          p.description.toLowerCase().includes(normalizedQuery) ||
+          p.category.toLowerCase().includes(normalizedQuery)
+        )
+      }),
+    [selectedCategory, normalizedQuery],
+  )
 
   const handleAddToCart = (id: number) => {
-    const product = products.find(p => p.id === id)
+    const product = products.find((p) => p.id === id)
     if (!product) return
+    const sel = selection[id]
+    if (!sel) return
 
-    const selectedVariantName = selectedVariant[id] || product.variants[0].name
-    const variantData = product.variants.find(v => v.name === selectedVariantName)
-    
+    const variantData = product.variants.find((v) => v.strength === sel.strength && v.form === sel.form)
     if (!variantData) return
+
+    // Combine strength + form into a single human-readable label for the cart/order record.
+    const variantLabel = `${sel.strength} — ${sel.form}`
 
     addItem({
       id: product.id,
       name: product.name,
-      variant: selectedVariantName,
+      variant: variantLabel,
       price: variantData.price,
       quantity: 1,
       image: product.image,
     })
 
-    setAddedToCart(prev => [...prev, id])
+    setAddedToCart((prev) => [...prev, id])
     setTimeout(() => {
-      setAddedToCart(prev => prev.filter(i => i !== id))
+      setAddedToCart((prev) => prev.filter((i) => i !== id))
     }, 2000)
   }
 
@@ -840,7 +847,7 @@ export function Products() {
           </div>
         </div>
 
-        {/* Category Filter - horizontally scrollable on mobile */}
+        {/* Category Filter */}
         <div className="mb-6 sm:mb-10 -mx-4 sm:mx-0">
           <div className="flex sm:flex-wrap sm:justify-center gap-2 overflow-x-auto no-scrollbar px-4 sm:px-0 pb-1 snap-x snap-mandatory">
             {categories.map((category) => (
@@ -891,94 +898,142 @@ export function Products() {
 
         {/* Products Grid */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
-          {filteredProducts.map((product) => (
-            <Card 
-              key={product.id} 
-              className="group overflow-hidden border-border/50 hover:border-border hover:shadow-lg transition-all duration-300"
-            >
-              <CardContent className="p-0">
-                {/* Product Image Area */}
-                <div className="relative aspect-square bg-secondary/50 flex items-center justify-center overflow-hidden">
-                  <img 
-                    src={product.image} 
-                    alt={product.name}
-                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-                  />
-                  {product.popular && (
-                    <Badge className="absolute top-3 left-3 bg-accent text-accent-foreground">
-                      Popular
-                    </Badge>
-                  )}
-                  {!product.inStock && (
-                    <Badge variant="secondary" className="absolute top-3 right-3">
-                      Out of Stock
-                    </Badge>
-                  )}
-                </div>
+          {filteredProducts.map((product) => {
+            const strengths = getUniqueStrengths(product.variants)
+            const sel = selection[product.id]
+            const forms = sel ? getFormsForStrength(product.variants, sel.strength) : []
+            const activeVariant = product.variants.find(
+              (v) => v.strength === sel?.strength && v.form === sel?.form,
+            )
+            const price = activeVariant?.price ?? product.variants[0].price
+            const showStrengthPicker = strengths.length > 1
+            const showFormPicker = forms.length > 1
 
-                {/* Product Details */}
-                <div className="p-4 sm:p-5">
-                  <div className="flex items-start justify-between gap-2 mb-2">
-                    <div className="min-w-0">
-                      <h3 className="font-medium text-base sm:text-lg text-foreground group-hover:text-accent transition-colors truncate">
-                        {product.name}
-                      </h3>
-                      <p className="text-xs sm:text-sm text-muted-foreground">{product.dosage}</p>
+            return (
+              <Card
+                key={product.id}
+                className="group overflow-hidden border-border/50 hover:border-border hover:shadow-lg transition-all duration-300"
+              >
+                <CardContent className="p-0">
+                  {/* Product Image Area */}
+                  <div className="relative aspect-square bg-secondary/50 flex items-center justify-center overflow-hidden">
+                    <img
+                      src={product.image || "/placeholder.svg"}
+                      alt={product.name}
+                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                    />
+                    {product.popular && (
+                      <Badge className="absolute top-3 left-3 bg-accent text-accent-foreground">Popular</Badge>
+                    )}
+                    {!product.inStock && (
+                      <Badge variant="secondary" className="absolute top-3 right-3">
+                        Out of Stock
+                      </Badge>
+                    )}
+                  </div>
+
+                  {/* Product Details */}
+                  <div className="p-4 sm:p-5">
+                    <div className="flex items-start justify-between gap-2 mb-2">
+                      <div className="min-w-0">
+                        <h3 className="font-medium text-base sm:text-lg text-foreground group-hover:text-accent transition-colors truncate">
+                          {product.name}
+                        </h3>
+                        <p className="text-xs sm:text-sm text-muted-foreground">{sel?.strength}</p>
+                      </div>
+                      <Badge variant="outline" className="text-[10px] sm:text-xs shrink-0">
+                        {product.purity}
+                      </Badge>
                     </div>
-                    <Badge variant="outline" className="text-[10px] sm:text-xs shrink-0">
-                      {product.purity}
-                    </Badge>
-                  </div>
 
-                  <p className="text-xs sm:text-sm text-muted-foreground mb-4 line-clamp-2 leading-relaxed">
-                    {product.description}
-                  </p>
+                    <p className="text-xs sm:text-sm text-muted-foreground mb-4 line-clamp-2 leading-relaxed">
+                      {product.description}
+                    </p>
 
-                  {/* Variant Selector */}
-                  <div className="mb-4">
-                    <label className="text-xs font-medium text-muted-foreground mb-2 block">
-                      Select Option
-                    </label>
-                    <select 
-                      value={selectedVariant[product.id]}
-                      onChange={(e) => setSelectedVariant(prev => ({ ...prev, [product.id]: e.target.value }))}
-                      className="w-full px-3 py-2 text-sm border border-border rounded-md bg-background text-foreground hover:border-border/80 focus:outline-none focus:ring-1 focus:ring-accent"
-                    >
-                      {product.variants.map((variant) => (
-                        <option key={variant.name} value={variant.name}>
-                          {variant.name}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
+                    {/* Strength picker */}
+                    {showStrengthPicker && (
+                      <div className="mb-3">
+                        <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground mb-1.5">
+                          1. Select strength
+                        </p>
+                        <div className="flex flex-wrap gap-1.5">
+                          {strengths.map((s) => {
+                            const active = s === sel?.strength
+                            return (
+                              <button
+                                key={s}
+                                type="button"
+                                onClick={() => setStrength(product.id, s)}
+                                aria-pressed={active}
+                                className={`h-8 px-3 rounded-full text-xs font-medium border transition-colors ${
+                                  active
+                                    ? "bg-primary text-primary-foreground border-primary"
+                                    : "bg-background text-foreground border-border hover:border-foreground/40"
+                                }`}
+                              >
+                                {s}
+                              </button>
+                            )
+                          })}
+                        </div>
+                      </div>
+                    )}
 
-                  <div className="flex items-center justify-between gap-3">
-                    <span className="font-serif text-xl sm:text-2xl text-foreground">
-                      ${(product.variants.find(v => v.name === (selectedVariant[product.id] || product.variants[0].name))?.price || product.variants[0].price).toFixed(2)}
-                    </span>
-                    <Button
-                      size="sm"
-                      disabled={!product.inStock || addedToCart.includes(product.id)}
-                      onClick={() => handleAddToCart(product.id)}
-                      className="gap-1.5 h-9 px-3 sm:px-4 shrink-0"
-                    >
-                      {addedToCart.includes(product.id) ? (
-                        <>
-                          <Check className="h-4 w-4" />
-                          <span>Added</span>
-                        </>
-                      ) : (
-                        <>
-                          <Plus className="h-4 w-4" />
-                          <span>Add</span>
-                        </>
-                      )}
-                    </Button>
+                    {/* Form picker */}
+                    {showFormPicker && (
+                      <div className="mb-4">
+                        <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground mb-1.5">
+                          {showStrengthPicker ? "2. Select option" : "Select option"}
+                        </p>
+                        <div className="flex flex-wrap gap-1.5">
+                          {forms.map((f) => {
+                            const active = f === sel?.form
+                            return (
+                              <button
+                                key={f}
+                                type="button"
+                                onClick={() => setForm(product.id, f)}
+                                aria-pressed={active}
+                                className={`h-8 px-3 rounded-full text-xs font-medium border transition-colors ${
+                                  active
+                                    ? "bg-primary text-primary-foreground border-primary"
+                                    : "bg-background text-foreground border-border hover:border-foreground/40"
+                                }`}
+                              >
+                                {f}
+                              </button>
+                            )
+                          })}
+                        </div>
+                      </div>
+                    )}
+
+                    <div className="flex items-center justify-between gap-3">
+                      <span className="font-serif text-xl sm:text-2xl text-foreground">${price.toFixed(2)}</span>
+                      <Button
+                        size="sm"
+                        disabled={!product.inStock || addedToCart.includes(product.id)}
+                        onClick={() => handleAddToCart(product.id)}
+                        className="gap-1.5 h-9 px-3 sm:px-4 shrink-0"
+                      >
+                        {addedToCart.includes(product.id) ? (
+                          <>
+                            <Check className="h-4 w-4" />
+                            <span>Added</span>
+                          </>
+                        ) : (
+                          <>
+                            <Plus className="h-4 w-4" />
+                            <span>Add</span>
+                          </>
+                        )}
+                      </Button>
+                    </div>
                   </div>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
+                </CardContent>
+              </Card>
+            )
+          })}
         </div>
 
         {/* View All Button */}

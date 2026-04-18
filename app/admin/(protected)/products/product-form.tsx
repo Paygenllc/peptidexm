@@ -14,10 +14,33 @@ import { saveProductAction, deleteProductAction } from "@/app/admin/actions/prod
 
 type VariantInput = {
   id?: string
-  variant_name: string
+  strength: string
+  form: string
   price: string
   stock: string
   sku: string
+}
+
+const VARIANT_SEPARATOR = " — "
+
+// Parse the stored variant_name into strength + form.
+// Expected format: "10mg — Single Vial". Fallback: if no separator is present,
+// treat the entire string as the form and leave strength blank.
+function parseVariantName(variantName: string): { strength: string; form: string } {
+  const idx = variantName.indexOf(VARIANT_SEPARATOR)
+  if (idx === -1) return { strength: "", form: variantName }
+  return {
+    strength: variantName.slice(0, idx).trim(),
+    form: variantName.slice(idx + VARIANT_SEPARATOR.length).trim(),
+  }
+}
+
+// Combine strength + form back into a single variant_name for storage.
+function buildVariantName(strength: string, form: string): string {
+  const s = strength.trim()
+  const f = form.trim()
+  if (s && f) return `${s}${VARIANT_SEPARATOR}${f}`
+  return s || f
 }
 
 export function ProductForm({ product, variants }: { product?: Product; variants?: ProductVariant[] }) {
@@ -41,14 +64,18 @@ export function ProductForm({ product, variants }: { product?: Product; variants
 
   const [variantList, setVariantList] = useState<VariantInput[]>(
     variants && variants.length > 0
-      ? variants.map((v) => ({
-          id: v.id,
-          variant_name: v.variant_name,
-          price: v.price.toString(),
-          stock: v.stock.toString(),
-          sku: v.sku ?? "",
-        }))
-      : [{ variant_name: "Single Vial", price: "", stock: "999", sku: "" }],
+      ? variants.map((v) => {
+          const { strength, form: f } = parseVariantName(v.variant_name)
+          return {
+            id: v.id,
+            strength,
+            form: f,
+            price: v.price.toString(),
+            stock: v.stock.toString(),
+            sku: v.sku ?? "",
+          }
+        })
+      : [{ strength: "10mg", form: "Single Vial", price: "", stock: "999", sku: "" }],
   )
 
   function updateVariant(index: number, field: keyof VariantInput, value: string) {
@@ -56,7 +83,12 @@ export function ProductForm({ product, variants }: { product?: Product; variants
   }
 
   function addVariant() {
-    setVariantList((prev) => [...prev, { variant_name: "", price: "", stock: "999", sku: "" }])
+    // Copy the strength of the previous row to speed up data entry (common case: multiple forms per strength).
+    const last = variantList[variantList.length - 1]
+    setVariantList((prev) => [
+      ...prev,
+      { strength: last?.strength ?? "", form: "", price: "", stock: "999", sku: "" },
+    ])
   }
 
   function removeVariant(index: number) {
@@ -67,6 +99,15 @@ export function ProductForm({ product, variants }: { product?: Product; variants
     e.preventDefault()
     setError(null)
     setMessage(null)
+
+    // Validate: require at least a form for every non-blank row.
+    for (const v of variantList) {
+      if (!v.form.trim()) {
+        setError("Every variant needs a form (e.g., Single Vial or Kit of 10 Vials).")
+        return
+      }
+    }
+
     startTransition(async () => {
       const result = await saveProductAction({
         id: product?.id,
@@ -74,7 +115,7 @@ export function ProductForm({ product, variants }: { product?: Product; variants
         sort_order: Number.parseInt(form.sort_order) || 0,
         variants: variantList.map((v, idx) => ({
           id: v.id,
-          variant_name: v.variant_name,
+          variant_name: buildVariantName(v.strength, v.form),
           price: Number.parseFloat(v.price) || 0,
           stock: Number.parseInt(v.stock) || 0,
           sku: v.sku || null,
@@ -146,12 +187,12 @@ export function ProductForm({ product, variants }: { product?: Product; variants
             />
           </div>
           <div className="space-y-2">
-            <Label htmlFor="dosage">Dosage</Label>
+            <Label htmlFor="dosage">Default dosage label (optional)</Label>
             <Input
               id="dosage"
               value={form.dosage}
               onChange={(e) => setForm({ ...form, dosage: e.target.value })}
-              placeholder="10mg"
+              placeholder="Shown on product card header"
             />
           </div>
           <div className="space-y-2">
@@ -199,8 +240,14 @@ export function ProductForm({ product, variants }: { product?: Product; variants
       </Card>
 
       <Card className="p-6 space-y-4">
-        <div className="flex items-center justify-between">
-          <h2 className="font-semibold text-foreground">Variants</h2>
+        <div className="flex items-start justify-between gap-3 flex-wrap">
+          <div>
+            <h2 className="font-semibold text-foreground">Variants</h2>
+            <p className="text-xs text-muted-foreground mt-1">
+              Add a row for every strength + form combination (e.g., 10mg + Single Vial, 10mg + Kit of 10 Vials).
+              Customers pick a strength first and then a form.
+            </p>
+          </div>
           <Button type="button" variant="outline" size="sm" onClick={addVariant}>
             <Plus className="w-4 h-4 mr-1" />
             Add variant
@@ -208,13 +255,24 @@ export function ProductForm({ product, variants }: { product?: Product; variants
         </div>
         <div className="space-y-3">
           {variantList.map((v, idx) => (
-            <div key={idx} className="grid grid-cols-1 md:grid-cols-[2fr_1fr_1fr_1fr_auto] gap-2 items-end">
+            <div
+              key={idx}
+              className="grid grid-cols-2 md:grid-cols-[1fr_1.4fr_1fr_0.8fr_0.8fr_auto] gap-2 items-end"
+            >
               <div className="space-y-1">
-                {idx === 0 && <Label className="text-xs text-muted-foreground">Name</Label>}
+                {idx === 0 && <Label className="text-xs text-muted-foreground">Strength</Label>}
+                <Input
+                  value={v.strength}
+                  onChange={(e) => updateVariant(idx, "strength", e.target.value)}
+                  placeholder="10mg"
+                />
+              </div>
+              <div className="space-y-1">
+                {idx === 0 && <Label className="text-xs text-muted-foreground">Form</Label>}
                 <Input
                   required
-                  value={v.variant_name}
-                  onChange={(e) => updateVariant(idx, "variant_name", e.target.value)}
+                  value={v.form}
+                  onChange={(e) => updateVariant(idx, "form", e.target.value)}
                   placeholder="Single Vial"
                 />
               </div>
@@ -251,6 +309,7 @@ export function ProductForm({ product, variants }: { product?: Product; variants
                 size="icon"
                 onClick={() => removeVariant(idx)}
                 disabled={variantList.length === 1}
+                aria-label="Remove variant"
               >
                 <Trash2 className="w-4 h-4" />
               </Button>
