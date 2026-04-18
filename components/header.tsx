@@ -87,7 +87,7 @@ export function Header() {
                     asChild
                     onClick={() => setIsMenuOpen(false)}
                   >
-                    <Link href="/admin/login">
+                    <Link href="/account">
                       <User className="h-4 w-4" />
                       Account
                     </Link>
@@ -113,7 +113,7 @@ export function Header() {
 
         <div className="hidden lg:flex lg:flex-1 lg:justify-end lg:gap-x-2">
           <Button variant="ghost" size="icon" asChild aria-label="Account">
-            <Link href="/admin/login">
+            <Link href="/account">
               <User className="h-5 w-5" />
             </Link>
           </Button>

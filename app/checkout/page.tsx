@@ -10,6 +10,7 @@ import Link from 'next/link'
 import { US_STATES, COUNTRIES } from '@/lib/locations'
 import { placeOrderAction } from '@/app/actions/place-order'
 import { getShippingFee, isUSCountry } from '@/lib/shipping'
+import { ZellePaymentPanel } from '@/components/zelle-payment-panel'
 
 interface CustomerInfo {
   email: string
@@ -42,6 +43,7 @@ export default function CheckoutPage() {
   const [errors, setErrors] = useState<{ [key: string]: string }>({})
   const [isProcessing, setIsProcessing] = useState(false)
   const [placedOrderNumber, setPlacedOrderNumber] = useState<string | null>(null)
+  const [placedOrderTotal, setPlacedOrderTotal] = useState<number | null>(null)
   const [placeError, setPlaceError] = useState<string | null>(null)
 
   const shippingFee = getShippingFee(customerInfo.country)
@@ -120,6 +122,7 @@ export default function CheckoutPage() {
       }
 
       setPlacedOrderNumber(result.orderNumber ?? null)
+      setPlacedOrderTotal(typeof result.total === 'number' ? result.total : orderTotal)
       setStep('success')
       clearCart()
     } catch (e) {
@@ -158,28 +161,31 @@ export default function CheckoutPage() {
       <div className="mx-auto max-w-4xl px-4 sm:px-6 lg:px-8">
         {/* Success Page */}
         {step === 'success' && (
-          <div className="text-center py-16 sm:py-24">
-            <div className="flex justify-center mb-6">
-              <CheckCircle className="h-14 w-14 sm:h-16 sm:w-16 text-green-600" />
-            </div>
-            <h1 className="font-serif text-3xl sm:text-4xl font-medium mb-4 text-balance">Order Placed Successfully!</h1>
-            {placedOrderNumber && (
-              <p className="text-muted-foreground mb-2 text-sm sm:text-base">
-                Order <span className="font-mono font-medium text-foreground break-all">{placedOrderNumber}</span>
+          <div className="py-8 sm:py-12">
+            <div className="text-center mb-8">
+              <div className="inline-flex items-center justify-center h-14 w-14 sm:h-16 sm:w-16 rounded-full bg-green-100 mb-4">
+                <CheckCircle className="h-8 w-8 sm:h-9 sm:w-9 text-green-700" />
+              </div>
+              <h1 className="font-serif text-2xl sm:text-3xl font-medium mb-2 text-balance">Order placed</h1>
+              {placedOrderNumber && (
+                <p className="text-muted-foreground text-sm sm:text-base">
+                  Order <span className="font-mono font-medium text-foreground break-all">{placedOrderNumber}</span>
+                </p>
+              )}
+              <p className="text-muted-foreground text-sm sm:text-base mt-1 px-4">
+                Confirmation sent to <span className="font-medium break-all">{customerInfo.email}</span>
               </p>
+            </div>
+
+            {placedOrderNumber && placedOrderTotal !== null && (
+              <div className="mx-auto max-w-xl">
+                <ZellePaymentPanel
+                  orderNumber={placedOrderNumber}
+                  total={placedOrderTotal}
+                  customerEmail={customerInfo.email}
+                />
+              </div>
             )}
-            <p className="text-muted-foreground mb-2 text-sm sm:text-base px-4">
-              A confirmation will be sent to <span className="font-medium break-all">{customerInfo.email}</span>
-            </p>
-            <p className="text-muted-foreground mb-8 text-sm sm:text-base px-4">
-              Questions? Reach us at{' '}
-              <a href="mailto:peptidexm@gmail.com" className="font-medium text-foreground underline underline-offset-4 break-all">
-                peptidexm@gmail.com
-              </a>
-            </p>
-            <Button asChild size="lg" className="h-12">
-              <Link href="/">Return to Store</Link>
-            </Button>
           </div>
         )}
 

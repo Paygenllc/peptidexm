@@ -13,7 +13,11 @@ import { AlertCircle, Loader2 } from "lucide-react"
 export function LoginForm() {
   const searchParams = useSearchParams()
   const initialError =
-    searchParams.get("error") === "not_admin" ? "This account does not have admin access." : null
+    searchParams.get("error") === "auth_required"
+      ? "Please sign in to continue."
+      : searchParams.get("error") === "not_admin"
+        ? "This account does not have admin access."
+        : null
 
   const [error, setError] = useState<string | null>(initialError)
   const [isPending, startTransition] = useTransition()
@@ -28,7 +32,7 @@ export function LoginForm() {
 
   return (
     <Card className="border-2">
-      <CardContent className="p-8">
+      <CardContent className="p-6 sm:p-8">
         <form action={handleSubmit} className="space-y-5">
           {error && (
             <div
@@ -47,28 +51,29 @@ export function LoginForm() {
               type="email"
               required
               autoComplete="email"
-              placeholder="admin@peptidexm.com"
+              placeholder="you@example.com"
             />
           </div>
           <div className="space-y-2">
             <Label htmlFor="password">Password</Label>
-            <Input id="password" name="password" type="password" required autoComplete="current-password" />
+            <Input
+              id="password"
+              name="password"
+              type="password"
+              required
+              autoComplete="current-password"
+            />
           </div>
           <Button type="submit" className="w-full h-11" disabled={isPending}>
             {isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : "Sign In"}
           </Button>
         </form>
 
-        <p className="text-xs text-muted-foreground mt-6 text-center">
-          Need admin access? Sign up at{" "}
-          <Link href="/admin/signup" className="underline hover:text-foreground">
-            /admin/signup
-          </Link>{" "}
-          then grant access at{" "}
-          <Link href="/admin/bootstrap" className="underline hover:text-foreground">
-            /admin/bootstrap
+        <p className="text-sm text-muted-foreground mt-6 text-center">
+          New to PeptideXM?{" "}
+          <Link href="/admin/signup" className="font-medium text-foreground underline underline-offset-4 hover:text-accent">
+            Create an account
           </Link>
-          .
         </p>
       </CardContent>
     </Card>

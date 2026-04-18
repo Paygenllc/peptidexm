@@ -85,6 +85,39 @@ export default async function OrderDetailPage({ params }: { params: Promise<{ id
           </Card>
 
           <Card className="p-6">
+            <h2 className="font-semibold text-foreground mb-4">Payment</h2>
+            <dl className="grid grid-cols-1 sm:grid-cols-2 gap-y-3 gap-x-6 text-sm">
+              <Field label="Method" value={(order.payment_method || "zelle").toUpperCase()} />
+              <Field label="Status" value={order.payment_status} />
+              <div className="sm:col-span-2">
+                <dt className="text-xs text-muted-foreground uppercase tracking-wide">Customer reference</dt>
+                <dd className="text-foreground mt-0.5 font-mono text-xs break-all">
+                  {order.payment_reference ? (
+                    order.payment_reference
+                  ) : (
+                    <span className="font-sans text-muted-foreground italic">Not submitted yet</span>
+                  )}
+                </dd>
+              </div>
+              {order.payment_submitted_at && (
+                <Field
+                  label="Submitted at"
+                  value={new Date(order.payment_submitted_at).toLocaleString("en-US", {
+                    dateStyle: "medium",
+                    timeStyle: "short",
+                  })}
+                />
+              )}
+            </dl>
+            {order.payment_reference && order.payment_status !== "paid" && (
+              <p className="mt-4 rounded-md bg-amber-50 border border-amber-200 px-3 py-2 text-xs text-amber-900">
+                Customer submitted a Zelle reference. Verify the transfer arrived at peptidexm@gmail.com, then mark
+                Payment as <span className="font-semibold">paid</span> in the panel on the right.
+              </p>
+            )}
+          </Card>
+
+          <Card className="p-6">
             <h2 className="font-semibold text-foreground mb-4">Customer</h2>
             <dl className="grid grid-cols-1 sm:grid-cols-2 gap-y-3 gap-x-6 text-sm">
               <Field label="Name" value={`${order.first_name} ${order.last_name}`} />

@@ -1,52 +1,120 @@
-import type { Metadata, Viewport } from 'next'
-import { DM_Serif_Display, Inter } from 'next/font/google'
-import { Analytics } from '@vercel/analytics/next'
-import { CartProvider } from '@/context/cart-context'
-import './globals.css'
+import type { Metadata, Viewport } from "next"
+import { DM_Serif_Display, Inter } from "next/font/google"
+import { Analytics } from "@vercel/analytics/next"
+import { CartProvider } from "@/context/cart-context"
+import "./globals.css"
 
-const dmSerif = DM_Serif_Display({ 
+const dmSerif = DM_Serif_Display({
   subsets: ["latin"],
   weight: "400",
-  variable: "--font-serif"
-});
+  variable: "--font-serif",
+})
 
-const inter = Inter({ 
+const inter = Inter({
   subsets: ["latin"],
-  variable: "--font-sans"
-});
+  variable: "--font-sans",
+})
+
+const siteUrl = process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/$/, "") || "https://www.peptidexm.com"
+const siteName = "PeptideXM"
+const siteDescription =
+  "Premium research peptides from PeptideXM. Lab-tested Tirzepatide, Semaglutide, Retatrutide, BPC-157, Sermorelin and 45+ more compounds with 98%+ purity and fast domestic shipping."
 
 export const metadata: Metadata = {
-  title: 'PeptideXM | Premium Research Peptides',
-  description: 'Premium quality research peptides including Tirzepatide, Semaglutide, Sermorelin, and 50+ more compounds. Lab-tested purity, fast shipping.',
-  generator: 'v0.app',
-  icons: {
-    icon: [
+  metadataBase: new URL(siteUrl),
+  title: {
+    default: `${siteName} — Premium Research Peptides`,
+    template: `%s | ${siteName}`,
+  },
+  description: siteDescription,
+  applicationName: siteName,
+  generator: "v0.app",
+  keywords: [
+    "research peptides",
+    "buy peptides",
+    "Tirzepatide",
+    "Semaglutide",
+    "Retatrutide",
+    "Cagrilintide",
+    "BPC-157",
+    "TB-500",
+    "Sermorelin",
+    "Ipamorelin",
+    "GLP-1 research",
+    "GHK-Cu",
+    "Epithalon",
+    "NAD+",
+    "MK-677",
+    "PeptideXM",
+  ],
+  authors: [{ name: "PeptideXM" }],
+  creator: "PeptideXM",
+  publisher: "PeptideXM",
+  category: "Research Chemicals",
+  alternates: {
+    canonical: "/",
+  },
+  openGraph: {
+    type: "website",
+    url: siteUrl,
+    siteName,
+    title: `${siteName} — Premium Research Peptides`,
+    description: siteDescription,
+    locale: "en_US",
+    images: [
       {
-        url: '/icon-light-32x32.png',
-        media: '(prefers-color-scheme: light)',
-      },
-      {
-        url: '/icon-dark-32x32.png',
-        media: '(prefers-color-scheme: dark)',
-      },
-      {
-        url: '/icon.svg',
-        type: 'image/svg+xml',
+        url: "/og-image.jpg",
+        width: 1200,
+        height: 630,
+        alt: `${siteName} — lab-tested research peptides`,
       },
     ],
-    apple: '/apple-icon.png',
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: `${siteName} — Premium Research Peptides`,
+    description: siteDescription,
+    images: ["/og-image.jpg"],
+  },
+  robots: {
+    index: true,
+    follow: true,
+    nocache: false,
+    googleBot: {
+      index: true,
+      follow: true,
+      "max-video-preview": -1,
+      "max-image-preview": "large",
+      "max-snippet": -1,
+    },
+  },
+  icons: {
+    icon: [
+      { url: "/icon.svg", type: "image/svg+xml" },
+      { url: "/icon-light-32x32.png", media: "(prefers-color-scheme: light)", sizes: "32x32" },
+      { url: "/icon-dark-32x32.png", media: "(prefers-color-scheme: dark)", sizes: "32x32" },
+    ],
+    apple: "/apple-icon.png",
+    shortcut: "/icon.svg",
+  },
+  manifest: "/manifest.webmanifest",
+  referrer: "origin-when-cross-origin",
+  formatDetection: {
+    email: false,
+    address: false,
+    telephone: false,
   },
 }
 
 export const viewport: Viewport = {
   themeColor: [
-    { media: '(prefers-color-scheme: light)', color: '#fafaf8' },
-    { media: '(prefers-color-scheme: dark)', color: '#171717' },
+    { media: "(prefers-color-scheme: light)", color: "#fafaf8" },
+    { media: "(prefers-color-scheme: dark)", color: "#171717" },
   ],
-  width: 'device-width',
+  width: "device-width",
   initialScale: 1,
   maximumScale: 5,
-  viewportFit: 'cover',
+  viewportFit: "cover",
 }
 
 export default function RootLayout({
@@ -56,11 +124,11 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" className="bg-background">
-      <body className={`${inter.variable} ${dmSerif.variable} font-sans antialiased bg-background text-foreground min-h-screen`}>
-        <CartProvider>
-          {children}
-        </CartProvider>
-        {process.env.NODE_ENV === 'production' && <Analytics />}
+      <body
+        className={`${inter.variable} ${dmSerif.variable} font-sans antialiased bg-background text-foreground min-h-screen`}
+      >
+        <CartProvider>{children}</CartProvider>
+        {process.env.NODE_ENV === "production" && <Analytics />}
       </body>
     </html>
   )

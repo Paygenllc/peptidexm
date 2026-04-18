@@ -3,6 +3,11 @@
 import { createAdminClient } from "@/lib/supabase/admin"
 import { createClient } from "@/lib/supabase/server"
 import { getShippingFee } from "@/lib/shipping"
+import {
+  sendOrderPlacedAdminEmail,
+  sendOrderPlacedCustomerEmail,
+  type OrderEmailInput,
+} from "@/lib/email"
 import { revalidatePath } from "next/cache"
 
 interface OrderItemInput {
@@ -50,6 +55,7 @@ export async function placeOrderAction(input: PlaceOrderInput) {
     .insert({
       status: "processing",
       payment_status: "pending",
+      payment_method: "zelle",
       email: input.email.trim(),
       phone: input.phone.trim() || null,
       first_name: input.firstName.trim(),
@@ -94,10 +100,38 @@ export async function placeOrderAction(input: PlaceOrderInput) {
 
   revalidatePath("/admin/orders")
   revalidatePath("/admin")
+  if (user?.id) revalidatePath("/account")
+
+  // Fire-and-forget confirmation emails (do not block the checkout response)
+  const emailPayload: OrderEmailInput = {
+    orderNumber: order.order_number,
+    total,
+    customerName: `${input.firstName.trim()} ${input.lastName.trim()}`.trim() || input.email.trim(),
+    customerEmail: input.email.trim(),
+    shippingAddress: [
+      input.address.trim(),
+      input.address2?.trim() || "",
+      `${input.city.trim()}, ${input.state.trim()} ${input.zipCode.trim()}`.trim(),
+      input.country.trim() || "United States",
+    ]
+      .filter(Boolean)
+      .join("\n"),
+    items: input.items.map((i) => ({
+      name: i.productName,
+      variant: i.variantName,
+      quantity: i.quantity,
+      price: i.unitPrice,
+    })),
+  }
+  void Promise.allSettled([
+    sendOrderPlacedCustomerEmail(emailPayload),
+    sendOrderPlacedAdminEmail(emailPayload),
+  ])
 
   return {
     success: true,
     orderId: order.id,
     orderNumber: order.order_number,
+    total,
   }
 }

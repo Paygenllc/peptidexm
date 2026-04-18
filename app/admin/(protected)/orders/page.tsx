@@ -21,7 +21,9 @@ export default async function OrdersPage({
   const supabase = await createClient()
   let query = supabase
     .from("orders")
-    .select("id, order_number, email, first_name, last_name, status, payment_status, total, created_at")
+    .select(
+      "id, order_number, email, first_name, last_name, status, payment_status, payment_reference, total, created_at"
+    )
     .order("created_at", { ascending: false })
 
   if (status !== "all") {
@@ -113,9 +115,16 @@ export default async function OrdersPage({
                     })}
                   </td>
                   <td className="p-3 whitespace-nowrap">
-                    <Badge variant={order.payment_status === "paid" ? "default" : "outline"}>
-                      {order.payment_status}
-                    </Badge>
+                    <div className="flex items-center gap-2">
+                      <Badge variant={order.payment_status === "paid" ? "default" : "outline"}>
+                        {order.payment_status}
+                      </Badge>
+                      {order.payment_reference && order.payment_status !== "paid" && (
+                        <span className="text-[11px] font-medium text-amber-700">
+                          Awaiting verify
+                        </span>
+                      )}
+                    </div>
                   </td>
                   <td className="p-3 whitespace-nowrap">
                     <Badge variant={statusVariant(order.status)}>{order.status}</Badge>
