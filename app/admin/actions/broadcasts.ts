@@ -180,6 +180,20 @@ export async function sendBroadcastAction(formData: FormData) {
     base = (recipients ?? []).filter(
       (r): r is { email: string; full_name: string | null } => !!r.email,
     )
+
+    // For the "subscribers" audience we also want standalone newsletter
+    // subscribers (people who used the footer form but never created an
+    // account). They don't have a full_name.
+    if (broadcast.audience === "subscribers") {
+      const { data: standalone, error: sErr } = await supabase
+        .from("newsletter_subscribers")
+        .select("email")
+        .is("unsubscribed_at", null)
+      if (sErr) return { error: sErr.message }
+      for (const row of standalone ?? []) {
+        if (row.email) base.push({ email: row.email, full_name: null })
+      }
+    }
   }
 
   // Merge custom recipients on top, de-duping by lowercased email. This lets

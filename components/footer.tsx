@@ -1,7 +1,6 @@
 import Link from "next/link"
 import { Mail } from "lucide-react"
-import { Input } from "@/components/ui/input"
-import { Button } from "@/components/ui/button"
+import { NewsletterForm } from "@/components/newsletter-form"
 import { CONTACT_EMAIL, mailto } from "@/lib/contact"
 
 const navigation = {
@@ -52,17 +51,7 @@ export function Footer() {
               <p className="text-sm font-medium text-background mb-3 sm:mb-4">
                 Subscribe to our newsletter
               </p>
-              <form className="flex flex-col sm:flex-row gap-2">
-                <Input
-                  type="email"
-                  placeholder="Enter your email"
-                  aria-label="Email address"
-                  className="h-11 bg-background/10 border-background/20 text-background placeholder:text-background/40 focus-visible:border-background/40"
-                />
-                <Button variant="secondary" className="h-11 w-full sm:w-auto">
-                  Subscribe
-                </Button>
-              </form>
+              <NewsletterForm tone="dark" source="footer" />
               <p className="mt-3 text-xs text-background/40">
                 Get updates on new products and research. No spam, unsubscribe anytime.
               </p>
