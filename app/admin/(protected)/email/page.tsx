@@ -3,7 +3,7 @@ import { createClient } from "@/lib/supabase/server"
 import { Card } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { Mail, Plus, Send, Users, ShieldCheck } from "lucide-react"
+import { Mail, Plus, Send, Users, ShieldCheck, FileText, History } from "lucide-react"
 
 export const dynamic = "force-dynamic"
 
@@ -24,6 +24,9 @@ export default async function BroadcastsPage() {
   ])
 
   const broadcasts = broadcastsRes.data ?? []
+  // Split by lifecycle: drafts (incl. in-flight / failed) vs. sent history.
+  const drafts = broadcasts.filter((b) => b.status !== "sent")
+  const history = broadcasts.filter((b) => b.status === "sent")
   const allProfiles = audienceCountsRes.data ?? []
   const subscribers = allProfiles.filter((p) => p.newsletter_subscribed && !p.banned_at).length
   const customers = allProfiles.filter((p) => !p.banned_at).length
@@ -75,6 +78,74 @@ export default async function BroadcastsPage() {
         />
       </div>
 
+      <BroadcastSection
+        icon={<FileText className="w-4 h-4" />}
+        title="Drafts"
+        subtitle="Broadcasts you haven't sent yet. Click any row to keep editing."
+        count={drafts.length}
+        rows={drafts}
+        emptyMessage="No drafts right now."
+      />
+
+      <BroadcastSection
+        icon={<History className="w-4 h-4" />}
+        title="History"
+        subtitle="Every broadcast you've sent, newest first. Sent broadcasts cannot be edited."
+        count={history.length}
+        rows={history}
+        emptyMessage="No broadcasts sent yet."
+        showSentDate
+      />
+    </div>
+  )
+}
+
+type BroadcastRow = {
+  id: string
+  subject: string
+  audience: string
+  status: string
+  recipient_count: number | null
+  sent_count: number | null
+  failed_count: number | null
+  created_at: string
+  sent_at: string | null
+}
+
+function BroadcastSection({
+  icon,
+  title,
+  subtitle,
+  count,
+  rows,
+  emptyMessage,
+  showSentDate = false,
+}: {
+  icon: React.ReactNode
+  title: string
+  subtitle: string
+  count: number
+  rows: BroadcastRow[]
+  emptyMessage: string
+  showSentDate?: boolean
+}) {
+  return (
+    <section className="space-y-3">
+      <div className="flex items-end justify-between gap-3">
+        <div>
+          <h2 className="text-lg sm:text-xl font-semibold text-foreground flex items-center gap-2">
+            <span className="inline-flex h-6 w-6 items-center justify-center rounded-md bg-secondary text-muted-foreground">
+              {icon}
+            </span>
+            {title}
+          </h2>
+          <p className="text-sm text-muted-foreground mt-0.5">{subtitle}</p>
+        </div>
+        <Badge variant="secondary" className="tabular-nums">
+          {count}
+        </Badge>
+      </div>
+
       <Card className="overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
@@ -84,29 +155,28 @@ export default async function BroadcastsPage() {
                 <th className="p-3 font-medium text-muted-foreground">Audience</th>
                 <th className="p-3 font-medium text-muted-foreground">Status</th>
                 <th className="p-3 font-medium text-muted-foreground">Sent / recipients</th>
-                <th className="p-3 font-medium text-muted-foreground">Date</th>
+                <th className="p-3 font-medium text-muted-foreground whitespace-nowrap">
+                  {showSentDate ? "Sent" : "Updated"}
+                </th>
               </tr>
             </thead>
             <tbody>
-              {broadcasts.length === 0 && (
+              {rows.length === 0 && (
                 <tr>
-                  <td colSpan={5} className="p-10 text-center text-muted-foreground">
-                    <Send className="w-8 h-8 mx-auto text-muted-foreground/50 mb-3" />
-                    No broadcasts yet.{" "}
-                    <Link href="/admin/email/new" className="text-primary hover:underline">
-                      Compose your first email.
-                    </Link>
+                  <td colSpan={5} className="p-8 text-center text-muted-foreground">
+                    <Send className="w-6 h-6 mx-auto text-muted-foreground/50 mb-2" />
+                    {emptyMessage}
                   </td>
                 </tr>
               )}
-              {broadcasts.map((b) => (
+              {rows.map((b) => (
                 <tr key={b.id} className="border-b border-border last:border-0 hover:bg-accent/30">
                   <td className="p-3">
                     <Link href={`/admin/email/${b.id}`} className="font-medium text-primary hover:underline">
                       {b.subject}
                     </Link>
                   </td>
-                  <td className="p-3 capitalize text-muted-foreground whitespace-nowrap">
+                  <td className="p-3 text-muted-foreground whitespace-nowrap">
                     {audienceLabel(b.audience)}
                   </td>
                   <td className="p-3">
@@ -116,16 +186,15 @@ export default async function BroadcastsPage() {
                   </td>
                   <td className="p-3 whitespace-nowrap text-muted-foreground tabular-nums">
                     {b.status === "sent" || b.status === "sending"
-                      ? `${b.sent_count} / ${b.recipient_count}` +
-                        (b.failed_count > 0 ? ` · ${b.failed_count} failed` : "")
+                      ? `${b.sent_count ?? 0} / ${b.recipient_count ?? 0}` +
+                        ((b.failed_count ?? 0) > 0 ? ` · ${b.failed_count} failed` : "")
                       : "—"}
                   </td>
                   <td className="p-3 text-muted-foreground whitespace-nowrap">
-                    {new Date(b.sent_at || b.created_at).toLocaleDateString("en-US", {
-                      month: "short",
-                      day: "numeric",
-                      year: "numeric",
-                    })}
+                    {new Date((showSentDate && b.sent_at) || b.created_at).toLocaleDateString(
+                      "en-US",
+                      { month: "short", day: "numeric", year: "numeric" },
+                    )}
                   </td>
                 </tr>
               ))}
@@ -133,7 +202,7 @@ export default async function BroadcastsPage() {
           </table>
         </div>
       </Card>
-    </div>
+    </section>
   )
 }
 

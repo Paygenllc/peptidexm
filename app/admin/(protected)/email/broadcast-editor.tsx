@@ -79,8 +79,16 @@ export function BroadcastEditor({
     setMessage(null)
     setError(null)
     startTransition(async () => {
+      // Pass the current, in-memory form state so the server can persist and
+      // send atomically. Fixes the race where a user changes the audience
+      // dropdown and clicks Send without saving first.
       const fd = new FormData()
       fd.set("id", initial.id)
+      fd.set("subject", subject)
+      fd.set("preview", preview)
+      fd.set("body_markdown", body)
+      fd.set("audience", audience)
+      fd.set("custom_recipients", customRecipients)
       const res = await sendBroadcastAction(fd)
       if (res?.error) setError(res.error)
       else if (res?.success) setMessage(`Sent to ${res.sent} recipient${res.sent === 1 ? "" : "s"}${res.failed ? ` · ${res.failed} failed` : ""}`)

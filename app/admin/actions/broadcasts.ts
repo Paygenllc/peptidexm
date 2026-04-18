@@ -139,11 +139,21 @@ export async function deleteBroadcastAction(formData: FormData) {
   redirect("/admin/email")
 }
 
+const ALLOWED_AUDIENCES: ReadonlySet<BroadcastAudience> = new Set([
+  "subscribers",
+  "all_customers",
+  "admins",
+  "custom",
+])
+
 /**
- * Actually send the broadcast. Pulls the recipient list based on the stored
- * audience + marketing subscription flag, then loops through it sending one
- * email at a time. We sleep briefly between sends to be friendly to Resend's
- * rate limit (2 req/sec on the free plan).
+ * Actually send the broadcast. Accepts the live form values (subject/preview/
+ * body/audience/custom_recipients) so the UI can save and send atomically —
+ * eliminating the earlier bug where changing the audience dropdown without
+ * clicking Save first meant the send used the old, persisted audience.
+ *
+ * Unknown audience strings fail closed with a clear error rather than
+ * silently defaulting to "everyone".
  */
 export async function sendBroadcastAction(formData: FormData) {
   await requireAdmin()
@@ -160,19 +170,63 @@ export async function sendBroadcastAction(formData: FormData) {
   if (loadErr || !broadcast) return { error: "Broadcast not found" }
   if (broadcast.status === "sent") return { error: "Already sent" }
 
-  const customList: string[] = Array.isArray(broadcast.custom_recipients)
-    ? (broadcast.custom_recipients as string[])
-    : []
+  // Prefer fresh values from the form (so a change in the editor doesn't need
+  // an explicit "Save" click first); fall back to what's in the DB.
+  const rawSubject = String(formData.get("subject") ?? "").trim()
+  const rawPreview = String(formData.get("preview") ?? "").trim()
+  const rawBody = String(formData.get("body_markdown") ?? "").trim()
+  const rawAudience = String(
+    formData.get("audience") ?? broadcast.audience ?? "",
+  ).trim() as BroadcastAudience
+  const rawCustom = String(formData.get("custom_recipients") ?? "")
+
+  const subject = rawSubject || broadcast.subject
+  const preview = rawPreview || broadcast.preview
+  const bodyMarkdown = rawBody || broadcast.body_markdown
+  const audience: BroadcastAudience = ALLOWED_AUDIENCES.has(rawAudience)
+    ? rawAudience
+    : (broadcast.audience as BroadcastAudience)
+
+  if (!ALLOWED_AUDIENCES.has(audience)) {
+    return { error: `Unrecognized audience "${audience}". Refusing to send.` }
+  }
+  if (!subject) return { error: "Subject is required" }
+  if (!bodyMarkdown) return { error: "Body is required" }
+
+  // Parse custom list from the form if provided, otherwise use whatever is
+  // already saved on the row.
+  const customList: string[] = formData.has("custom_recipients")
+    ? parseCustomRecipients(rawCustom).valid
+    : Array.isArray(broadcast.custom_recipients)
+      ? (broadcast.custom_recipients as string[])
+      : []
+
+  if (audience === "custom" && customList.length === 0) {
+    return { error: "Add at least one valid email address for the custom list." }
+  }
+
+  // Persist the live form values so the DB always reflects what was actually sent.
+  const { error: persistErr } = await supabase
+    .from("email_broadcasts")
+    .update({
+      subject,
+      preview: preview || null,
+      body_markdown: bodyMarkdown,
+      audience,
+      custom_recipients: customList,
+    })
+    .eq("id", id)
+  if (persistErr) return { error: persistErr.message }
 
   // Build the base audience list from the DB unless this is a pure "custom" send.
   let base: Array<{ email: string; full_name: string | null }> = []
-  if (broadcast.audience !== "custom") {
+  if (audience !== "custom") {
     let q = supabase.from("profiles").select("email, full_name")
-    if (broadcast.audience === "subscribers") {
+    if (audience === "subscribers") {
       q = q.eq("newsletter_subscribed", true).is("banned_at", null)
-    } else if (broadcast.audience === "all_customers") {
+    } else if (audience === "all_customers") {
       q = q.is("banned_at", null)
-    } else if (broadcast.audience === "admins") {
+    } else if (audience === "admins") {
       q = q.eq("is_admin", true)
     }
     const { data: recipients, error: recErr } = await q
@@ -184,7 +238,7 @@ export async function sendBroadcastAction(formData: FormData) {
     // For the "subscribers" audience we also want standalone newsletter
     // subscribers (people who used the footer form but never created an
     // account). They don't have a full_name.
-    if (broadcast.audience === "subscribers") {
+    if (audience === "subscribers") {
       const { data: standalone, error: sErr } = await supabase
         .from("newsletter_subscribers")
         .select("email")
@@ -213,8 +267,9 @@ export async function sendBroadcastAction(formData: FormData) {
     .update({ status: "sending", recipient_count: valid.length })
     .eq("id", id)
 
-  const bodyHtml = markdownToHtml(broadcast.body_markdown)
-  const textFallback = markdownToPlainText(broadcast.body_markdown)
+  // Use the live (just-persisted) values, not the original snapshot.
+  const bodyHtml = markdownToHtml(bodyMarkdown)
+  const textFallback = markdownToPlainText(bodyMarkdown)
 
   let sent = 0
   let failed = 0
@@ -223,8 +278,8 @@ export async function sendBroadcastAction(formData: FormData) {
     try {
       const res = await sendBroadcastEmail({
         to: r.email,
-        subject: broadcast.subject,
-        preview: broadcast.preview,
+        subject,
+        preview,
         bodyHtml,
         textFallback,
       })

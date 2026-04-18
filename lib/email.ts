@@ -3,6 +3,10 @@ import { Resend } from "resend"
 import { CONTACT_EMAIL } from "@/lib/contact"
 
 const FROM_EMAIL = process.env.EMAIL_FROM ?? "PeptideXM <noreply@peptidexm.com>"
+// Broadcasts should come from a human-looking support address so replies land
+// somewhere we actually read. Overridable via env for deploy flexibility.
+const BROADCAST_FROM_EMAIL =
+  process.env.BROADCAST_FROM_EMAIL ?? "PeptideXM <support@peptidexm.com>"
 const ADMIN_EMAIL = process.env.ADMIN_EMAIL ?? CONTACT_EMAIL
 
 let _resend: Resend | null | undefined
@@ -24,9 +28,10 @@ type SendArgs = {
   html: string
   text: string
   replyTo?: string
+  from?: string
 }
 
-export async function sendEmail({ to, subject, html, text, replyTo }: SendArgs) {
+export async function sendEmail({ to, subject, html, text, replyTo, from }: SendArgs) {
   const resend = getResend()
   if (!resend) {
     console.warn("[email] RESEND_API_KEY not set; skipping email to", to)
@@ -34,7 +39,7 @@ export async function sendEmail({ to, subject, html, text, replyTo }: SendArgs) 
   }
   try {
     const res = await resend.emails.send({
-      from: FROM_EMAIL,
+      from: from ?? FROM_EMAIL,
       to,
       subject,
       html,
@@ -386,6 +391,7 @@ export async function sendBroadcastEmail(input: {
     subject: input.subject,
     html,
     text: input.textFallback,
+    from: BROADCAST_FROM_EMAIL,
     replyTo: CONTACT_EMAIL,
   })
 }
