@@ -124,6 +124,21 @@
     -webkit-text-size-adjust: 100%;
     text-size-adjust: 100%;
     scroll-behavior: smooth;
+    /* Offset anchor navigation so #products, #faq, etc. don't hide under the sticky header (~64px on desktop, ~56px on mobile). */
+    scroll-padding-top: 5rem;
+  }
+  /* Respect users who prefer reduced motion — disables smooth scroll and heavy animations. */
+  @media (prefers-reduced-motion: reduce) {
+    html {
+      scroll-behavior: auto;
+    }
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+    }
   }
   body {
     @apply bg-background text-foreground;

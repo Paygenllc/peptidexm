@@ -120,6 +120,12 @@ export default function RootLayout({
       <body
         className={`${inter.variable} ${dmSerif.variable} font-sans antialiased bg-background text-foreground min-h-screen`}
       >
+        <a
+          href="#main-content"
+          className="sr-only focus:not-sr-only focus:fixed focus:top-3 focus:left-3 focus:z-[100] focus:rounded-md focus:bg-foreground focus:px-4 focus:py-2 focus:text-background focus:shadow-lg focus:outline-none focus:ring-2 focus:ring-accent"
+        >
+          Skip to content
+        </a>
         <AuthErrorBridge />
         <CartProvider>{children}</CartProvider>
         {process.env.NODE_ENV === "production" && <Analytics />}
