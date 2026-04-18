@@ -13,10 +13,10 @@ const navigation = {
     { name: "All 47+ Products", href: "#products" },
   ],
   company: [
-    { name: "About Us", href: "#about" },
-    { name: "Science", href: "#science" },
+    { name: "About Us", href: "/#about" },
+    { name: "Science", href: "/#science" },
+    { name: "Journal", href: "/blog" },
     { name: "Quality", href: "#" },
-    { name: "Careers", href: "#" },
   ],
   support: [
     { name: "FAQ", href: "#faq" },

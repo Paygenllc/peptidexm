@@ -9,14 +9,15 @@ import { useCart } from "@/context/cart-context"
 import { CartSidebar } from "@/components/cart-sidebar"
 import { HeaderSearch, type HeaderSearchHandle } from "@/components/header-search"
 
-type NavItem = { name: string; href: string; id: string }
+type NavItem = { name: string; href: string; id?: string }
 
 const navigation: NavItem[] = [
-  { name: "Products", href: "#products", id: "products" },
-  { name: "About", href: "#about", id: "about" },
-  { name: "Science", href: "#science", id: "science" },
-  { name: "FAQ", href: "#faq", id: "faq" },
-  { name: "Contact", href: "#contact", id: "contact" },
+  { name: "Products", href: "/#products", id: "products" },
+  { name: "About", href: "/#about", id: "about" },
+  { name: "Science", href: "/#science", id: "science" },
+  { name: "Journal", href: "/blog" }, // Route link — not a scroll-spy target
+  { name: "FAQ", href: "/#faq", id: "faq" },
+  { name: "Contact", href: "/#contact", id: "contact" },
 ]
 
 export function Header() {
@@ -38,7 +39,7 @@ export function Header() {
 
   // Scroll-spy: highlight the nav item whose section is currently centered in the viewport.
   useEffect(() => {
-    const ids = navigation.map((n) => n.id)
+    const ids = navigation.map((n) => n.id).filter((id): id is string => Boolean(id))
     const sections = ids.map((id) => document.getElementById(id)).filter(Boolean) as HTMLElement[]
     if (sections.length === 0) return
 
@@ -160,7 +161,7 @@ export function Header() {
                 </nav>
                 <div className="p-4 border-t border-border space-y-3 safe-pb">
                   <Button className="w-full h-12" asChild onClick={() => setIsMenuOpen(false)}>
-                    <Link href="#products">Shop Now</Link>
+                    <Link href="/#products">Shop Now</Link>
                   </Button>
                   <Button
                     variant="outline"
@@ -182,7 +183,7 @@ export function Header() {
         {/* Desktop navigation — centered between logo and actions */}
         <div className="hidden lg:flex lg:flex-1 lg:justify-center lg:gap-x-1">
           {navigation.map((item) => {
-            const isActive = activeSection === item.id
+            const isActive = item.id ? activeSection === item.id : false
             return (
               <Link
                 key={item.name}

@@ -174,6 +174,7 @@ export default async function OrderDetailPage({ params }: { params: Promise<{ id
             currentPayment={order.payment_status}
             currentTracking={order.tracking_number}
             currentCarrier={order.tracking_carrier}
+            currentTrackingUrl={order.tracking_url}
             currentNotes={order.notes}
           />
         </div>

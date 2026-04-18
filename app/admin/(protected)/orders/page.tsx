@@ -12,11 +12,12 @@ const STATUSES = ["all", "processing", "confirmed", "shipped", "delivered", "can
 export default async function OrdersPage({
   searchParams,
 }: {
-  searchParams: Promise<{ status?: string; q?: string }>
+  searchParams: Promise<{ status?: string; q?: string; payment?: string }>
 }) {
   const params = await searchParams
   const status = params.status ?? "all"
   const q = params.q ?? ""
+  const payment = params.payment
 
   const supabase = await createClient()
   let query = supabase
@@ -28,6 +29,14 @@ export default async function OrdersPage({
 
   if (status !== "all") {
     query = query.eq("status", status)
+  }
+  if (payment === "awaiting") {
+    // Pending payment status with a reference submitted — admin needs to verify Zelle.
+    query = query.eq("payment_status", "pending").not("payment_reference", "is", null)
+  } else if (payment === "paid") {
+    query = query.eq("payment_status", "paid")
+  } else if (payment === "pending") {
+    query = query.eq("payment_status", "pending")
   }
   if (q) {
     query = query.or(`order_number.ilike.%${q}%,email.ilike.%${q}%,first_name.ilike.%${q}%,last_name.ilike.%${q}%`)
