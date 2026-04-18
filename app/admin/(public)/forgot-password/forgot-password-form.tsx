@@ -31,8 +31,12 @@ export function ForgotPasswordForm() {
         <CardContent className="p-6 sm:p-8 text-center">
           <CheckCircle2 className="h-10 w-10 text-green-600 mx-auto mb-4" aria-hidden="true" />
           <h2 className="font-serif text-xl font-medium mb-2">Check your email</h2>
-          <p className="text-sm text-muted-foreground leading-relaxed">
+          <p className="text-sm text-muted-foreground leading-relaxed mb-3">
             If an account exists for that email, a password reset link is on its way. The link expires in 1 hour.
+          </p>
+          <p className="text-xs text-muted-foreground/80 leading-relaxed">
+            Open the link from the same browser you&apos;re using now. Some email apps pre-scan links, which can make
+            them appear expired on first click.
           </p>
         </CardContent>
       </Card>

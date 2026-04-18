@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next"
 import { DM_Serif_Display, Inter } from "next/font/google"
 import { Analytics } from "@vercel/analytics/next"
 import { CartProvider } from "@/context/cart-context"
+import { AuthErrorBridge } from "@/components/auth-error-bridge"
 import "./globals.css"
 
 const dmSerif = DM_Serif_Display({
@@ -119,6 +120,7 @@ export default function RootLayout({
       <body
         className={`${inter.variable} ${dmSerif.variable} font-sans antialiased bg-background text-foreground min-h-screen`}
       >
+        <AuthErrorBridge />
         <CartProvider>{children}</CartProvider>
         {process.env.NODE_ENV === "production" && <Analytics />}
       </body>

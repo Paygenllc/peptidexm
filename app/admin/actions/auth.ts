@@ -5,13 +5,25 @@ import { createAdminClient } from "@/lib/supabase/admin"
 import { redirect } from "next/navigation"
 import { headers } from "next/headers"
 
+const PROD_ORIGIN = "https://www.peptidexm.com"
+
 function getOrigin(headerList: Headers) {
+  // 1. Explicit override (set this in Vercel env → production)
   const envUrl = process.env.NEXT_PUBLIC_SITE_URL
   if (envUrl) return envUrl.replace(/\/$/, "")
+
+  // 2. In production, always use the canonical domain. Never trust the
+  //    request host header for auth email links — it may be a preview URL,
+  //    a localhost proxy, or an internal hostname, and Supabase will reject
+  //    any redirect_to that isn't in its allow-list and fall back to its
+  //    Site URL (often producing the "localhost + otp_expired" symptom).
+  if (process.env.NODE_ENV === "production") return PROD_ORIGIN
+
+  // 3. Dev fallback — use the current request.
   const host = headerList.get("x-forwarded-host") ?? headerList.get("host")
-  const proto = headerList.get("x-forwarded-proto") ?? "https"
+  const proto = headerList.get("x-forwarded-proto") ?? "http"
   if (host) return `${proto}://${host}`
-  return ""
+  return PROD_ORIGIN
 }
 
 export async function signInAction(formData: FormData) {
