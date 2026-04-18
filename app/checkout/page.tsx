@@ -177,9 +177,14 @@ export default function CheckoutPage() {
                 peptidexm@gmail.com
               </a>
             </p>
-            <Button asChild size="lg" className="h-12">
-              <Link href="/">Return to Store</Link>
-            </Button>
+            <div className="flex flex-col sm:flex-row gap-3 justify-center">
+              <Button asChild size="lg" className="h-12">
+                <Link href="/">Return to Store</Link>
+              </Button>
+              <Button asChild size="lg" variant="outline" className="h-12">
+                <Link href="/account">View My Orders</Link>
+              </Button>
+            </div>
           </div>
         )}
 

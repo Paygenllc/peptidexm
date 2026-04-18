@@ -94,6 +94,7 @@ export async function placeOrderAction(input: PlaceOrderInput) {
 
   revalidatePath("/admin/orders")
   revalidatePath("/admin")
+  if (user?.id) revalidatePath("/account")
 
   return {
     success: true,
