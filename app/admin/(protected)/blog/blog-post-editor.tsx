@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useTransition } from "react"
+import { useState, useTransition, useRef } from "react"
 import Image from "next/image"
 import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -19,9 +19,10 @@ import {
   updateBlogPostAction,
   deleteBlogPostAction,
 } from "@/app/admin/actions/blog"
-import { Loader2, Save, Trash2, Eye, Pencil } from "lucide-react"
-import ReactMarkdown from "react-markdown"
-import remarkGfm from "remark-gfm"
+import { Loader2, Save, Trash2, Eye, Pencil, Upload } from "lucide-react"
+import { RichEditor } from "@/components/admin/rich-editor"
+import { PostContent } from "@/components/post-content"
+import { createClient as createBrowserSupabase } from "@/lib/supabase/client"
 
 type EditorInitial = {
   id: string
@@ -52,8 +53,21 @@ export function BlogPostEditor({
   const [message, setMessage] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [isPending, startTransition] = useTransition()
+  const [coverUploading, setCoverUploading] = useState(false)
+  const coverInputRef = useRef<HTMLInputElement>(null)
 
   function handleSave(formData: FormData) {
+    // React form handlers don't pick up controlled rich-editor state, so
+    // overwrite the submitted fields with the latest values from our React
+    // state before forwarding to the server action.
+    formData.set("title", title)
+    formData.set("slug", slug)
+    formData.set("excerpt", excerpt)
+    formData.set("content_markdown", content)
+    formData.set("cover_image_url", coverImage)
+    formData.set("tags", tags)
+    formData.set("status", status)
+
     setMessage(null)
     setError(null)
     startTransition(async () => {
@@ -76,6 +90,36 @@ export function BlogPostEditor({
       const res = await deleteBlogPostAction(fd)
       if (res?.error) setError(res.error)
     })
+  }
+
+  async function handleCoverUpload(file: File) {
+    if (!file.type.startsWith("image/")) {
+      setError("Cover file must be an image.")
+      return
+    }
+    if (file.size > 10 * 1024 * 1024) {
+      setError("Cover image must be under 10 MB.")
+      return
+    }
+    setError(null)
+    setCoverUploading(true)
+    try {
+      const supabase = createBrowserSupabase()
+      const ext = (file.name.split(".").pop() || "png").toLowerCase().replace(/[^a-z0-9]/g, "")
+      const path = `covers/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`
+      const { error: upErr } = await supabase.storage.from("blog-images").upload(path, file, {
+        contentType: file.type,
+        upsert: false,
+      })
+      if (upErr) throw upErr
+      const { data } = supabase.storage.from("blog-images").getPublicUrl(path)
+      setCoverImage(data.publicUrl)
+    } catch (err) {
+      console.error("[v0] cover upload failed", err)
+      setError("Cover upload failed. Please try again.")
+    } finally {
+      setCoverUploading(false)
+    }
   }
 
   return (
@@ -111,15 +155,17 @@ export function BlogPostEditor({
           </div>
         </Card>
 
-        <Card className="p-5 space-y-3">
-          <div className="flex items-center justify-between">
-            <Label htmlFor="content">Content</Label>
-            <div className="flex rounded-md border border-border p-0.5 bg-secondary/40">
+        <Card className="p-0 overflow-hidden">
+          <div className="flex items-center justify-between px-5 py-3 border-b border-border bg-secondary/30">
+            <Label htmlFor="content" className="m-0">
+              Content
+            </Label>
+            <div className="flex rounded-md border border-border p-0.5 bg-background">
               <button
                 type="button"
                 onClick={() => setTab("write")}
-                className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded text-xs font-medium ${
-                  tab === "write" ? "bg-background shadow-sm" : "text-muted-foreground"
+                className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded text-xs font-medium transition-colors ${
+                  tab === "write" ? "bg-secondary text-foreground" : "text-muted-foreground"
                 }`}
               >
                 <Pencil className="w-3 h-3" /> Write
@@ -127,8 +173,8 @@ export function BlogPostEditor({
               <button
                 type="button"
                 onClick={() => setTab("preview")}
-                className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded text-xs font-medium ${
-                  tab === "preview" ? "bg-background shadow-sm" : "text-muted-foreground"
+                className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded text-xs font-medium transition-colors ${
+                  tab === "preview" ? "bg-secondary text-foreground" : "text-muted-foreground"
                 }`}
               >
                 <Eye className="w-3 h-3" /> Preview
@@ -137,25 +183,22 @@ export function BlogPostEditor({
           </div>
 
           {tab === "write" ? (
-            <>
-              <Textarea
-                id="content"
-                name="content_markdown"
+            <div className="p-0">
+              <RichEditor
                 value={content}
-                onChange={(e) => setContent(e.target.value)}
-                required
-                rows={22}
-                placeholder={`# Your heading\n\nWrite your post in Markdown.\n\n- Bullet lists\n- Links like [this](https://peptidexm.com)\n- **Bold** and _italic_`}
-                className="font-mono text-sm leading-relaxed"
+                onChange={setContent}
+                placeholder="Write your post. Drag an image in, paste a screenshot, or use the toolbar."
+                minHeight={480}
               />
-              <p className="text-xs text-muted-foreground">
-                Supports Markdown, GitHub-flavored tables, and inline links.
+              <p className="px-5 pt-2 pb-4 text-xs text-muted-foreground">
+                Tip: drag-and-drop, paste screenshots, or click the image icon in the toolbar to
+                upload. Emoji picker is in the toolbar. Undo / redo with ⌘Z / ⇧⌘Z.
               </p>
-            </>
+            </div>
           ) : (
-            <article className="rounded-md border border-border bg-background p-5 min-h-[420px] prose prose-sm md:prose-base max-w-none prose-headings:font-serif prose-headings:font-medium prose-a:text-primary">
+            <article className="bg-background p-5 min-h-[480px]">
               {content.trim() ? (
-                <ReactMarkdown remarkPlugins={[remarkGfm]}>{content}</ReactMarkdown>
+                <PostContent content={content} />
               ) : (
                 <p className="text-muted-foreground italic">Nothing to preview yet.</p>
               )}
@@ -164,7 +207,10 @@ export function BlogPostEditor({
         </Card>
 
         {error && (
-          <p className="text-sm text-destructive rounded-md bg-destructive/10 border border-destructive/20 px-3 py-2">
+          <p
+            role="alert"
+            className="text-sm text-destructive rounded-md bg-destructive/10 border border-destructive/20 px-3 py-2"
+          >
             {error}
           </p>
         )}
@@ -241,20 +287,45 @@ export function BlogPostEditor({
         </Card>
 
         <Card className="p-5 space-y-3">
-          <div className="space-y-2">
-            <Label htmlFor="cover_image_url">Cover image URL</Label>
-            <Input
-              id="cover_image_url"
-              name="cover_image_url"
-              type="url"
-              value={coverImage}
-              onChange={(e) => setCoverImage(e.target.value)}
-              placeholder="https://..."
+          <div className="flex items-center justify-between">
+            <Label htmlFor="cover_image_url">Cover image</Label>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="gap-1.5 h-8 text-xs"
+              onClick={() => coverInputRef.current?.click()}
+              disabled={coverUploading}
+            >
+              {coverUploading ? (
+                <Loader2 className="w-3.5 h-3.5 animate-spin" />
+              ) : (
+                <Upload className="w-3.5 h-3.5" />
+              )}
+              Upload
+            </Button>
+            <input
+              ref={coverInputRef}
+              type="file"
+              accept="image/png,image/jpeg,image/webp,image/gif"
+              className="sr-only"
+              onChange={(e) => {
+                const file = e.target.files?.[0]
+                if (file) handleCoverUpload(file)
+                if (coverInputRef.current) coverInputRef.current.value = ""
+              }}
             />
           </div>
+          <Input
+            id="cover_image_url"
+            name="cover_image_url"
+            type="url"
+            value={coverImage}
+            onChange={(e) => setCoverImage(e.target.value)}
+            placeholder="https://... or click Upload"
+          />
           {coverImage && (
             <div className="relative aspect-[16/9] w-full overflow-hidden rounded-md border border-border bg-secondary">
-              {/* Unoptimized because it could be any origin; next/image would require domain config. */}
               <Image
                 src={coverImage}
                 alt="Cover preview"

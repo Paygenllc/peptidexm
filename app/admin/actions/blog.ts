@@ -2,6 +2,7 @@
 
 import { createClient } from "@/lib/supabase/server"
 import { requireAdmin } from "@/lib/auth/require-admin"
+import { sanitizePostContent } from "@/lib/sanitize"
 import { revalidatePath } from "next/cache"
 import { redirect } from "next/navigation"
 
@@ -54,6 +55,7 @@ export async function createBlogPostAction(formData: FormData) {
 
   const slug = await uniqueSlug(slugify(slugInput || title))
   const tags = parseTags(tagsRaw)
+  const safeContent = sanitizePostContent(content)
 
   const supabase = await createClient()
   const { data, error } = await supabase
@@ -62,7 +64,7 @@ export async function createBlogPostAction(formData: FormData) {
       slug,
       title,
       excerpt: excerpt || null,
-      content_markdown: content,
+      content_markdown: safeContent,
       cover_image_url: coverImage || null,
       tags,
       status,
@@ -119,6 +121,7 @@ export async function updateBlogPostAction(formData: FormData) {
         : null // back to draft, clear the timestamp
 
   const tags = parseTags(tagsRaw)
+  const safeContent = sanitizePostContent(content)
 
   const { error } = await supabase
     .from("blog_posts")
@@ -126,7 +129,7 @@ export async function updateBlogPostAction(formData: FormData) {
       slug,
       title,
       excerpt: excerpt || null,
-      content_markdown: content,
+      content_markdown: safeContent,
       cover_image_url: coverImage || null,
       tags,
       status,

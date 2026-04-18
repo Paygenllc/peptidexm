@@ -6,7 +6,7 @@ import { ArrowLeft } from "lucide-react"
 import { createClient } from "@/lib/supabase/server"
 import { Header } from "@/components/header"
 import { Footer } from "@/components/footer"
-import { ProseMarkdown } from "@/components/prose-markdown"
+import { PostContent } from "@/components/post-content"
 
 export const dynamic = "force-dynamic"
 
@@ -105,7 +105,7 @@ export default async function BlogPostPage({ params }: Props) {
           ) : null}
 
           <div className="mt-10">
-            <ProseMarkdown>{post.content_markdown}</ProseMarkdown>
+            <PostContent content={post.content_markdown} />
           </div>
         </div>
       </article>
