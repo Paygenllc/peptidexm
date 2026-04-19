@@ -76,17 +76,25 @@ function ipnSecret() {
  *
  * We pass our internal order id as `order_id` so the IPN payload carries
  * it back and we can update the right row on our side.
+ *
+ * Note: The `/v1/invoice` endpoint only supports these exact fields. Do not
+ * add `pay_currencies` (plural), `is_fixed_rate`, or `is_fee_paid_by_user` —
+ * those belong to the direct `/v1/payment` endpoint and cause a 400 here.
+ * Limit the coin set shown on the hosted page via the NOWPayments dashboard:
+ *   Store Settings → Enabled Payment Currencies.
  */
 export async function createInvoice(args: {
   priceAmount: number
   priceCurrency?: string // default "usd"
+  /** Optional: lock the invoice to a single payout coin (e.g. "usdttrc20"). */
+  payCurrency?: string
   orderId: string
   orderDescription?: string
   successUrl: string
   cancelUrl: string
   ipnCallbackUrl: string
 }): Promise<NpInvoiceResponse> {
-  const body = {
+  const body: Record<string, unknown> = {
     price_amount: Number(args.priceAmount.toFixed(2)),
     price_currency: (args.priceCurrency ?? "usd").toLowerCase(),
     order_id: args.orderId,
@@ -94,11 +102,8 @@ export async function createInvoice(args: {
     ipn_callback_url: args.ipnCallbackUrl,
     success_url: args.successUrl,
     cancel_url: args.cancelUrl,
-    // Restrict the coin picker on the hosted page to our whitelist.
-    pay_currencies: ALLOWED_PAY_CURRENCIES as unknown as string[],
-    is_fixed_rate: true,
-    is_fee_paid_by_user: true,
   }
+  if (args.payCurrency) body.pay_currency = args.payCurrency.toLowerCase()
 
   const res = await fetch(`${NP_BASE}/invoice`, {
     method: "POST",
@@ -112,6 +117,8 @@ export async function createInvoice(args: {
 
   if (!res.ok) {
     const text = await res.text().catch(() => "")
+    // Surface the provider's own error message — it's almost always the
+    // quickest clue when invoices fail (bad key, unsupported ticker, etc.).
     throw new Error(`NOWPayments invoice failed: ${res.status} ${text}`)
   }
   return (await res.json()) as NpInvoiceResponse

@@ -78,6 +78,12 @@ export async function createCryptoInvoiceAction(input: {
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err)
     console.error("[nowpayments] createInvoice error:", msg)
+    // Surface the provider message in non-production so admins can
+    // diagnose misconfigurations (unsupported ticker, wrong API key,
+    // sandbox vs. production mismatch) without digging through logs.
+    if (process.env.NODE_ENV !== "production") {
+      return { error: `Crypto payment failed: ${msg}` }
+    }
     return { error: "Could not start crypto payment. Please try again." }
   }
 }
