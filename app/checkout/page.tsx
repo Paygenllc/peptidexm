@@ -32,6 +32,7 @@ import {
 } from '@/lib/shipping'
 import { ZellePaymentPanel } from '@/components/zelle-payment-panel'
 import { CryptoPaymentPanel } from '@/components/crypto-payment-panel'
+import { ZelleLogo, TetherLogo } from '@/components/payment-logos'
 
 interface CustomerInfo {
   email: string
@@ -714,8 +715,14 @@ export default function CheckoutPage() {
                               )}
                             </div>
                             <div className="min-w-0 flex-1">
-                              <p className="font-medium text-foreground">Zelle</p>
-                              <p className="text-sm text-muted-foreground mt-1 leading-relaxed">
+                              <div className="flex items-center gap-2.5">
+                                <ZelleLogo
+                                  className="h-7 w-7 shrink-0"
+                                  aria-hidden="true"
+                                />
+                                <p className="font-medium text-foreground">Zelle</p>
+                              </div>
+                              <p className="text-sm text-muted-foreground mt-1.5 leading-relaxed">
                                 Send from your bank&apos;s Zelle using your order
                                 number in the memo. We&apos;ll email the payment
                                 details right after checkout.
@@ -751,16 +758,20 @@ export default function CheckoutPage() {
                               )}
                             </div>
                             <div className="min-w-0 flex-1">
-                              <div className="flex items-center gap-2 flex-wrap">
-                                <p className="font-medium text-foreground">Crypto</p>
-                                <span className="text-xs font-medium px-1.5 py-0.5 rounded bg-accent/10 text-accent uppercase tracking-wide">
-                                  USDT · USDC · DAI
+                              <div className="flex items-center gap-2.5 flex-wrap">
+                                <TetherLogo
+                                  className="h-7 w-7 shrink-0"
+                                  aria-hidden="true"
+                                />
+                                <p className="font-medium text-foreground">USDT</p>
+                                <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-accent/10 text-accent uppercase tracking-wider">
+                                  TRC-20
                                 </span>
                               </div>
-                              <p className="text-sm text-muted-foreground mt-1 leading-relaxed">
-                                Pay with stablecoins on NOWPayments&apos; secure
-                                hosted page. Your order is marked paid automatically
-                                once the network confirms.
+                              <p className="text-sm text-muted-foreground mt-1.5 leading-relaxed">
+                                Pay in Tether on the TRON network via our secure
+                                payment partner. Your order is marked paid
+                                automatically once the network confirms.
                               </p>
                             </div>
                           </label>

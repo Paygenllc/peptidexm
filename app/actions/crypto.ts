@@ -49,6 +49,12 @@ export async function createCryptoInvoiceAction(input: {
     const invoice = await createInvoice({
       priceAmount: Number(order.total),
       priceCurrency: "usd",
+      // The store only has USDT on TRON enabled in NOWPayments right now —
+      // lock the invoice to that ticker so the hosted page skips the coin
+      // picker and shows a single deposit address / QR directly. If more
+      // coins are enabled later in the NOWPayments dashboard, drop this
+      // field (or swap it for a dynamic value) to let customers choose.
+      payCurrency: "usdttrc20",
       orderId: order.id,
       orderDescription: `PeptideXM order #${order.order_number}`,
       successUrl: `${origin}/checkout/success?order=${order.id}`,
