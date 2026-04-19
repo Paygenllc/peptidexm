@@ -1,0 +1,684 @@
+/**
+ * Storefront product catalog.
+ *
+ * This is the single source of truth for what PeptideXM sells. The homepage
+ * grid, the product detail page at `/products/[slug]`, and any future surface
+ * (search index, sitemap, structured data) all read from here. The `slug`
+ * values are derived from `name` and are expected to match the `slug` column
+ * on public.products — the admin product picker writes tokens like
+ * `[[product:aod-9604]]` whose slugs need to resolve to a detail page URL.
+ *
+ * This module intentionally has no React or client-side imports so it can be
+ * consumed from server components and route handlers without pulling in the
+ * client grid's bundle.
+ */
+
+export interface Variant {
+  strength: string
+  form: string
+  price: number
+}
+
+export interface Product {
+  id: number
+  name: string
+  category: string
+  description: string
+  purity: string
+  inStock: boolean
+  popular: boolean
+  /**
+   * Optional flag for products where inventory is genuinely tight. Surfaces
+   * a "Only a few kits left" urgency indicator on the card and detail page.
+   * Leave undefined for the majority of items — the urgency signal has to
+   * stay legitimate to stay effective.
+   */
+  limitedStock?: boolean
+  image: string
+  variants: Variant[]
+}
+
+// Top-level category filter used by the homepage grid. Keep ordering meaningful:
+// the most commercially important categories come first.
+export const categories = [
+  "All",
+  "GLP-1",
+  "Growth Hormone",
+  "Recovery",
+  "Cognitive",
+  "Anti-Aging",
+  "Research",
+  "Accessories",
+]
+
+/**
+ * Helper for building standard peptide variant pairs: a single vial at
+ * `vialPrice` plus a kit-of-ten at 4.5× the vial price (a 55% bulk discount
+ * vs. buying 10 single vials).
+ */
+function sv(strength: string, vialPrice: number): Variant[] {
+  return [
+    { strength, form: "Single Vial", price: vialPrice },
+    { strength, form: "Kit of 10 Vials", price: Math.round(vialPrice * 4.5) },
+  ]
+}
+
+export const products: Product[] = [
+  // ===== GLP-1 =====
+  {
+    id: 1,
+    name: "Tirzepatide",
+    category: "GLP-1",
+    description: "Dual GIP and GLP-1 receptor agonist for metabolic research applications.",
+    purity: "99.1%",
+    inStock: true,
+    popular: true,
+    limitedStock: true,
+    image: "/products/tirzepatide.jpg",
+    variants: [
+      ...sv("2mg", 60),
+      ...sv("5mg", 80),
+      ...sv("10mg", 120),
+      ...sv("15mg", 180),
+      ...sv("30mg", 280),
+      ...sv("60mg", 540),
+    ],
+  },
+  {
+    id: 2,
+    name: "Semaglutide",
+    category: "GLP-1",
+    description: "GLP-1 receptor agonist peptide for metabolic and appetite research.",
+    purity: "99.3%",
+    inStock: true,
+    popular: true,
+    image: "/products/semaglutide.jpg",
+    variants: [...sv("2mg", 50), ...sv("5mg", 76), ...sv("10mg", 140)],
+  },
+  {
+    id: 3,
+    name: "Retatrutide",
+    category: "GLP-1",
+    description: "Triple agonist targeting GLP-1, GIP, and glucagon receptors.",
+    purity: "99.2%",
+    inStock: true,
+    popular: true,
+    limitedStock: true,
+    image: "/products/retatrutide.jpg",
+    variants: [...sv("10mg", 180), ...sv("20mg", 260)],
+  },
+  {
+    id: 4,
+    name: "Cagrilintide",
+    category: "GLP-1",
+    description: "Amylin analogue for appetite and metabolic research.",
+    purity: "99.0%",
+    inStock: true,
+    popular: false,
+    image: "/products/cagrilintide.jpg",
+    variants: [...sv("5mg", 80), ...sv("10mg", 160)],
+  },
+  {
+    id: 5,
+    name: "AOD-9604",
+    category: "GLP-1",
+    description: "Synthetic fragment of human growth hormone for fat metabolism research.",
+    purity: "98.9%",
+    inStock: true,
+    popular: false,
+    image: "/products/aod-9604.jpg",
+    variants: [...sv("2mg", 60), ...sv("5mg", 120)],
+  },
+
+  // ===== Growth Hormone =====
+  {
+    id: 6,
+    name: "Sermorelin",
+    category: "Growth Hormone",
+    description: "Growth hormone releasing hormone analog for research.",
+    purity: "98.8%",
+    inStock: true,
+    popular: false,
+    image: "/products/sermorelin.jpg",
+    variants: [...sv("2mg", 60), ...sv("5mg", 100)],
+  },
+  {
+    id: 7,
+    name: "Tesamorelin",
+    category: "Growth Hormone",
+    description: "Stabilized GHRH analog used in visceral adipose research.",
+    purity: "99.0%",
+    inStock: true,
+    popular: false,
+    image: "/products/tesamorelin.jpg",
+    variants: [...sv("2mg", 60), ...sv("5mg", 120), ...sv("10mg", 160)],
+  },
+  {
+    id: 8,
+    name: "CJC-1295 (with DAC)",
+    category: "Growth Hormone",
+    description: "Long-acting GHRH analog with drug affinity complex for sustained release.",
+    purity: "99.1%",
+    inStock: true,
+    popular: true,
+    image: "/products/cjc-1295-dac.jpg",
+    variants: [...sv("2mg", 60)],
+  },
+  {
+    id: 9,
+    name: "CJC-1295 (no DAC)",
+    category: "Growth Hormone",
+    description: "Short-acting GHRH analog without drug affinity complex.",
+    purity: "99.0%",
+    inStock: true,
+    popular: false,
+    image: "/products/cjc-1295-no-dac.jpg",
+    variants: [...sv("2mg", 40), ...sv("5mg", 60), ...sv("10mg", 100)],
+  },
+  {
+    id: 10,
+    name: "Ipamorelin",
+    category: "Growth Hormone",
+    description: "Selective growth hormone secretagogue peptide.",
+    purity: "99.2%",
+    inStock: true,
+    popular: true,
+    image: "/products/ipamorelin.jpg",
+    variants: [...sv("2mg", 30), ...sv("5mg", 40), ...sv("10mg", 70)],
+  },
+  {
+    id: 11,
+    name: "Hexarelin",
+    category: "Growth Hormone",
+    description: "Potent growth hormone releasing peptide.",
+    purity: "98.9%",
+    inStock: true,
+    popular: false,
+    image: "/products/hexarelin.jpg",
+    variants: [...sv("2mg", 40), ...sv("5mg", 80)],
+  },
+  {
+    id: 12,
+    name: "GHRP-2",
+    category: "Growth Hormone",
+    description: "Growth hormone releasing peptide with potent GH-stimulating effects.",
+    purity: "99.0%",
+    inStock: true,
+    popular: false,
+    image: "/products/ghrp-2.jpg",
+    variants: [...sv("2mg", 24), ...sv("5mg", 36)],
+  },
+  {
+    id: 13,
+    name: "HGH",
+    category: "Growth Hormone",
+    description: "Recombinant human growth hormone for somatropin research.",
+    purity: "99.5%",
+    inStock: true,
+    popular: true,
+    image: "/products/hgh.jpg",
+    variants: [...sv("10 IU", 60)],
+  },
+  {
+    id: 14,
+    name: "IGF-1 LR3",
+    category: "Growth Hormone",
+    description: "Long R3 insulin-like growth factor for cellular research.",
+    purity: "98.8%",
+    inStock: true,
+    popular: false,
+    image: "/products/igf-1-lr3.jpg",
+    variants: [...sv("0.1mg", 60), ...sv("1mg", 240)],
+  },
+  {
+    id: 15,
+    name: "PEG MGF",
+    category: "Growth Hormone",
+    description: "PEGylated mechano growth factor for extended activity research.",
+    purity: "98.7%",
+    inStock: true,
+    popular: false,
+    image: "/products/peg-mgf.jpg",
+    variants: [...sv("5mg", 60)],
+  },
+  {
+    id: 16,
+    name: "MK-677 (Ibutamoren)",
+    category: "Growth Hormone",
+    description: "Oral ghrelin receptor agonist for growth hormone research (tablets).",
+    purity: "99.0%",
+    inStock: true,
+    popular: true,
+    image: "/products/mk-677.jpg",
+    variants: [{ strength: "Tablets", form: "Bottle", price: 240 }],
+  },
+
+  // ===== Recovery =====
+  {
+    id: 17,
+    name: "BPC-157",
+    category: "Recovery",
+    description: "Body protective compound for tissue repair and gut health research.",
+    purity: "99.4%",
+    inStock: true,
+    popular: true,
+    image: "/products/bpc-157.jpg",
+    variants: [...sv("2mg", 30), ...sv("5mg", 50), ...sv("10mg", 90)],
+  },
+  {
+    id: 18,
+    name: "Thymosin Beta-4 (TB-500)",
+    category: "Recovery",
+    description: "Beta-thymosin peptide for tissue regeneration research.",
+    purity: "99.2%",
+    inStock: true,
+    popular: true,
+    image: "/products/tb-500.jpg",
+    variants: [...sv("2mg", 50), ...sv("5mg", 70), ...sv("10mg", 120)],
+  },
+  {
+    id: 19,
+    name: "GHK-Cu",
+    category: "Recovery",
+    description: "Copper tripeptide for skin and tissue healing research.",
+    purity: "98.9%",
+    inStock: true,
+    popular: false,
+    image: "/products/ghk-cu.jpg",
+    variants: [...sv("50mg", 50), ...sv("100mg", 80)],
+  },
+  {
+    id: 20,
+    name: "Thymosin Alpha-1",
+    category: "Recovery",
+    description: "Immunomodulatory peptide for immune function research.",
+    purity: "99.0%",
+    inStock: true,
+    popular: false,
+    image: "/products/thymosin-alpha-1.jpg",
+    variants: [...sv("5mg", 100), ...sv("10mg", 160)],
+  },
+  {
+    id: 21,
+    name: "KPV",
+    category: "Recovery",
+    description: "Anti-inflammatory tripeptide for gut and tissue research.",
+    purity: "98.8%",
+    inStock: true,
+    popular: false,
+    image: "/products/kpv.jpg",
+    variants: [...sv("10mg", 60)],
+  },
+  {
+    id: 22,
+    name: "Thymulin",
+    category: "Recovery",
+    description: "Zinc-bound thymic peptide for immune research applications.",
+    purity: "98.9%",
+    inStock: true,
+    popular: false,
+    image: "/products/thymulin.jpg",
+    variants: [...sv("10mg", 80)],
+  },
+
+  // ===== Cognitive =====
+  {
+    id: 23,
+    name: "Semax",
+    category: "Cognitive",
+    description: "Neuropeptide for cognitive and neuroprotective research.",
+    purity: "99.1%",
+    inStock: true,
+    popular: false,
+    image: "/products/semax.jpg",
+    variants: [...sv("10mg", 80)],
+  },
+  {
+    id: 24,
+    name: "Selank",
+    category: "Cognitive",
+    description: "Anxiolytic peptide for anxiety and cognition research.",
+    purity: "99.0%",
+    inStock: true,
+    popular: false,
+    image: "/products/selank.jpg",
+    variants: [...sv("5mg", 50)],
+  },
+  {
+    id: 25,
+    name: "DSIP",
+    category: "Cognitive",
+    description: "Delta sleep-inducing peptide for sleep cycle research.",
+    purity: "98.8%",
+    inStock: true,
+    popular: false,
+    image: "/products/dsip.jpg",
+    variants: [...sv("5mg", 80)],
+  },
+  {
+    id: 26,
+    name: "Pinealon",
+    category: "Cognitive",
+    description: "Tripeptide bioregulator for neuronal and cognitive research.",
+    purity: "98.9%",
+    inStock: true,
+    popular: false,
+    image: "/products/pinealon.jpg",
+    variants: [...sv("16mg", 80)],
+  },
+
+  // ===== Anti-Aging =====
+  {
+    id: 27,
+    name: "Epithalon",
+    category: "Anti-Aging",
+    description: "Tetrapeptide for telomere and longevity research.",
+    purity: "99.0%",
+    inStock: true,
+    popular: true,
+    image: "/products/epithalon.jpg",
+    variants: [...sv("10mg", 60)],
+  },
+  {
+    id: 28,
+    name: "NAD+",
+    category: "Anti-Aging",
+    description: "Nicotinamide adenine dinucleotide for mitochondrial research.",
+    purity: "99.2%",
+    inStock: true,
+    popular: true,
+    image: "/products/nad.jpg",
+    variants: [...sv("500mg", 60)],
+  },
+  {
+    id: 29,
+    name: "NMN",
+    category: "Anti-Aging",
+    description: "Nicotinamide mononucleotide for NAD+ precursor research (tablets).",
+    purity: "99.0%",
+    inStock: true,
+    popular: false,
+    image: "/products/nmn.jpg",
+    variants: [{ strength: "Tablets", form: "Bottle", price: 120 }],
+  },
+  {
+    id: 30,
+    name: "MOTS-C",
+    category: "Anti-Aging",
+    description: "Mitochondrial-derived peptide for metabolic and aging research.",
+    purity: "99.1%",
+    inStock: true,
+    popular: false,
+    image: "/products/mots-c.jpg",
+    variants: [...sv("10mg", 140)],
+  },
+  {
+    id: 31,
+    name: "SS31",
+    category: "Anti-Aging",
+    description: "Mitochondria-targeted peptide for oxidative stress research.",
+    purity: "98.9%",
+    inStock: true,
+    popular: false,
+    image: "/products/ss31.jpg",
+    variants: [...sv("10mg", 140)],
+  },
+  {
+    id: 32,
+    name: "Snap-8",
+    category: "Anti-Aging",
+    description: "Octapeptide for skincare and neuromodulatory research.",
+    purity: "98.8%",
+    inStock: true,
+    popular: false,
+    image: "/products/snap-8.jpg",
+    variants: [...sv("10mg", 60)],
+  },
+  {
+    id: 33,
+    name: "PE 22-28",
+    category: "Anti-Aging",
+    description: "Spadin derivative for neuroplasticity and mood research.",
+    purity: "98.9%",
+    inStock: true,
+    popular: false,
+    image: "/products/pe-22-28.jpg",
+    variants: [...sv("8mg", 60)],
+  },
+
+  // ===== Research =====
+  {
+    id: 34,
+    name: "PT-141",
+    category: "Research",
+    description: "Melanocortin receptor agonist for sexual health research.",
+    purity: "99.0%",
+    inStock: true,
+    popular: true,
+    image: "/products/pt-141.jpg",
+    variants: [...sv("5mg", 50), ...sv("10mg", 90)],
+  },
+  {
+    id: 35,
+    name: "Melanotan 2",
+    category: "Research",
+    description: "Synthetic analog of alpha-melanocyte-stimulating hormone.",
+    purity: "98.7%",
+    inStock: true,
+    popular: false,
+    image: "/products/melanotan-2.jpg",
+    variants: [...sv("10mg", 50)],
+  },
+  {
+    id: 36,
+    name: "Oxytocin Acetate",
+    category: "Research",
+    description: "Nine-amino-acid peptide hormone for social behavior research.",
+    purity: "99.1%",
+    inStock: true,
+    popular: false,
+    image: "/products/oxytocin.jpg",
+    variants: [...sv("2mg", 60)],
+  },
+  {
+    id: 37,
+    name: "Kisspeptin-10",
+    category: "Research",
+    description: "GPR54 agonist peptide for reproductive endocrinology research.",
+    purity: "98.9%",
+    inStock: true,
+    popular: false,
+    image: "/products/kisspeptin-10.jpg",
+    variants: [...sv("5mg", 80)],
+  },
+  {
+    id: 38,
+    name: "HCG",
+    category: "Research",
+    description: "Human chorionic gonadotropin for endocrine research.",
+    purity: "99.0%",
+    inStock: true,
+    popular: false,
+    image: "/products/hcg.jpg",
+    variants: [...sv("5000 IU", 80)],
+  },
+  {
+    id: 39,
+    name: "HMG",
+    category: "Research",
+    description: "Human menopausal gonadotropin for reproductive research.",
+    purity: "98.8%",
+    inStock: true,
+    popular: false,
+    image: "/products/hmg.jpg",
+    variants: [...sv("75 IU", 60)],
+  },
+  {
+    id: 40,
+    name: "FST344",
+    category: "Research",
+    description: "Follistatin 344 for myostatin inhibition research.",
+    purity: "98.7%",
+    inStock: true,
+    popular: false,
+    image: "/products/fst344.jpg",
+    variants: [...sv("1mg", 180)],
+  },
+  {
+    id: 41,
+    name: "GDF-8 (Myostatin)",
+    category: "Research",
+    description: "Growth differentiation factor 8 for muscle biology research.",
+    purity: "98.9%",
+    inStock: true,
+    popular: false,
+    image: "/products/gdf-8.jpg",
+    variants: [...sv("1mg", 160)],
+  },
+  {
+    id: 42,
+    name: "GW501516 (Cardarine)",
+    category: "Research",
+    description: "PPAR-delta agonist research compound (tablets).",
+    purity: "99.0%",
+    inStock: true,
+    popular: false,
+    image: "/products/gw501516.jpg",
+    variants: [{ strength: "Tablets", form: "Bottle", price: 160 }],
+  },
+  {
+    id: 43,
+    name: "SLU-PP-332",
+    category: "Research",
+    description: "ERR agonist research compound (tablets).",
+    purity: "99.0%",
+    inStock: true,
+    popular: false,
+    image: "/products/slu-pp-332.jpg",
+    variants: [{ strength: "Tablets", form: "Bottle", price: 160 }],
+  },
+  {
+    id: 44,
+    name: "GLOW Blend",
+    category: "Research",
+    description: "Blend of BPC-157 / TB-500 / GHK-Cu for tissue research.",
+    purity: "99.0%",
+    inStock: true,
+    popular: true,
+    image: "/products/glow-blend.jpg",
+    variants: [...sv("10/10/75mg", 240)],
+  },
+
+  // ===== Accessories =====
+  {
+    id: 45,
+    name: "Starter Kit",
+    category: "Accessories",
+    description: "Syringe plus 30ml bacteriostatic water — everything needed to get started.",
+    purity: "Sterile",
+    inStock: true,
+    popular: true,
+    image: "/products/starter-bundle.jpg",
+    variants: [
+      { strength: "Standard", form: "Single Kit", price: 60 },
+      { strength: "Standard", form: "Kit of 10", price: 270 },
+    ],
+  },
+  {
+    id: 46,
+    name: "Bacteriostatic Water 30ml",
+    category: "Accessories",
+    description: "Sterile bacteriostatic water for reconstitution. 30ml bottle.",
+    purity: "Sterile",
+    inStock: true,
+    popular: true,
+    image: "/products/bacteriostatic-water.jpg",
+    variants: [
+      { strength: "30ml", form: "Single Bottle", price: 40 },
+      { strength: "30ml", form: "Kit of 10 Bottles", price: 180 },
+    ],
+  },
+  {
+    id: 47,
+    name: "Bacteriostatic Water 3ml",
+    category: "Accessories",
+    description: "Sterile bacteriostatic water for reconstitution. Box of 10 × 3ml bottles.",
+    purity: "Sterile",
+    inStock: true,
+    popular: false,
+    image: "/products/bac-water-3ml.jpg",
+    variants: [
+      { strength: "3ml × 10", form: "Single Box", price: 10 },
+      { strength: "3ml × 10", form: "Kit of 10 Boxes", price: 45 },
+    ],
+  },
+  {
+    id: 48,
+    name: "Insulin Syringes",
+    category: "Accessories",
+    description:
+      "1/2ml — 31G × 8mm. Sterile insulin syringes for precise peptide administration. 100 count per pack.",
+    purity: "Sterile",
+    inStock: true,
+    popular: true,
+    image: "/products/insulin-syringes.jpg",
+    variants: [
+      { strength: "100 ct", form: "Single Pack", price: 30 },
+      { strength: "100 ct", form: "Kit of 10 Packs", price: 135 },
+    ],
+  },
+]
+
+/**
+ * Canonicalize a product name into a URL slug. Must be stable and match the
+ * `slug` column on public.products so that admin-inserted embed tokens like
+ * `[[product:aod-9604]]` resolve to this exact slug.
+ *
+ * Rules: lowercase, runs of non-alphanumerics → single dash, trim leading
+ * and trailing dashes. Examples:
+ *   "AOD-9604"                   → "aod-9604"
+ *   "CJC-1295 (with DAC)"        → "cjc-1295-with-dac"
+ *   "Thymosin Beta-4 (TB-500)"   → "thymosin-beta-4-tb-500"
+ *   "Bacteriostatic Water 30ml"  → "bacteriostatic-water-30ml"
+ */
+export function slugify(input: string): string {
+  return input
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+}
+
+/**
+ * Keep slug→product lookups O(1) across the site (we hit this on every
+ * detail page render and on every embed expansion).
+ */
+const PRODUCTS_BY_SLUG: ReadonlyMap<string, Product> = new Map(
+  products.map((p) => [slugify(p.name), p]),
+)
+
+export function getProductBySlug(slug: string): Product | undefined {
+  if (!slug) return undefined
+  return PRODUCTS_BY_SLUG.get(slug.toLowerCase())
+}
+
+export function productSlug(product: Pick<Product, "name">): string {
+  return slugify(product.name)
+}
+
+/** Used by Next.js `generateStaticParams` to pre-render every detail page. */
+export function getAllProductSlugs(): string[] {
+  return Array.from(PRODUCTS_BY_SLUG.keys())
+}
+
+/**
+ * Utilities used by the homepage grid (variants have both a strength and a
+ * form; the UI lets the user pick each independently).
+ */
+export function getUniqueStrengths(variants: Variant[]): string[] {
+  return Array.from(new Set(variants.map((v) => v.strength)))
+}
+export function getFormsForStrength(variants: Variant[], strength: string): string[] {
+  return Array.from(
+    new Set(variants.filter((v) => v.strength === strength).map((v) => v.form)),
+  )
+}

@@ -4,7 +4,6 @@ import { createClient } from "@/lib/supabase/server"
 import { requireAdmin } from "@/lib/auth/require-admin"
 import { sanitizePostContent } from "@/lib/sanitize"
 import { revalidatePath } from "next/cache"
-import { redirect } from "next/navigation"
 
 const slugify = (input: string) =>
   input
@@ -78,7 +77,12 @@ export async function createBlogPostAction(formData: FormData) {
 
   revalidatePath("/admin/blog")
   revalidatePath("/blog")
-  redirect(`/admin/blog/${data.id}`)
+  // Return the new post id and let the client navigate. Calling redirect()
+  // from inside a server action that's awaited in a client-side
+  // startTransition causes the client promise to resolve with `undefined`,
+  // which then blows up the editor's `"error" in result` check. Returning
+  // a concrete success payload keeps that path type-safe.
+  return { success: true as const, id: data.id }
 }
 
 export async function updateBlogPostAction(formData: FormData) {
@@ -166,5 +170,7 @@ export async function deleteBlogPostAction(formData: FormData) {
   revalidatePath("/admin/blog")
   revalidatePath("/blog")
   if (existing?.slug) revalidatePath(`/blog/${existing.slug}`)
-  redirect("/admin/blog")
+  // Same pattern as create: let the client navigate so we don't trip the
+  // `"error" in undefined` trap in the editor's response handler.
+  return { success: true as const, deleted: true as const }
 }
