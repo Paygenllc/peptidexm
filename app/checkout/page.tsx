@@ -24,7 +24,12 @@ import {
 import Link from 'next/link'
 import { US_STATES, COUNTRIES } from '@/lib/locations'
 import { placeOrderAction } from '@/app/actions/place-order'
-import { getShippingFee, isUSCountry } from '@/lib/shipping'
+import {
+  getShippingFee,
+  isUSCountry,
+  amountToFreeShipping,
+  US_FREE_SHIPPING_THRESHOLD,
+} from '@/lib/shipping'
 import { ZellePaymentPanel } from '@/components/zelle-payment-panel'
 
 interface CustomerInfo {
@@ -63,8 +68,12 @@ export default function CheckoutPage() {
   const [placedOrderTotal, setPlacedOrderTotal] = useState<number | null>(null)
   const [placeError, setPlaceError] = useState<string | null>(null)
 
-  const shippingFee = getShippingFee(customerInfo.country)
+  // Subtotal decides free-shipping eligibility for US orders; pass it along
+  // so the displayed fee matches what `placeOrderAction` will charge server-side.
+  const shippingFee = getShippingFee(customerInfo.country, total)
   const isUS = isUSCountry(customerInfo.country)
+  const freeShipRemaining = amountToFreeShipping(customerInfo.country, total)
+  const qualifiesForFreeShip = isUS && shippingFee === 0
   const orderTotal = total + shippingFee
 
   const validateInfo = (): boolean => {
@@ -701,8 +710,23 @@ export default function CheckoutPage() {
                             </div>
                             <div className="flex justify-between text-muted-foreground">
                               <span>Shipping {isUS ? '(US)' : '(Intl.)'}</span>
-                              <span className="tabular-nums">${shippingFee.toFixed(2)}</span>
+                              {qualifiesForFreeShip ? (
+                                <span className="font-semibold text-accent uppercase tracking-wide">
+                                  Free
+                                </span>
+                              ) : (
+                                <span className="tabular-nums">${shippingFee.toFixed(2)}</span>
+                              )}
                             </div>
+                            {isUS && freeShipRemaining !== null && freeShipRemaining > 0 && (
+                              <p className="text-xs text-muted-foreground/90 bg-accent/5 border border-accent/20 rounded-md px-2 py-1.5 mt-1">
+                                Add{' '}
+                                <span className="font-semibold text-foreground tabular-nums">
+                                  ${freeShipRemaining.toFixed(2)}
+                                </span>{' '}
+                                more for free US shipping.
+                              </p>
+                            )}
                           </div>
 
                           <div className="pt-3 border-t border-border flex items-center justify-between mb-4">
@@ -772,8 +796,41 @@ export default function CheckoutPage() {
                       </div>
                       <div className="flex justify-between text-sm text-muted-foreground">
                         <span>Shipping {isUS ? '(US)' : '(International)'}</span>
-                        <span className="tabular-nums">${shippingFee.toFixed(2)}</span>
+                        {qualifiesForFreeShip ? (
+                          <span className="font-semibold text-accent uppercase tracking-wide">
+                            Free
+                          </span>
+                        ) : (
+                          <span className="tabular-nums">${shippingFee.toFixed(2)}</span>
+                        )}
                       </div>
+                      {isUS && freeShipRemaining !== null && freeShipRemaining > 0 && (
+                        <div className="rounded-md border border-accent/20 bg-accent/5 px-3 py-2 mt-1">
+                          <p className="text-xs text-muted-foreground">
+                            You&apos;re{' '}
+                            <span className="font-semibold text-foreground tabular-nums">
+                              ${freeShipRemaining.toFixed(2)}
+                            </span>{' '}
+                            away from free US shipping.
+                          </p>
+                          <div className="mt-1.5 h-1 w-full rounded-full bg-accent/10 overflow-hidden">
+                            <div
+                              className="h-full bg-accent transition-[width] duration-300"
+                              style={{
+                                width: `${Math.min(
+                                  100,
+                                  (total / US_FREE_SHIPPING_THRESHOLD) * 100,
+                                ).toFixed(1)}%`,
+                              }}
+                            />
+                          </div>
+                        </div>
+                      )}
+                      {qualifiesForFreeShip && (
+                        <p className="text-xs text-accent font-medium mt-1">
+                          Your order qualifies for free US shipping.
+                        </p>
+                      )}
                       <div className="flex justify-between text-xs text-muted-foreground/80">
                         <span>Tax</span>
                         <span className="tabular-nums">$0.00</span>

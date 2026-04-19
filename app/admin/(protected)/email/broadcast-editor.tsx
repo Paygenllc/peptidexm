@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useTransition } from "react"
+import { useRef, useState, useTransition } from "react"
 import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -23,6 +23,7 @@ import {
 import { Loader2, Send, Save, Trash2, Eye, Pencil } from "lucide-react"
 import ReactMarkdown from "react-markdown"
 import remarkGfm from "remark-gfm"
+import { ProductPicker } from "@/components/admin/product-picker"
 
 type EditorInitial = {
   id: string
@@ -56,10 +57,39 @@ export function BroadcastEditor({
   const [message, setMessage] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [isPending, startTransition] = useTransition()
+  const bodyRef = useRef<HTMLTextAreaElement>(null)
 
   const sent = initial?.status === "sent"
   const sending = initial?.status === "sending"
   const locked = sent || sending
+
+  /**
+   * Insert a product token at the current cursor in the body textarea.
+   * We wrap the token with blank lines so our markdown renderer treats it as
+   * its own paragraph — the server-side embed expander can then cleanly swap
+   * the wrapping `<p>` with the product card instead of nesting.
+   */
+  function insertProductToken(slug: string) {
+    const ta = bodyRef.current
+    const token = `[[product:${slug}]]`
+    if (!ta) {
+      // Fallback: append to the end if the ref isn't attached for some reason.
+      setBody((prev) => `${prev}${prev.endsWith("\n") ? "" : "\n\n"}${token}\n\n`)
+      return
+    }
+    const start = ta.selectionStart ?? body.length
+    const end = ta.selectionEnd ?? body.length
+    // Add surrounding blank lines only if we aren't already on one.
+    const prefix = start === 0 || body.slice(0, start).endsWith("\n\n") ? "" : "\n\n"
+    const suffix = body.slice(end).startsWith("\n\n") || end === body.length ? "\n\n" : "\n\n"
+    const next = body.slice(0, start) + prefix + token + suffix + body.slice(end)
+    setBody(next)
+    const cursor = start + prefix.length + token.length + suffix.length
+    requestAnimationFrame(() => {
+      ta.focus()
+      ta.setSelectionRange(cursor, cursor)
+    })
+  }
 
   function handleSave(formData: FormData) {
     setMessage(null)
@@ -146,33 +176,39 @@ export function BroadcastEditor({
         </Card>
 
         <Card className="p-5 space-y-3">
-          <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between gap-2 flex-wrap">
             <Label htmlFor="body">Body</Label>
-            <div className="flex rounded-md border border-border p-0.5 bg-secondary/40">
-              <button
-                type="button"
-                onClick={() => setTab("write")}
-                className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded text-xs font-medium ${
-                  tab === "write" ? "bg-background shadow-sm" : "text-muted-foreground"
-                }`}
-              >
-                <Pencil className="w-3 h-3" /> Write
-              </button>
-              <button
-                type="button"
-                onClick={() => setTab("preview")}
-                className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded text-xs font-medium ${
-                  tab === "preview" ? "bg-background shadow-sm" : "text-muted-foreground"
-                }`}
-              >
-                <Eye className="w-3 h-3" /> Preview
-              </button>
+            <div className="flex items-center gap-1">
+              {tab === "write" && !locked && (
+                <ProductPicker onInsert={insertProductToken} />
+              )}
+              <div className="flex rounded-md border border-border p-0.5 bg-secondary/40">
+                <button
+                  type="button"
+                  onClick={() => setTab("write")}
+                  className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded text-xs font-medium ${
+                    tab === "write" ? "bg-background shadow-sm" : "text-muted-foreground"
+                  }`}
+                >
+                  <Pencil className="w-3 h-3" /> Write
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setTab("preview")}
+                  className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded text-xs font-medium ${
+                    tab === "preview" ? "bg-background shadow-sm" : "text-muted-foreground"
+                  }`}
+                >
+                  <Eye className="w-3 h-3" /> Preview
+                </button>
+              </div>
             </div>
           </div>
 
           {tab === "write" ? (
             <>
               <Textarea
+                ref={bodyRef}
                 id="body"
                 name="body_markdown"
                 value={body}
@@ -180,11 +216,12 @@ export function BroadcastEditor({
                 required
                 rows={16}
                 disabled={locked}
-                placeholder={`# Hello there\n\nA quick update from the PeptideXM team...\n\n- **New arrivals** this week\n- _10% off_ through Friday\n\n[Shop now](https://peptidexm.com/products)`}
+                placeholder={`# Hello there\n\nA quick update from the PeptideXM team...\n\n- **New arrivals** this week\n- _10% off_ through Friday\n\n[[product:bpc-157]]\n\n[Shop now](https://peptidexm.com/products)`}
                 className="font-mono text-sm leading-relaxed"
               />
               <p className="text-xs text-muted-foreground">
                 Markdown supported: # heading, **bold**, _italic_, [link](url), - list, {"> "}quote.
+                Use the <span className="inline-flex items-center gap-1 align-middle"><span className="inline-block">Product</span></span> button above to insert a product card.
               </p>
             </>
           ) : (

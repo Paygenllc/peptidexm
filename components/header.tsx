@@ -8,6 +8,7 @@ import { Sheet, SheetContent, SheetTrigger, SheetTitle } from "@/components/ui/s
 import { useCart } from "@/context/cart-context"
 import { CartSidebar } from "@/components/cart-sidebar"
 import { HeaderSearch, type HeaderSearchHandle } from "@/components/header-search"
+import { AnnouncementBar } from "@/components/announcement-bar"
 
 type NavItem = { name: string; href: string; id?: string }
 
@@ -95,6 +96,7 @@ export function Header() {
           : "bg-background/70 backdrop-blur-sm border-b border-transparent"
       }`}
     >
+      <AnnouncementBar />
       <nav
         className="mx-auto flex max-w-7xl items-center gap-4 px-4 sm:px-6 py-3 lg:px-8"
         aria-label="Primary"

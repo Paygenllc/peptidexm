@@ -7,6 +7,7 @@ import { createClient } from "@/lib/supabase/server"
 import { Header } from "@/components/header"
 import { Footer } from "@/components/footer"
 import { PostContent } from "@/components/post-content"
+import { renderContentWithProducts } from "@/lib/product-embeds"
 
 export const dynamic = "force-dynamic"
 
@@ -47,6 +48,14 @@ export default async function BlogPostPage({ params }: Props) {
     .maybeSingle()
 
   if (!post) notFound()
+
+  // Expand `[[product:slug]]` tokens to rendered product cards before the
+  // content hits the sanitizer/renderer. Tokens that don't match an active
+  // product are silently dropped so stale references don't leak through.
+  const renderedContent = await renderContentWithProducts(
+    post.content_markdown ?? "",
+    "blog",
+  )
 
   return (
     <main id="main-content" tabIndex={-1} className="min-h-screen focus:outline-none">
@@ -105,7 +114,7 @@ export default async function BlogPostPage({ params }: Props) {
           ) : null}
 
           <div className="mt-10">
-            <PostContent content={post.content_markdown} />
+            <PostContent content={renderedContent} />
           </div>
         </div>
       </article>
