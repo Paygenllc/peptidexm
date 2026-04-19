@@ -2,6 +2,7 @@
 
 import { useState, useTransition, useRef } from "react"
 import Image from "next/image"
+import { useRouter } from "next/navigation"
 import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -55,6 +56,7 @@ export function BlogPostEditor({
   const [isPending, startTransition] = useTransition()
   const [coverUploading, setCoverUploading] = useState(false)
   const coverInputRef = useRef<HTMLInputElement>(null)
+  const router = useRouter()
 
   function handleSave(formData: FormData) {
     // React form handlers don't pick up controlled rich-editor state, so
@@ -71,12 +73,31 @@ export function BlogPostEditor({
     setMessage(null)
     setError(null)
     startTransition(async () => {
+      // Server actions can resolve to `undefined` when they call redirect()
+      // internally (Next 16 quirk) — guard before inspecting keys.
       const result =
         mode === "create"
           ? await createBlogPostAction(formData)
           : await updateBlogPostAction(formData)
-      if ("error" in result && result.error) setError(result.error)
-      else if ("success" in result && result.success) setMessage("Saved")
+
+      if (!result) {
+        // Action completed but returned no payload (e.g. a redirect we
+        // didn't explicitly handle). Nothing to do client-side.
+        return
+      }
+
+      if ("error" in result && result.error) {
+        setError(result.error)
+        return
+      }
+
+      if (mode === "create" && "id" in result && result.id) {
+        // Navigate to the new post's edit page now that we have an id.
+        router.push(`/admin/blog/${result.id}`)
+        return
+      }
+
+      setMessage("Saved")
     })
   }
 
@@ -88,7 +109,13 @@ export function BlogPostEditor({
       const fd = new FormData()
       fd.set("id", initial.id)
       const res = await deleteBlogPostAction(fd)
-      if (res?.error) setError(res.error)
+      if (res && "error" in res && res.error) {
+        setError(res.error)
+        return
+      }
+      if (res && "deleted" in res && res.deleted) {
+        router.push("/admin/blog")
+      }
     })
   }
 

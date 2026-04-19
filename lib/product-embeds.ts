@@ -92,14 +92,13 @@ function absoluteUrl(path: string | null | undefined, siteUrl: string): string {
 }
 
 /**
- * Build the public destination for a product. The storefront does not have a
- * dedicated `/products/[slug]` route today — every product is a card inside
- * the `#products` section on the homepage. Linking there (with a `p` query
- * param for future deep-linking) keeps the CTA functional while we wait on a
- * real detail page. When a detail page ships, update this one function.
+ * Build the public destination for a product. We now have a dedicated
+ * `/products/[slug]` route (statically pre-rendered at build time from
+ * `lib/products-catalog.ts`), so emails and blog embeds link directly
+ * there instead of the old homepage-anchor fallback.
  */
 function productHref(slug: string, siteUrl: string): string {
-  return `${siteUrl}/?p=${encodeURIComponent(slug)}#products`
+  return `${siteUrl}/products/${encodeURIComponent(slug)}`
 }
 
 /** Email-safe card: single table with inline styles; no CSS classes. */
@@ -129,9 +128,10 @@ function cardForEmail(p: EmbedProduct, siteUrl: string): string {
 
 /** Blog card: uses `not-prose` to escape the prose styles, then Tailwind classes. */
 function cardForBlog(p: EmbedProduct): string {
-  // Site-relative is fine for browser rendering; a leading slash keeps the
-  // link valid from any route in the app.
-  const url = `/?p=${encodeURIComponent(p.slug)}#products`
+  // Site-relative is fine for browser rendering; the leading slash keeps
+  // the link valid from any route. Points at the real product detail page
+  // generated from the catalog.
+  const url = `/products/${encodeURIComponent(p.slug)}`
   const img = p.image_url || "/placeholder.svg"
   return `
 <a href="${url}" class="not-prose block my-6 no-underline overflow-hidden rounded-lg border border-border bg-secondary/40 transition-colors hover:bg-secondary">

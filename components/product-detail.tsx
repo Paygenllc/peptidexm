@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { Check, Plus, ShieldCheck, Truck, FlaskConical } from "lucide-react"
+import { Check, Plus, ShieldCheck, Truck, FlaskConical, Flame, Zap } from "lucide-react"
 import { useCart } from "@/context/cart-context"
 import {
   getUniqueStrengths,
@@ -72,7 +72,19 @@ export function ProductDetail({ product }: Props) {
             Purity {product.purity}
           </Badge>
           {product.popular && (
-            <Badge className="bg-accent text-accent-foreground text-xs">Popular</Badge>
+            <Badge className="bg-accent text-accent-foreground text-xs gap-1">
+              <Flame className="h-3 w-3" aria-hidden="true" />
+              Bestseller
+            </Badge>
+          )}
+          {product.inStock && product.limitedStock && (
+            <Badge
+              variant="outline"
+              className="text-xs gap-1 border-destructive/40 text-destructive"
+            >
+              <Zap className="h-3 w-3" aria-hidden="true" />
+              Only a few kits left
+            </Badge>
           )}
           {!product.inStock && (
             <Badge variant="secondary" className="text-xs">

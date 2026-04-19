@@ -5,7 +5,7 @@ import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { ShoppingCart, Plus, Check, Search, X } from "lucide-react"
+import { ShoppingCart, Plus, Check, Search, X, Flame, Truck, Zap } from "lucide-react"
 import { Input } from "@/components/ui/input"
 import { useCart } from "@/context/cart-context"
 import {
@@ -258,11 +258,35 @@ export function Products() {
                       alt={product.name}
                       className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
                     />
-                    {product.popular && (
-                      <Badge className="absolute top-3 left-3 bg-accent text-accent-foreground">Popular</Badge>
-                    )}
+
+                    {/* Top-left stack: bestseller + limited-stock urgency.
+                     * Bestseller is a social-proof signal (what others buy);
+                     * limited-stock is an urgency signal (act now). Shown
+                     * stacked so they co-exist on high-demand products. */}
+                    <div className="absolute top-2 left-2 sm:top-3 sm:left-3 flex flex-col gap-1 items-start">
+                      {product.popular && (
+                        <Badge className="bg-accent text-accent-foreground gap-1 shadow-sm">
+                          <Flame className="h-3 w-3" aria-hidden="true" />
+                          <span className="text-[10px] sm:text-xs font-semibold tracking-wide uppercase">
+                            Bestseller
+                          </span>
+                        </Badge>
+                      )}
+                      {product.inStock && product.limitedStock && (
+                        <Badge
+                          variant="outline"
+                          className="bg-background/95 backdrop-blur border-destructive/40 text-destructive gap-1 shadow-sm"
+                        >
+                          <Zap className="h-3 w-3" aria-hidden="true" />
+                          <span className="text-[10px] sm:text-xs font-semibold tracking-wide">
+                            Low stock
+                          </span>
+                        </Badge>
+                      )}
+                    </div>
+
                     {!product.inStock && (
-                      <Badge variant="secondary" className="absolute top-3 right-3">
+                      <Badge variant="secondary" className="absolute top-2 right-2 sm:top-3 sm:right-3">
                         Out of Stock
                       </Badge>
                     )}
@@ -344,6 +368,17 @@ export function Products() {
                           })}
                         </div>
                       </div>
+                    )}
+
+                    {/* Ships-same-day micro-line: speaks to the fulfillment
+                     * promise called out in the site-wide trust strip and is
+                     * only shown for items actually in stock. Urgency
+                     * without invention. */}
+                    {product.inStock && (
+                      <p className="hidden sm:flex items-center gap-1 text-[11px] font-medium text-accent mb-2">
+                        <Truck className="h-3 w-3" aria-hidden="true" />
+                        Ships same day
+                      </p>
                     )}
 
                     <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 sm:gap-3">

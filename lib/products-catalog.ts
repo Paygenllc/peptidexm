@@ -27,6 +27,13 @@ export interface Product {
   purity: string
   inStock: boolean
   popular: boolean
+  /**
+   * Optional flag for products where inventory is genuinely tight. Surfaces
+   * a "Only a few kits left" urgency indicator on the card and detail page.
+   * Leave undefined for the majority of items — the urgency signal has to
+   * stay legitimate to stay effective.
+   */
+  limitedStock?: boolean
   image: string
   variants: Variant[]
 }
@@ -66,6 +73,7 @@ export const products: Product[] = [
     purity: "99.1%",
     inStock: true,
     popular: true,
+    limitedStock: true,
     image: "/products/tirzepatide.jpg",
     variants: [
       ...sv("2mg", 60),
@@ -95,6 +103,7 @@ export const products: Product[] = [
     purity: "99.2%",
     inStock: true,
     popular: true,
+    limitedStock: true,
     image: "/products/retatrutide.jpg",
     variants: [...sv("10mg", 180), ...sv("20mg", 260)],
   },
