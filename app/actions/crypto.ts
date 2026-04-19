@@ -1,6 +1,6 @@
 "use server"
 
-import { createClient } from "@/lib/supabase/server"
+import { createAdminClient } from "@/lib/supabase/admin"
 import { createInvoice } from "@/lib/nowpayments"
 import { headers } from "next/headers"
 
@@ -19,10 +19,14 @@ export async function createCryptoInvoiceAction(input: {
 }): Promise<{ url?: string; error?: string }> {
   if (!input?.orderId) return { error: "Missing order id" }
 
-  const supabase = await createClient()
+  // Use the service-role client here — `place-order` also inserts via the
+  // admin client, and guest checkouts have no auth session that RLS could
+  // use to read the row back. The orderId is a random UUID returned to the
+  // customer alone, so lookup-by-id is effectively session-scoped, and the
+  // action only ever issues invoices or reuses an existing URL (no sensitive
+  // data leaves the server).
+  const supabase = createAdminClient()
 
-  // Pull just the fields we need. RLS allows the customer to read their
-  // own order by session (cookies) or email — that's enough for checkout.
   const { data: order, error: loadErr } = await supabase
     .from("orders")
     .select(
