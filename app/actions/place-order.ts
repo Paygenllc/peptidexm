@@ -30,7 +30,15 @@ interface PlaceOrderInput {
   zipCode: string
   country: string
   items: OrderItemInput[]
+  /**
+   * How the shopper intends to pay. Determines the post-order flow:
+   *  - "zelle"  → show Zelle payment panel on the success screen (default)
+   *  - "crypto" → redirect to NOWPayments hosted invoice via createCryptoInvoiceAction
+   */
+  paymentMethod?: "zelle" | "crypto"
 }
+
+const ALLOWED_PAYMENT_METHODS = new Set<PlaceOrderInput["paymentMethod"]>(["zelle", "crypto"])
 
 export async function placeOrderAction(input: PlaceOrderInput) {
   if (!input.email || !input.email.includes("@")) return { error: "Valid email is required" }
@@ -52,12 +60,19 @@ export async function placeOrderAction(input: PlaceOrderInput) {
   // Use admin client to bypass RLS for guest checkout inserts
   const admin = createAdminClient()
 
+  // Validate against the allowlist; fall back to zelle if anything unexpected
+  // was passed. Never trust the client to pick an arbitrary method string.
+  const paymentMethod =
+    input.paymentMethod && ALLOWED_PAYMENT_METHODS.has(input.paymentMethod)
+      ? input.paymentMethod
+      : "zelle"
+
   const { data: order, error: orderError } = await admin
     .from("orders")
     .insert({
       status: "processing",
       payment_status: "pending",
-      payment_method: "zelle",
+      payment_method: paymentMethod,
       email: input.email.trim(),
       phone: input.phone.trim() || null,
       first_name: input.firstName.trim(),

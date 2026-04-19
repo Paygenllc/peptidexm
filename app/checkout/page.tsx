@@ -31,6 +31,7 @@ import {
   US_FREE_SHIPPING_THRESHOLD,
 } from '@/lib/shipping'
 import { ZellePaymentPanel } from '@/components/zelle-payment-panel'
+import { CryptoPaymentPanel } from '@/components/crypto-payment-panel'
 
 interface CustomerInfo {
   email: string
@@ -66,7 +67,11 @@ export default function CheckoutPage() {
   const [isProcessing, setIsProcessing] = useState(false)
   const [placedOrderNumber, setPlacedOrderNumber] = useState<string | null>(null)
   const [placedOrderTotal, setPlacedOrderTotal] = useState<number | null>(null)
+  const [placedOrderId, setPlacedOrderId] = useState<string | null>(null)
   const [placeError, setPlaceError] = useState<string | null>(null)
+  // Which payment method the shopper chose on the checkout step. Drives both
+  // the order row's payment_method column and which panel we show on success.
+  const [paymentMethod, setPaymentMethod] = useState<'zelle' | 'crypto'>('zelle')
 
   // Subtotal decides free-shipping eligibility for US orders; pass it along
   // so the displayed fee matches what `placeOrderAction` will charge server-side.
@@ -143,6 +148,7 @@ export default function CheckoutPage() {
           quantity: item.quantity,
           imageUrl: item.image,
         })),
+        paymentMethod,
       })
 
       if (result.error) {
@@ -152,6 +158,7 @@ export default function CheckoutPage() {
 
       setPlacedOrderNumber(result.orderNumber ?? null)
       setPlacedOrderTotal(typeof result.total === 'number' ? result.total : orderTotal)
+      setPlacedOrderId(result.orderId ?? null)
       setStep('success')
       clearCart()
       // Scroll to the top so the Zelle panel lands in view cleanly
@@ -216,11 +223,20 @@ export default function CheckoutPage() {
 
             {placedOrderNumber && placedOrderTotal !== null && (
               <div className="mx-auto max-w-xl">
-                <ZellePaymentPanel
-                  orderNumber={placedOrderNumber}
-                  total={placedOrderTotal}
-                  customerEmail={customerInfo.email}
-                />
+                {paymentMethod === 'crypto' && placedOrderId ? (
+                  <CryptoPaymentPanel
+                    orderId={placedOrderId}
+                    orderNumber={placedOrderNumber}
+                    total={placedOrderTotal}
+                    customerEmail={customerInfo.email}
+                  />
+                ) : (
+                  <ZellePaymentPanel
+                    orderNumber={placedOrderNumber}
+                    total={placedOrderTotal}
+                    customerEmail={customerInfo.email}
+                  />
+                )}
               </div>
             )}
           </div>
@@ -660,24 +676,95 @@ export default function CheckoutPage() {
                           <h2 className="font-serif text-2xl font-medium">Payment Method</h2>
                         </div>
                         <p className="text-sm text-muted-foreground mb-6 ml-13">
-                          You&apos;ll pay by Zelle after placing the order.
+                          Choose how you&apos;d like to pay. You&apos;ll complete payment
+                          on the next screen.
                         </p>
 
-                        <div className="rounded-lg border-2 border-accent bg-accent/5 p-4">
-                          <div className="flex items-start gap-3">
-                            <div className="mt-0.5 h-5 w-5 rounded-full border-2 border-accent bg-accent flex items-center justify-center flex-shrink-0">
-                              <div className="h-2 w-2 rounded-full bg-accent-foreground" />
+                        <fieldset
+                          className="space-y-3"
+                          aria-label="Payment method"
+                        >
+                          <legend className="sr-only">Payment method</legend>
+
+                          <label
+                            className={`flex items-start gap-3 rounded-lg border-2 p-4 cursor-pointer transition-colors ${
+                              paymentMethod === 'zelle'
+                                ? 'border-accent bg-accent/5'
+                                : 'border-border hover:border-accent/40'
+                            }`}
+                          >
+                            <input
+                              type="radio"
+                              name="paymentMethod"
+                              value="zelle"
+                              checked={paymentMethod === 'zelle'}
+                              onChange={() => setPaymentMethod('zelle')}
+                              className="sr-only"
+                            />
+                            <div
+                              className={`mt-0.5 h-5 w-5 rounded-full border-2 flex items-center justify-center flex-shrink-0 ${
+                                paymentMethod === 'zelle'
+                                  ? 'border-accent bg-accent'
+                                  : 'border-border'
+                              }`}
+                              aria-hidden="true"
+                            >
+                              {paymentMethod === 'zelle' && (
+                                <div className="h-2 w-2 rounded-full bg-accent-foreground" />
+                              )}
                             </div>
-                            <div className="min-w-0">
+                            <div className="min-w-0 flex-1">
                               <p className="font-medium text-foreground">Zelle</p>
                               <p className="text-sm text-muted-foreground mt-1 leading-relaxed">
-                                Place your order first — we&apos;ll show the Zelle details and your
-                                unique order number on the next screen. Send payment with the order
-                                number in the memo.
+                                Send from your bank&apos;s Zelle using your order
+                                number in the memo. We&apos;ll email the payment
+                                details right after checkout.
                               </p>
                             </div>
-                          </div>
-                        </div>
+                          </label>
+
+                          <label
+                            className={`flex items-start gap-3 rounded-lg border-2 p-4 cursor-pointer transition-colors ${
+                              paymentMethod === 'crypto'
+                                ? 'border-accent bg-accent/5'
+                                : 'border-border hover:border-accent/40'
+                            }`}
+                          >
+                            <input
+                              type="radio"
+                              name="paymentMethod"
+                              value="crypto"
+                              checked={paymentMethod === 'crypto'}
+                              onChange={() => setPaymentMethod('crypto')}
+                              className="sr-only"
+                            />
+                            <div
+                              className={`mt-0.5 h-5 w-5 rounded-full border-2 flex items-center justify-center flex-shrink-0 ${
+                                paymentMethod === 'crypto'
+                                  ? 'border-accent bg-accent'
+                                  : 'border-border'
+                              }`}
+                              aria-hidden="true"
+                            >
+                              {paymentMethod === 'crypto' && (
+                                <div className="h-2 w-2 rounded-full bg-accent-foreground" />
+                              )}
+                            </div>
+                            <div className="min-w-0 flex-1">
+                              <div className="flex items-center gap-2 flex-wrap">
+                                <p className="font-medium text-foreground">Crypto</p>
+                                <span className="text-xs font-medium px-1.5 py-0.5 rounded bg-accent/10 text-accent uppercase tracking-wide">
+                                  USDT · USDC · DAI
+                                </span>
+                              </div>
+                              <p className="text-sm text-muted-foreground mt-1 leading-relaxed">
+                                Pay with stablecoins on NOWPayments&apos; secure
+                                hosted page. Your order is marked paid automatically
+                                once the network confirms.
+                              </p>
+                            </div>
+                          </label>
+                        </fieldset>
                       </CardContent>
                     </Card>
 
