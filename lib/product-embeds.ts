@@ -73,10 +73,40 @@ function truncate(s: string, n: number): string {
   return clean.slice(0, n - 1).trimEnd() + "…"
 }
 
+/**
+ * Normalize an asset/page URL to an absolute form using `siteUrl` as the base.
+ * Email clients (Gmail, Apple Mail, Outlook) do not resolve relative `src`
+ * or `href` values — they require absolute URLs — and absolute URLs also
+ * harden blog content against being consumed in contexts outside the site.
+ */
+function absoluteUrl(path: string | null | undefined, siteUrl: string): string {
+  if (!path) return `${siteUrl}/placeholder.svg`
+  // Already absolute (http, https, data, blob, mailto, ...).
+  if (/^[a-z][a-z0-9+.-]*:/i.test(path)) return path
+  // Protocol-relative URLs.
+  if (path.startsWith("//")) return `https:${path}`
+  // Site-absolute paths such as "/products/foo.jpg".
+  if (path.startsWith("/")) return `${siteUrl}${path}`
+  // Bare file / relative path: treat as site-root-relative.
+  return `${siteUrl}/${path}`
+}
+
+/**
+ * Build the public destination for a product. The storefront does not have a
+ * dedicated `/products/[slug]` route today — every product is a card inside
+ * the `#products` section on the homepage. Linking there (with a `p` query
+ * param for future deep-linking) keeps the CTA functional while we wait on a
+ * real detail page. When a detail page ships, update this one function.
+ */
+function productHref(slug: string, siteUrl: string): string {
+  return `${siteUrl}/?p=${encodeURIComponent(slug)}#products`
+}
+
 /** Email-safe card: single table with inline styles; no CSS classes. */
 function cardForEmail(p: EmbedProduct, siteUrl: string): string {
-  const url = `${siteUrl}/products/${encodeURIComponent(p.slug)}`
-  const img = p.image_url || `${siteUrl}/placeholder.svg`
+  const url = productHref(p.slug, siteUrl)
+  // Email clients strip relative URLs; always emit an absolute https:// src.
+  const img = absoluteUrl(p.image_url, siteUrl)
   const category = p.category ? escapeHtml(p.category) : ""
   const snippet = p.description ? escapeHtml(truncate(p.description, 120)) : ""
   return `
@@ -99,7 +129,9 @@ function cardForEmail(p: EmbedProduct, siteUrl: string): string {
 
 /** Blog card: uses `not-prose` to escape the prose styles, then Tailwind classes. */
 function cardForBlog(p: EmbedProduct): string {
-  const url = `/products/${encodeURIComponent(p.slug)}`
+  // Site-relative is fine for browser rendering; a leading slash keeps the
+  // link valid from any route in the app.
+  const url = `/?p=${encodeURIComponent(p.slug)}#products`
   const img = p.image_url || "/placeholder.svg"
   return `
 <a href="${url}" class="not-prose block my-6 no-underline overflow-hidden rounded-lg border border-border bg-secondary/40 transition-colors hover:bg-secondary">
