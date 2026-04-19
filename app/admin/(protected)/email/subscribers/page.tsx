@@ -186,7 +186,12 @@ export default async function SubscribersPage({
                         : "—"}
                     </td>
                     <td className="p-3 text-right">
-                      <form action={toggleNewsletterAction}>
+                      <form
+                        action={async (fd) => {
+                          "use server"
+                          await toggleNewsletterAction(fd)
+                        }}
+                      >
                         <input type="hidden" name="userId" value={p.id} />
                         <input type="hidden" name="subscribe" value={(!subscribed).toString()} />
                         <Button
@@ -272,7 +277,12 @@ export default async function SubscribersPage({
                         : "—"}
                     </td>
                     <td className="p-3 text-right">
-                      <form action={removeStandaloneSubscriberAction}>
+                      <form
+                        action={async (fd) => {
+                          "use server"
+                          await removeStandaloneSubscriberAction(fd)
+                        }}
+                      >
                         <input type="hidden" name="id" value={s.id} />
                         <Button
                           type="submit"
