@@ -119,6 +119,25 @@ export async function placeOrderAction(input: PlaceOrderInput) {
   revalidatePath("/admin")
   if (user?.id) revalidatePath("/account")
 
+  // Close out any open abandoned-cart row for this email so the cron
+  // doesn't keep sending reminders to a shopper who's already paid.
+  // Matched case-insensitively (`ilike`) because the capture endpoint
+  // stores the email lowercased but the checkout form preserves case.
+  // Errors here are not fatal — the order already succeeded.
+  const normalizedEmail = input.email.trim().toLowerCase()
+  const { error: recoverErr } = await admin
+    .from("abandoned_carts")
+    .update({
+      recovered_at: new Date().toISOString(),
+      recovered_order_id: order.id,
+    })
+    .ilike("email", normalizedEmail)
+    .is("recovered_at", null)
+  if (recoverErr) {
+    console.log("[v0] abandoned-cart recover mark error:", recoverErr)
+  }
+  revalidatePath("/admin/abandoned-carts")
+
   // Fire-and-forget confirmation emails (do not block the checkout response)
   const emailPayload: OrderEmailInput = {
     orderNumber: order.order_number,

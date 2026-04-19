@@ -368,6 +368,92 @@ export async function sendOrderStatusUpdateEmail(input: {
   })
 }
 
+// ---------- Abandoned cart recovery ----------
+
+export type AbandonedCartReminderInput = {
+  /** Shopper's first name, if we captured it at checkout; used to personalize. */
+  firstName?: string | null
+  customerEmail: string
+  /** Which reminder this is (1 = nudge, 2 = final). Drives subject + copy tone. */
+  ordinal: 1 | 2
+  /** Running cart subtotal (USD). Rendered pre-shipping so it matches checkout. */
+  subtotal: number
+  items: Array<{ name: string; variant: string; quantity: number; price: number; image?: string | null }>
+  /** Absolute URL that restores the cart and drops them on /checkout. */
+  recoveryUrl: string
+}
+
+export async function sendAbandonedCartReminderEmail(input: AbandonedCartReminderInput) {
+  const first = input.firstName?.trim()
+  const greeting = first ? `Hi ${escapeHtml(first)},` : "Hi there,"
+
+  const subject =
+    input.ordinal === 1
+      ? "You left items in your cart at PeptideXM"
+      : "Last chance — your PeptideXM cart is about to expire"
+
+  const lead =
+    input.ordinal === 1
+      ? "We saved your cart so you can pick up right where you left off. Your items are still available today — click below to finish checkout in one tap."
+      : "This is the final reminder for the cart you started. We'll release the reserved stock soon — if you still want these items, grab them now."
+
+  const itemsHtml = input.items
+    .map(
+      (i) =>
+        `<tr>
+          <td style="padding:10px 0;border-bottom:1px solid ${borderColor};">
+            <div style="font-weight:500;">${escapeHtml(i.name)}</div>
+            <div style="font-size:13px;color:${mutedText};">${escapeHtml(i.variant)} × ${i.quantity}</div>
+          </td>
+          <td align="right" style="padding:10px 0;border-bottom:1px solid ${borderColor};white-space:nowrap;">$${(i.price * i.quantity).toFixed(2)}</td>
+        </tr>`,
+    )
+    .join("")
+
+  const itemsText = input.items
+    .map((i) => `  • ${i.name} — ${i.variant} × ${i.quantity}  $${(i.price * i.quantity).toFixed(2)}`)
+    .join("\n")
+
+  const html = shell(`
+    <p style="margin:0 0 8px 0;font-size:14px;color:${mutedText};text-transform:uppercase;letter-spacing:0.08em;">Cart reminder</p>
+    <h1 style="margin:0 0 16px 0;font-family:Georgia,serif;font-size:26px;font-weight:500;">${greeting}</h1>
+    <p style="margin:0 0 24px 0;font-size:15px;line-height:1.6;">${lead}</p>
+
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="font-size:14px;margin-bottom:16px;">
+      ${itemsHtml}
+      <tr><td style="padding:14px 0 0 0;font-weight:600;">Subtotal</td><td align="right" style="padding:14px 0 0 0;font-weight:600;">$${input.subtotal.toFixed(2)}</td></tr>
+    </table>
+
+    <div style="text-align:center;margin:28px 0 24px;">
+      <a href="${escapeHtml(input.recoveryUrl)}" style="display:inline-block;background:${brandColor};color:#ffffff;font-weight:600;padding:14px 28px;border-radius:8px;text-decoration:none;font-size:15px;">Complete my order →</a>
+    </div>
+
+    <p style="margin:0;font-size:13px;color:${mutedText};line-height:1.6;">Questions or need something swapped? Just reply to this email — a human will read it.</p>
+  `)
+
+  const text = `PeptideXM — ${input.ordinal === 1 ? "You left items in your cart" : "Last chance for your cart"}
+
+${first ? `Hi ${first},` : "Hi there,"}
+
+${lead}
+
+${itemsText}
+  Subtotal: $${input.subtotal.toFixed(2)}
+
+Complete your order: ${input.recoveryUrl}
+
+Questions? Just reply to this email.`
+
+  return sendEmail({
+    to: input.customerEmail,
+    subject,
+    html,
+    text,
+    from: BROADCAST_FROM_EMAIL,
+    replyTo: CONTACT_EMAIL,
+  })
+}
+
 // ---------- Marketing broadcast ----------
 
 export async function sendBroadcastEmail(input: {
