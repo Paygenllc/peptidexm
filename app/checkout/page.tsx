@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useCart } from '@/context/cart-context'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
@@ -33,6 +33,7 @@ import {
 import { ZellePaymentPanel } from '@/components/zelle-payment-panel'
 import { CryptoPaymentPanel } from '@/components/crypto-payment-panel'
 import { ZelleLogo, TetherLogo, CardBrandRow } from '@/components/payment-logos'
+import { AbandonedCartTracker } from '@/components/abandoned-cart-tracker'
 
 interface CustomerInfo {
   email: string
@@ -66,6 +67,23 @@ export default function CheckoutPage() {
   })
   const [errors, setErrors] = useState<{ [key: string]: string }>({})
   const [isProcessing, setIsProcessing] = useState(false)
+
+  // When a shopper arrives here via the abandoned-cart recovery link,
+  // the companion client component drops their email into sessionStorage
+  // so we can prefill the form and save them a step. Consume-and-forget
+  // so it doesn't stick around for unrelated future sessions.
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    try {
+      const recoveredEmail = window.sessionStorage.getItem('peptidexm-recovered-email')
+      if (recoveredEmail) {
+        setCustomerInfo((prev) => (prev.email ? prev : { ...prev, email: recoveredEmail }))
+        window.sessionStorage.removeItem('peptidexm-recovered-email')
+      }
+    } catch {
+      // sessionStorage disabled (private tabs etc) — silent no-op.
+    }
+  }, [])
   const [placedOrderNumber, setPlacedOrderNumber] = useState<string | null>(null)
   const [placedOrderTotal, setPlacedOrderTotal] = useState<number | null>(null)
   const [placedOrderId, setPlacedOrderId] = useState<string | null>(null)
@@ -198,9 +216,21 @@ export default function CheckoutPage() {
   }
 
   return (
-    <div className="min-h-screen bg-secondary/30 py-6 sm:py-12">
-      <div className="mx-auto max-w-5xl px-4 sm:px-6 lg:px-8">
-        {/* Success Page */}
+  <div className="min-h-screen bg-secondary/30 py-6 sm:py-12">
+  {/* Persist the in-progress cart so we can nudge the shopper by email
+   * if they don't complete checkout. Only active before the order is
+   * placed — afterwards the row is marked recovered server-side. */}
+  {step !== 'success' && (
+    <AbandonedCartTracker
+      email={customerInfo.email}
+      firstName={customerInfo.firstName}
+      lastName={customerInfo.lastName}
+      phone={customerInfo.phone}
+      items={items}
+    />
+  )}
+  <div className="mx-auto max-w-5xl px-4 sm:px-6 lg:px-8">
+  {/* Success Page */}
         {step === 'success' && (
           <div className="py-8 sm:py-12">
             <div className="text-center mb-8">

@@ -11,6 +11,7 @@ import {
   LayoutDashboard,
   Package,
   ShoppingCart,
+  ShoppingBag,
   Users,
   Mail,
   FileText,
@@ -31,6 +32,7 @@ const navSections: Array<{
     label: "Commerce",
     items: [
       { href: "/admin/orders", icon: ShoppingCart, label: "Orders" },
+      { href: "/admin/abandoned-carts", icon: ShoppingBag, label: "Abandoned carts" },
       { href: "/admin/products", icon: Package, label: "Products" },
       { href: "/admin/customers", icon: Users, label: "Customers" },
     ],
