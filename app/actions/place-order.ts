@@ -37,7 +37,9 @@ export async function placeOrderAction(input: PlaceOrderInput) {
   if (!input.items || input.items.length === 0) return { error: "Cart is empty" }
 
   const subtotal = input.items.reduce((sum, i) => sum + i.unitPrice * i.quantity, 0)
-  const shipping = getShippingFee(input.country)
+  // Pass subtotal so US orders at/over the free-shipping threshold get $0
+  // shipping server-side — client values are never trusted for pricing.
+  const shipping = getShippingFee(input.country, subtotal)
   const tax = 0
   const total = subtotal + shipping + tax
 

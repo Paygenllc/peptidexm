@@ -3,8 +3,9 @@
 import { useEffect } from 'react'
 import { useCart } from '@/context/cart-context'
 import { Button } from '@/components/ui/button'
-import { X, Trash2, Plus, Minus, ShoppingBag } from 'lucide-react'
+import { X, Trash2, Plus, Minus, ShoppingBag, Truck, Check } from 'lucide-react'
 import Link from 'next/link'
+import { US_FREE_SHIPPING_THRESHOLD } from '@/lib/shipping'
 
 interface CartSidebarProps {
   isOpen: boolean
@@ -175,6 +176,44 @@ export function CartSidebar({ isOpen, onClose }: CartSidebarProps) {
           {/* Footer */}
           {items.length > 0 && (
             <div className="border-t border-border bg-background px-4 sm:px-6 py-4 sm:py-5 space-y-3 sm:space-y-4 shrink-0 safe-pb">
+              {/* Free US shipping progress — shown before the checkout step
+                * picks a country, so we assume US (our default). International
+                * shoppers still see a reasonable hint and the real rate at
+                * checkout once they select their country. */}
+              {total < US_FREE_SHIPPING_THRESHOLD ? (
+                <div className="rounded-lg border border-accent/20 bg-accent/5 px-3 py-2.5">
+                  <div className="flex items-start gap-2">
+                    <Truck className="h-4 w-4 text-accent shrink-0 mt-0.5" aria-hidden="true" />
+                    <p className="text-xs text-muted-foreground leading-snug">
+                      You&apos;re{' '}
+                      <span className="font-semibold text-foreground tabular-nums">
+                        ${(US_FREE_SHIPPING_THRESHOLD - total).toFixed(2)}
+                      </span>{' '}
+                      away from{' '}
+                      <span className="font-semibold text-foreground">free US shipping</span>.
+                    </p>
+                  </div>
+                  <div className="mt-2 h-1 w-full rounded-full bg-accent/10 overflow-hidden">
+                    <div
+                      className="h-full bg-accent transition-[width] duration-300"
+                      style={{
+                        width: `${Math.min(
+                          100,
+                          (total / US_FREE_SHIPPING_THRESHOLD) * 100,
+                        ).toFixed(1)}%`,
+                      }}
+                    />
+                  </div>
+                </div>
+              ) : (
+                <div className="rounded-lg border border-accent/30 bg-accent/10 px-3 py-2.5 flex items-center gap-2">
+                  <Check className="h-4 w-4 text-accent shrink-0" aria-hidden="true" />
+                  <p className="text-xs font-medium text-foreground">
+                    Your order qualifies for free US shipping.
+                  </p>
+                </div>
+              )}
+
               <div className="flex items-baseline justify-between">
                 <span className="text-sm text-muted-foreground">Subtotal</span>
                 <span className="font-serif text-2xl sm:text-3xl font-semibold text-foreground">
