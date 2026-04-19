@@ -44,22 +44,36 @@ export async function POST(req: Request) {
 
   // Normalize item shape so the DB blob stays predictable across captures
   // even if the client-side CartItem interface evolves.
-  const items = rawItems
-    .map((i: any) => ({
-      id: Number(i?.id) || 0,
-      name: String(i?.name ?? ""),
-      variant: String(i?.variant ?? ""),
-      price: Number(i?.price) || 0,
-      quantity: Math.max(1, Math.min(999, Number(i?.quantity) || 1)),
-      image: String(i?.image ?? ""),
-    }))
-    .filter((i) => i.id && i.name && i.price > 0)
+  type CapturedItem = {
+    id: number
+    name: string
+    variant: string
+    price: number
+    quantity: number
+    image: string
+  }
+
+  const items: CapturedItem[] = rawItems
+    .map(
+      (i: any): CapturedItem => ({
+        id: Number(i?.id) || 0,
+        name: String(i?.name ?? ""),
+        variant: String(i?.variant ?? ""),
+        price: Number(i?.price) || 0,
+        quantity: Math.max(1, Math.min(999, Number(i?.quantity) || 1)),
+        image: String(i?.image ?? ""),
+      }),
+    )
+    .filter((i: CapturedItem) => i.id && i.name && i.price > 0)
 
   if (items.length === 0) {
     return NextResponse.json({ error: "No valid items" }, { status: 400 })
   }
 
-  const subtotal = items.reduce((sum, i) => sum + i.price * i.quantity, 0)
+  const subtotal = items.reduce(
+    (sum: number, i: CapturedItem) => sum + i.price * i.quantity,
+    0,
+  )
 
   const firstName = typeof body?.firstName === "string" ? body.firstName.trim() || null : null
   const lastName = typeof body?.lastName === "string" ? body.lastName.trim() || null : null
