@@ -32,7 +32,7 @@ import {
 } from '@/lib/shipping'
 import { ZellePaymentPanel } from '@/components/zelle-payment-panel'
 import { CryptoPaymentPanel } from '@/components/crypto-payment-panel'
-import { ZelleLogo, TetherLogo } from '@/components/payment-logos'
+import { ZelleLogo, TetherLogo, CardBrandRow } from '@/components/payment-logos'
 
 interface CustomerInfo {
   email: string
@@ -772,6 +772,55 @@ export default function CheckoutPage() {
                                 Pay in Tether on the TRON network via our secure
                                 payment partner. Your order is marked paid
                                 automatically once the network confirms.
+                              </p>
+                            </div>
+                          </label>
+
+                          {/* Card payment — intentionally visible but disabled.
+                           * Shows which brands we'll accept once processing
+                           * comes back online. The radio input is
+                           * `disabled` (keyboard users get the native
+                           * disabled state) and the wrapping label is
+                           * `aria-disabled` + `cursor-not-allowed` so click
+                           * attempts don't select it. Do NOT remove the
+                           * `pointer-events-none` on the inner input — it
+                           * belt-and-suspenders the `disabled` attribute
+                           * against any future CSS reset. */}
+                          <label
+                            aria-disabled="true"
+                            className="flex items-start gap-3 rounded-lg border-2 border-border bg-muted/30 p-4 cursor-not-allowed opacity-70 relative"
+                            title="Card payments are temporarily unavailable"
+                          >
+                            <input
+                              type="radio"
+                              name="paymentMethod"
+                              value="card"
+                              disabled
+                              aria-disabled="true"
+                              tabIndex={-1}
+                              className="sr-only pointer-events-none"
+                            />
+                            <div
+                              className="mt-0.5 h-5 w-5 rounded-full border-2 border-border/70 flex items-center justify-center flex-shrink-0 bg-muted"
+                              aria-hidden="true"
+                            />
+                            <div className="min-w-0 flex-1">
+                              <div className="flex items-center gap-2.5 flex-wrap">
+                                <p className="font-medium text-muted-foreground">
+                                  Credit / Debit card
+                                </p>
+                                <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-700 border border-amber-500/30 uppercase tracking-wider">
+                                  Under maintenance
+                                </span>
+                              </div>
+                              <div className="mt-2 flex items-center gap-1.5 flex-wrap">
+                                <CardBrandRow />
+                              </div>
+                              <p className="text-sm text-muted-foreground mt-2 leading-relaxed">
+                                We accept Visa, Mastercard, American Express, and
+                                Discover. Card processing is temporarily offline
+                                for an upgrade &mdash; please use Zelle or USDT
+                                in the meantime.
                               </p>
                             </div>
                           </label>

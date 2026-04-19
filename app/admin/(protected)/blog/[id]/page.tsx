@@ -9,11 +9,20 @@ export const dynamic = "force-dynamic"
 export default async function BlogPostEditPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
   const supabase = await createClient()
-  const { data: post } = await supabase
+  // `.single()` throws (PGRST116) when no row matches. Use `.maybeSingle()`
+  // so a missing row returns null instead of blowing up the RSC render
+  // with a cryptic "Server Components render" error. If the lookup itself
+  // fails (e.g. transient Supabase issue), log it and treat as not-found
+  // rather than propagating the throw to the error boundary.
+  const { data: post, error } = await supabase
     .from("blog_posts")
     .select("*")
     .eq("id", id)
-    .single()
+    .maybeSingle()
+  if (error) {
+    console.log("[v0] blog edit page load error:", error)
+    notFound()
+  }
   if (!post) notFound()
 
   return (
