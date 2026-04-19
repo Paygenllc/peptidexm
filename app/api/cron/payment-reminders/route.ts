@@ -92,9 +92,27 @@ export async function GET(req: NextRequest) {
       payUrl: `${siteUrl}/account`,
     })
 
-    if (!emailResult.ok) {
-      console.log("[v0] payment-reminders cron send failed:", order.id, emailResult.error)
-      results.push({ id: order.id, ordinal, ok: false, error: emailResult.error })
+    // sendEmail returns `{skipped, id?, error?}` — translate that into our
+    // own `ok/error` record. We only bump the counter on a real send (id
+    // present). If RESEND_API_KEY isn't set we log-and-skip rather than
+    // burning the reminder slot.
+    if ("error" in emailResult && emailResult.error !== undefined) {
+      const msg =
+        emailResult.error instanceof Error
+          ? emailResult.error.message
+          : String(emailResult.error)
+      console.log("[v0] payment-reminders cron send failed:", order.id, msg)
+      results.push({ id: order.id, ordinal, ok: false, error: msg })
+      continue
+    }
+    if (emailResult.skipped) {
+      console.log("[v0] payment-reminders cron: RESEND not configured, skipping", order.id)
+      results.push({
+        id: order.id,
+        ordinal,
+        ok: false,
+        error: "email disabled (no RESEND_API_KEY)",
+      })
       continue
     }
 

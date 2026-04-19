@@ -73,9 +73,23 @@ export async function sendPaymentReminderAction(orderId: string) {
       payUrl,
     })
 
-    if (!result.ok) {
-      console.log("[v0] payment reminder send failed:", result.error)
-      return { error: result.error || "Email failed to send" }
+    // sendEmail returns a 3-way discriminated union:
+    //   { skipped: true }                — no Resend API key configured
+    //   { skipped: false, id }           — email accepted
+    //   { skipped: false, error }        — Resend or network error (unknown)
+    // The manual "send reminder" button should treat `skipped:true` as a
+    // hard error (the operator clicked Send and nothing happened), which
+    // is different from the cron behavior where we just no-op.
+    if ("error" in result && result.error !== undefined) {
+      const msg = result.error instanceof Error ? result.error.message : String(result.error)
+      console.log("[v0] payment reminder send failed:", msg)
+      return { error: msg || "Email failed to send" }
+    }
+    if (result.skipped) {
+      return {
+        error:
+          "Email is not configured on the server (missing RESEND_API_KEY). No reminder was sent.",
+      }
     }
 
     // Only bump counters AFTER the email actually sent, so a transient
