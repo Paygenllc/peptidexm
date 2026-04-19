@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge"
 import { Separator } from "@/components/ui/separator"
 import { ArrowLeft } from "lucide-react"
 import { OrderStatusForm } from "./order-status-form"
+import { PaymentReminderButton } from "./payment-reminder-button"
 
 export const dynamic = "force-dynamic"
 
@@ -114,6 +115,30 @@ export default async function OrderDetailPage({ params }: { params: Promise<{ id
                 Customer submitted a Zelle reference. Verify the transfer arrived at peptidexm@gmail.com, then mark
                 Payment as <span className="font-semibold">paid</span> in the panel on the right.
               </p>
+            )}
+
+            {/*
+             * Payment reminder sender. The button self-hides for
+             * non-pending orders so we never offer to nudge someone
+             * who already paid. The cron runs this exact same action
+             * in the background, so operator-triggered sends still
+             * count toward the 3-reminder cap.
+             */}
+            {order.payment_status === "pending" && (
+              <div className="mt-5 pt-4 border-t border-border">
+                <div className="mb-2">
+                  <p className="text-sm font-medium text-foreground">Payment reminder</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    Emails the customer their Zelle details again. Automatic reminders run daily; this sends one now.
+                  </p>
+                </div>
+                <PaymentReminderButton
+                  orderId={order.id}
+                  paymentStatus={order.payment_status}
+                  reminderCount={order.payment_reminder_count ?? 0}
+                  lastSentAt={order.last_payment_reminder_sent_at ?? null}
+                />
+              </div>
             )}
           </Card>
 

@@ -173,6 +173,101 @@ Questions? ${CONTACT_EMAIL}`
   })
 }
 
+export type PaymentReminderInput = {
+  orderNumber: string
+  total: number
+  customerName: string
+  customerEmail: string
+  /** Which reminder this is (1..3). Drives subject and copy escalation. */
+  ordinal: 1 | 2 | 3
+  /** How many calendar days ago the order was placed. Shown in copy. */
+  daysSinceOrder: number
+  /** Deep link back to the customer's account/order page for payment. */
+  payUrl: string
+}
+
+/**
+ * Payment reminder sent to customers who placed an order but never completed
+ * the Zelle transfer. Tone escalates by ordinal: friendly nudge → firmer
+ * reminder → final "cancellation coming" notice. Always includes the Zelle
+ * memo and the rule about not mentioning product names, since that's the
+ * #1 reason Zelle transfers get reversed.
+ */
+export async function sendPaymentReminderEmail(input: PaymentReminderInput) {
+  const { orderNumber, total, customerName, customerEmail, ordinal, daysSinceOrder, payUrl } = input
+
+  const subjects: Record<1 | 2 | 3, string> = {
+    1: `Reminder: complete your Zelle payment for ${orderNumber}`,
+    2: `Your PeptideXM order ${orderNumber} is still waiting for payment`,
+    3: `Final notice: ${orderNumber} will be cancelled soon`,
+  }
+
+  const leads: Record<1 | 2 | 3, string> = {
+    1: `Just a quick nudge — your order <strong>${orderNumber}</strong> was placed ${daysSinceOrder} day${daysSinceOrder === 1 ? "" : "s"} ago and we haven't received your Zelle yet. Send it whenever you're ready and we'll ship within 24 hours of confirmation.`,
+    2: `Your order <strong>${orderNumber}</strong> has been waiting for payment for ${daysSinceOrder} days. We've held your items in reserve — but we can only do that a little longer. Please complete your Zelle transfer to release the order to fulfillment.`,
+    3: `This is the final reminder for order <strong>${orderNumber}</strong>. It's been ${daysSinceOrder} days without payment, so we'll cancel the order and release the reserved stock soon. If you still want these items, complete your Zelle transfer now.`,
+  }
+
+  const leadsText: Record<1 | 2 | 3, string> = {
+    1: `Just a quick nudge — your order ${orderNumber} was placed ${daysSinceOrder} day${daysSinceOrder === 1 ? "" : "s"} ago and we haven't received your Zelle yet. Send it whenever you're ready and we'll ship within 24 hours of confirmation.`,
+    2: `Your order ${orderNumber} has been waiting for payment for ${daysSinceOrder} days. We've held your items in reserve — but we can only do that a little longer. Please complete your Zelle transfer to release the order to fulfillment.`,
+    3: `This is the final reminder for order ${orderNumber}. It's been ${daysSinceOrder} days without payment, so we'll cancel the order and release the reserved stock soon. If you still want these items, complete your Zelle transfer now.`,
+  }
+
+  const html = shell(`
+    <p style="margin:0 0 8px 0;font-size:14px;color:${mutedText};text-transform:uppercase;letter-spacing:0.08em;">
+      ${ordinal === 3 ? "Final payment reminder" : "Payment reminder"}
+    </p>
+    <h1 style="margin:0 0 16px 0;font-family:Georgia,serif;font-size:26px;font-weight:500;">Hi ${escapeHtml(customerName)},</h1>
+    <p style="margin:0 0 24px 0;font-size:15px;line-height:1.6;">${leads[ordinal]}</p>
+
+    <div style="background:#fdf6ee;border:1px solid #ecd8c0;border-radius:10px;padding:20px;margin-bottom:24px;">
+      <div style="font-size:12px;color:${mutedText};text-transform:uppercase;letter-spacing:0.08em;margin-bottom:8px;">Zelle payment details</div>
+      <div style="font-size:15px;margin-bottom:12px;"><strong>Send to:</strong> <a href="mailto:${CONTACT_EMAIL}" style="color:${brandColor};text-decoration:none;">${CONTACT_EMAIL}</a></div>
+      <div style="font-size:15px;margin-bottom:12px;"><strong>Amount:</strong> $${total.toFixed(2)}</div>
+      <div style="font-size:15px;margin-bottom:4px;"><strong>Memo / Note:</strong> <span style="font-family:monospace;background:#fff;padding:2px 8px;border-radius:6px;border:1px solid ${borderColor};">${orderNumber}</span></div>
+    </div>
+
+    <div style="background:#fef2f2;border:1px solid #fecaca;border-radius:10px;padding:16px 20px;margin-bottom:24px;">
+      <div style="font-weight:600;color:#991b1b;margin-bottom:6px;">Important</div>
+      <p style="margin:0;font-size:14px;color:#7f1d1d;line-height:1.5;">Use <strong>only</strong> your order number <strong>${orderNumber}</strong> in the Zelle memo. <strong>Do not</strong> include product names, "peptide", or any research terms — payments that mention them are returned automatically.</p>
+    </div>
+
+    <div style="text-align:center;margin:28px 0 24px;">
+      <a href="${escapeHtml(payUrl)}" style="display:inline-block;background:${brandColor};color:#ffffff;font-weight:600;padding:14px 28px;border-radius:8px;text-decoration:none;font-size:15px;">View my order →</a>
+    </div>
+
+    <p style="margin:0;font-size:13px;color:${mutedText};line-height:1.6;">Already sent the Zelle? Reply to this email with your confirmation code and we'll match it up today.</p>
+  `)
+
+  const text = `PeptideXM — ${ordinal === 3 ? "FINAL payment reminder" : "Payment reminder"} for ${orderNumber}
+
+Hi ${customerName},
+
+${leadsText[ordinal]}
+
+ZELLE PAYMENT DETAILS
+  Send to: ${CONTACT_EMAIL}
+  Amount:  $${total.toFixed(2)}
+  Memo:    ${orderNumber}
+
+IMPORTANT: Use ONLY your order number (${orderNumber}) in the Zelle memo. Do NOT mention product names or any research terms — payments that do are returned automatically.
+
+View your order: ${payUrl}
+
+Already sent the Zelle? Reply to this email with your confirmation code.
+
+Questions? ${CONTACT_EMAIL}`
+
+  return sendEmail({
+    to: customerEmail,
+    subject: subjects[ordinal],
+    html,
+    text,
+    replyTo: CONTACT_EMAIL,
+  })
+}
+
 export async function sendOrderPlacedAdminEmail(order: OrderEmailInput) {
   const subject = `New order ${order.orderNumber} — $${order.total.toFixed(2)} (pending Zelle)`
 
