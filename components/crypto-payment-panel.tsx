@@ -2,8 +2,9 @@
 
 import { useEffect, useRef, useState } from "react"
 import Link from "next/link"
-import { Bitcoin, ExternalLink, Loader2, ShieldCheck } from "lucide-react"
+import { ExternalLink, Loader2, ShieldCheck } from "lucide-react"
 import { Button } from "@/components/ui/button"
+import { TetherLogo } from "@/components/payment-logos"
 import { createCryptoInvoiceAction } from "@/app/actions/crypto"
 
 interface Props {
@@ -70,15 +71,15 @@ export function CryptoPaymentPanel({
   return (
     <div className="text-left">
       <div className="mb-6 text-center">
-        <div className="inline-flex items-center justify-center h-12 w-12 rounded-full bg-accent/10 mb-3">
-          <Bitcoin className="h-6 w-6 text-accent" aria-hidden="true" />
+        <div className="inline-flex items-center justify-center mb-3">
+          <TetherLogo className="h-12 w-12" />
         </div>
         <h2 className="font-serif text-2xl sm:text-3xl font-medium text-balance">
-          Pay with crypto
+          Pay with USDT
         </h2>
         <p className="mt-2 text-sm sm:text-base text-muted-foreground">
-          You&apos;ll be redirected to our secure payment partner to complete the
-          payment in USDT, USDC, or DAI.
+          You&apos;ll be redirected to our secure payment partner to complete
+          payment in USDT on the TRON (TRC-20) network.
         </p>
       </div>
 
