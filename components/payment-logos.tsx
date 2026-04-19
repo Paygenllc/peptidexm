@@ -61,3 +61,141 @@ export function TetherLogo(props: SVGProps<SVGSVGElement>) {
     </svg>
   )
 }
+
+/**
+ * Card brand marks. Each is a simplified inline SVG that mirrors the public
+ * brand silhouette closely enough to be instantly recognizable on checkout
+ * while staying small and dependency-free. The viewBox on all four is the
+ * same aspect ratio (38×24) so they align perfectly in a row.
+ */
+const CARD_VIEW_BOX = "0 0 38 24"
+
+export function VisaLogo(props: SVGProps<SVGSVGElement>) {
+  return (
+    <svg
+      viewBox={CARD_VIEW_BOX}
+      role="img"
+      aria-label="Visa"
+      xmlns="http://www.w3.org/2000/svg"
+      {...props}
+    >
+      <rect width="38" height="24" rx="3" fill="#FFFFFF" stroke="#E5E7EB" />
+      <text
+        x="19"
+        y="16.5"
+        textAnchor="middle"
+        fontFamily="Verdana, Geneva, sans-serif"
+        fontWeight="900"
+        fontStyle="italic"
+        fontSize="9"
+        fill="#1A1F71"
+        letterSpacing="0.5"
+      >
+        VISA
+      </text>
+    </svg>
+  )
+}
+
+export function MastercardLogo(props: SVGProps<SVGSVGElement>) {
+  return (
+    <svg
+      viewBox={CARD_VIEW_BOX}
+      role="img"
+      aria-label="Mastercard"
+      xmlns="http://www.w3.org/2000/svg"
+      {...props}
+    >
+      <rect width="38" height="24" rx="3" fill="#FFFFFF" stroke="#E5E7EB" />
+      {/* Two interlocking circles — Mastercard's signature mark */}
+      <circle cx="15.5" cy="12" r="6" fill="#EB001B" />
+      <circle cx="22.5" cy="12" r="6" fill="#F79E1B" />
+      <path
+        d="M19 7.2a6 6 0 0 0 0 9.6 6 6 0 0 0 0-9.6z"
+        fill="#FF5F00"
+      />
+    </svg>
+  )
+}
+
+export function AmexLogo(props: SVGProps<SVGSVGElement>) {
+  return (
+    <svg
+      viewBox={CARD_VIEW_BOX}
+      role="img"
+      aria-label="American Express"
+      xmlns="http://www.w3.org/2000/svg"
+      {...props}
+    >
+      <rect width="38" height="24" rx="3" fill="#2E77BC" />
+      <text
+        x="19"
+        y="10.5"
+        textAnchor="middle"
+        fontFamily="Helvetica, Arial, sans-serif"
+        fontWeight="700"
+        fontSize="4"
+        fill="#FFFFFF"
+        letterSpacing="0.3"
+      >
+        AMERICAN
+      </text>
+      <text
+        x="19"
+        y="16"
+        textAnchor="middle"
+        fontFamily="Helvetica, Arial, sans-serif"
+        fontWeight="700"
+        fontSize="4"
+        fill="#FFFFFF"
+        letterSpacing="0.3"
+      >
+        EXPRESS
+      </text>
+    </svg>
+  )
+}
+
+export function DiscoverLogo(props: SVGProps<SVGSVGElement>) {
+  return (
+    <svg
+      viewBox={CARD_VIEW_BOX}
+      role="img"
+      aria-label="Discover"
+      xmlns="http://www.w3.org/2000/svg"
+      {...props}
+    >
+      <rect width="38" height="24" rx="3" fill="#FFFFFF" stroke="#E5E7EB" />
+      {/* Discover signature "orange ball" dot in the bottom-right */}
+      <circle cx="29" cy="14" r="5" fill="#FF6B00" />
+      <text
+        x="3"
+        y="16"
+        fontFamily="Helvetica, Arial, sans-serif"
+        fontWeight="700"
+        fontSize="7"
+        fill="#1A1A1A"
+        letterSpacing="-0.2"
+      >
+        DISC
+      </text>
+    </svg>
+  )
+}
+
+/**
+ * Convenience row of all four accepted card brand marks. Used on the
+ * checkout payment selector so customers can instantly see we'd accept
+ * their card — even when card processing itself is temporarily disabled.
+ */
+export function CardBrandRow({ className }: { className?: string }) {
+  const cls = "h-5 w-auto"
+  return (
+    <div className={className ?? "flex items-center gap-1.5"}>
+      <VisaLogo className={cls} />
+      <MastercardLogo className={cls} />
+      <AmexLogo className={cls} />
+      <DiscoverLogo className={cls} />
+    </div>
+  )
+}
