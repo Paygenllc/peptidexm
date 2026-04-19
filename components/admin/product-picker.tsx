@@ -39,7 +39,12 @@ export function ProductPicker({
   const [query, setQuery] = useState("")
 
   useEffect(() => {
-    if (!open || loaded || loading) return
+    // `loading` is intentionally NOT in the dep array: React would re-run this
+    // effect when we flip loading to true, cancel the in-flight fetch via the
+    // cleanup, and leave the component stuck on the spinner forever. Gating on
+    // `open` + `loaded` is sufficient — this effect naturally fires once per
+    // first-open, which is exactly what we want.
+    if (!open || loaded) return
     let cancelled = false
     setLoading(true)
     setError(null)
@@ -69,7 +74,7 @@ export function ProductPicker({
     return () => {
       cancelled = true
     }
-  }, [open, loaded, loading])
+  }, [open, loaded])
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase()
