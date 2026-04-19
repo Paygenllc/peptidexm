@@ -75,29 +75,46 @@ export function BlogPostEditor({
     startTransition(async () => {
       // Server actions can resolve to `undefined` when they call redirect()
       // internally (Next 16 quirk) — guard before inspecting keys.
-      const result =
-        mode === "create"
-          ? await createBlogPostAction(formData)
-          : await updateBlogPostAction(formData)
+      // They can also *throw* on RLS / auth failures, on unexpected DB
+      // errors, and on NEXT_REDIRECT sentinel behavior. Without a
+      // try/catch here, those throws surface as a full-page Next error
+      // page (which is what shoppers were actually hitting), not as a
+      // visible message in the editor. Capture everything explicitly.
+      try {
+        const result =
+          mode === "create"
+            ? await createBlogPostAction(formData)
+            : await updateBlogPostAction(formData)
 
-      if (!result) {
-        // Action completed but returned no payload (e.g. a redirect we
-        // didn't explicitly handle). Nothing to do client-side.
-        return
+        if (!result) {
+          // Action completed but returned no payload — nothing to do.
+          return
+        }
+
+        if ("error" in result && result.error) {
+          setError(result.error)
+          return
+        }
+
+        if (mode === "create" && "id" in result && result.id) {
+          // Navigate to the new post's edit page now that we have an id.
+          router.push(`/admin/blog/${result.id}`)
+          return
+        }
+
+        setMessage("Saved")
+      } catch (err) {
+        console.error("[v0] blog save failed:", err)
+        // Avoid rethrowing a NEXT_REDIRECT as an error — Next uses a
+        // throw to drive redirects. Anything else is a real failure we
+        // should surface to the user.
+        const msg = err instanceof Error ? err.message : String(err)
+        if (/NEXT_REDIRECT/i.test(msg)) throw err
+        setError(
+          msg ||
+            "Couldn't save the post. Double-check your title and content, then try again.",
+        )
       }
-
-      if ("error" in result && result.error) {
-        setError(result.error)
-        return
-      }
-
-      if (mode === "create" && "id" in result && result.id) {
-        // Navigate to the new post's edit page now that we have an id.
-        router.push(`/admin/blog/${result.id}`)
-        return
-      }
-
-      setMessage("Saved")
     })
   }
 

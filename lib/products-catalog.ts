@@ -34,6 +34,16 @@ export interface Product {
    * stay legitimate to stay effective.
    */
   limitedStock?: boolean
+  /**
+   * Optional URL slug override. When present this wins over the
+   * name-derived slug for both `/products/[slug]` routing and for the
+   * email/blog embed helpers. Use it whenever the public.products row
+   * uses a shorter canonical slug than the display name would produce —
+   * for example `"CJC-1295 (no DAC)"` auto-slugs to `"cjc-1295-no-dac"`,
+   * but the DB row is just `cjc-1295`. Keeping these aligned is what
+   * makes the email CTA links resolve.
+   */
+  slug?: string
   image: string
   variants: Variant[]
 }
@@ -156,6 +166,7 @@ export const products: Product[] = [
   {
     id: 8,
     name: "CJC-1295 (with DAC)",
+    slug: "cjc-1295-dac",
     category: "Growth Hormone",
     description: "Long-acting GHRH analog with drug affinity complex for sustained release.",
     purity: "99.1%",
@@ -167,6 +178,7 @@ export const products: Product[] = [
   {
     id: 9,
     name: "CJC-1295 (no DAC)",
+    slug: "cjc-1295",
     category: "Growth Hormone",
     description: "Short-acting GHRH analog without drug affinity complex.",
     purity: "99.0%",
@@ -244,6 +256,7 @@ export const products: Product[] = [
   {
     id: 16,
     name: "MK-677 (Ibutamoren)",
+    slug: "mk-677",
     category: "Growth Hormone",
     description: "Oral ghrelin receptor agonist for growth hormone research (tablets).",
     purity: "99.0%",
@@ -382,6 +395,7 @@ export const products: Product[] = [
   {
     id: 28,
     name: "NAD+",
+    slug: "nad-plus",
     category: "Anti-Aging",
     description: "Nicotinamide adenine dinucleotide for mitochondrial research.",
     purity: "99.2%",
@@ -472,6 +486,7 @@ export const products: Product[] = [
   {
     id: 36,
     name: "Oxytocin Acetate",
+    slug: "oxytocin",
     category: "Research",
     description: "Nine-amino-acid peptide hormone for social behavior research.",
     purity: "99.1%",
@@ -527,6 +542,7 @@ export const products: Product[] = [
   {
     id: 41,
     name: "GDF-8 (Myostatin)",
+    slug: "gdf-8",
     category: "Research",
     description: "Growth differentiation factor 8 for muscle biology research.",
     purity: "98.9%",
@@ -538,6 +554,7 @@ export const products: Product[] = [
   {
     id: 42,
     name: "GW501516 (Cardarine)",
+    slug: "gw501516",
     category: "Research",
     description: "PPAR-delta agonist research compound (tablets).",
     purity: "99.0%",
@@ -587,6 +604,7 @@ export const products: Product[] = [
   {
     id: 46,
     name: "Bacteriostatic Water 30ml",
+    slug: "bac-water",
     category: "Accessories",
     description: "Sterile bacteriostatic water for reconstitution. 30ml bottle.",
     purity: "Sterile",
@@ -651,23 +669,42 @@ export function slugify(input: string): string {
 /**
  * Keep slug→product lookups O(1) across the site (we hit this on every
  * detail page render and on every embed expansion).
+ *
+ * Each product contributes its canonical slug (explicit `slug` field when
+ * present, otherwise the name-derived one). For products that set both,
+ * we also register the name-derived variant as an alias so stale links
+ * floating around from before the override was added still resolve.
  */
-const PRODUCTS_BY_SLUG: ReadonlyMap<string, Product> = new Map(
-  products.map((p) => [slugify(p.name), p]),
-)
+const PRODUCTS_BY_SLUG: ReadonlyMap<string, Product> = (() => {
+  const map = new Map<string, Product>()
+  for (const p of products) {
+    const canonical = (p.slug ?? slugify(p.name)).toLowerCase()
+    map.set(canonical, p)
+    const fromName = slugify(p.name).toLowerCase()
+    if (fromName && fromName !== canonical && !map.has(fromName)) {
+      map.set(fromName, p)
+    }
+  }
+  return map
+})()
 
 export function getProductBySlug(slug: string): Product | undefined {
   if (!slug) return undefined
   return PRODUCTS_BY_SLUG.get(slug.toLowerCase())
 }
 
-export function productSlug(product: Pick<Product, "name">): string {
-  return slugify(product.name)
+export function productSlug(product: Pick<Product, "name" | "slug">): string {
+  return (product.slug ?? slugify(product.name)).toLowerCase()
 }
 
-/** Used by Next.js `generateStaticParams` to pre-render every detail page. */
+/**
+ * Used by Next.js `generateStaticParams` to pre-render every detail page.
+ * Only the canonical slug per product is returned — alias entries are
+ * intentionally omitted so we don't generate duplicate pages with the
+ * same content (bad for SEO).
+ */
 export function getAllProductSlugs(): string[] {
-  return Array.from(PRODUCTS_BY_SLUG.keys())
+  return products.map((p) => (p.slug ?? slugify(p.name)).toLowerCase())
 }
 
 /**
