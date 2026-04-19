@@ -12,6 +12,7 @@ import Placeholder from "@tiptap/extension-placeholder"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { Separator } from "@/components/ui/separator"
 import { createClient as createBrowserSupabase } from "@/lib/supabase/client"
+import { ProductPicker } from "@/components/admin/product-picker"
 import {
   Bold,
   Italic,
@@ -34,6 +35,7 @@ import {
   Undo,
   Redo,
   Loader2,
+  Package,
 } from "lucide-react"
 
 // emoji-picker-react ships a big JS bundle. Only load it when the admin opens
@@ -360,6 +362,31 @@ export function RichEditor({
           <TbBtn onClick={pickImage} disabled={uploading} title="Insert image">
             {uploading ? <Loader2 className="w-4 h-4 animate-spin" /> : <ImageIcon className="w-4 h-4" />}
           </TbBtn>
+          <ProductPicker
+            trigger={
+              <button
+                type="button"
+                className="h-8 w-8 rounded-md inline-flex items-center justify-center text-muted-foreground transition-colors hover:bg-background hover:text-foreground"
+                title="Insert product"
+                aria-label="Insert product"
+              >
+                <Package className="w-4 h-4" />
+              </button>
+            }
+            onInsert={(slug) => {
+              // Insert the token on its own line so the server-side embed
+              // expander finds it as a standalone paragraph and swaps it for
+              // the product card cleanly.
+              editor
+                ?.chain()
+                .focus()
+                .insertContent([
+                  { type: "paragraph", content: [{ type: "text", text: `[[product:${slug}]]` }] },
+                  { type: "paragraph" },
+                ])
+                .run()
+            }}
+          />
           <Popover>
             <PopoverTrigger asChild>
               <button

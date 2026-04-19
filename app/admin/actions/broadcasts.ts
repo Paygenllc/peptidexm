@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/server"
 import { requireAdmin } from "@/lib/auth/require-admin"
 import { sendBroadcastEmail } from "@/lib/email"
 import { markdownToHtml, markdownToPlainText } from "@/lib/markdown"
+import { renderContentWithProducts } from "@/lib/product-embeds"
 import { revalidatePath } from "next/cache"
 import { redirect } from "next/navigation"
 
@@ -268,8 +269,16 @@ export async function sendBroadcastAction(formData: FormData) {
     .eq("id", id)
 
   // Use the live (just-persisted) values, not the original snapshot.
-  const bodyHtml = markdownToHtml(bodyMarkdown)
-  const textFallback = markdownToPlainText(bodyMarkdown)
+  // Expand `[[product:slug]]` tokens into inline-styled product cards now,
+  // once, so every recipient gets the same rendered HTML without repeating
+  // the DB lookup per recipient.
+  const rawBodyHtml = markdownToHtml(bodyMarkdown)
+  const bodyHtml = await renderContentWithProducts(rawBodyHtml, "email")
+  const textFallback = markdownToPlainText(
+    // Strip tokens from the plain-text fallback so recipients with HTML
+    // disabled don't see "[[product:bpc-157]]" in the body.
+    bodyMarkdown.replace(/\[\[product:[a-z0-9][a-z0-9-]*\]\]/gi, ""),
+  )
 
   let sent = 0
   let failed = 0
