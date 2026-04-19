@@ -116,7 +116,7 @@ export function CryptoPaymentPanel({
             <div className="space-y-3">
               <Button asChild size="lg" className="h-12 w-full">
                 <a href={url} target="_blank" rel="noopener noreferrer">
-                  Pay with crypto
+                  Pay with USDT
                   <ExternalLink className="ml-2 h-4 w-4" aria-hidden="true" />
                 </a>
               </Button>
