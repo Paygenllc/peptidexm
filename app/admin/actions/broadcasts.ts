@@ -50,9 +50,20 @@ function parseCustomRecipients(raw: string): { valid: string[]; invalid: number 
 /**
  * Create a draft broadcast. Keeping drafts around so admins can compose,
  * preview, and send later — the sending step is a separate action.
+ *
+ * Returns the new id so the client can router.push() instead of us calling
+ * `redirect()` here. A server-action `redirect()` fights with the
+ * `startTransition`+`await` pattern the editor uses and occasionally leaves
+ * the UI stuck in a spinner on Next 16 — returning plain data is reliable.
  */
 export async function createBroadcastDraftAction(formData: FormData) {
-  const { user } = await requireAdmin()
+  let user
+  try {
+    ;({ user } = await requireAdmin())
+  } catch (err) {
+    console.log("[v0] createBroadcastDraftAction: requireAdmin failed", err)
+    return { error: "You must be signed in as an admin." }
+  }
 
   const subject = String(formData.get("subject") || "").trim()
   const preview = String(formData.get("preview") || "").trim()
@@ -83,10 +94,13 @@ export async function createBroadcastDraftAction(formData: FormData) {
     .select("id")
     .single()
 
-  if (error) return { error: error.message }
+  if (error) {
+    console.log("[v0] createBroadcastDraftAction: insert failed", error)
+    return { error: error.message }
+  }
 
   revalidatePath("/admin/email")
-  redirect(`/admin/email/${data.id}`)
+  return { success: true as const, id: data.id }
 }
 
 export async function updateBroadcastAction(formData: FormData) {
