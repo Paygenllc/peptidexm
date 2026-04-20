@@ -14,37 +14,37 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { Sparkles, Loader2, ChevronDown, ChevronUp } from "lucide-react"
-import { generateBlogDraftAction } from "@/app/admin/actions/autoblog"
-import { AUTOBLOG_TONES, AUTOBLOG_LENGTHS } from "@/lib/autoblog-config"
+import { generateBroadcastDraftAction, type BroadcastDraft } from "@/app/admin/actions/broadcasts"
+import { AUTOBLOG_TONES } from "@/lib/autoblog-config"
 
-export type AutoblogDraft = {
-  title: string
-  slug: string
-  excerpt: string
-  content_html: string
-  tags: string[]
-}
+/** Campaign goals — kept in sync with BROADCAST_GOAL_DIRECTIVES on the server. */
+const GOALS = [
+  { value: "announcement", label: "Announcement" },
+  { value: "launch", label: "Product launch" },
+  { value: "promotion", label: "Promotion / sale" },
+  { value: "newsletter", label: "Newsletter roundup" },
+  { value: "educational", label: "Educational" },
+  { value: "reengagement", label: "Re-engagement" },
+] as const
 
 /**
- * Autoblog: AI-assisted first-draft generator.
- *
- * Typing a topic and clicking "Generate" calls the server action, which uses
- * the AI SDK with `Output.object()` to produce a structured post draft. On
- * success we hand the draft back up to the editor via `onGenerated`, which
- * fills the form fields in place — the admin then edits, reviews in the
- * Preview tab, and publishes normally. Nothing is persisted until Save.
+ * Inline AI drafter the admin can collapse. Generates a full broadcast (subject,
+ * preview text, markdown body) that the parent editor then fills in — nothing
+ * is persisted until the admin clicks Save draft.
  */
-export function AutoblogPanel({
+export function BroadcastDrafter({
   onGenerated,
+  disabled,
 }: {
-  onGenerated: (draft: AutoblogDraft) => void
+  onGenerated: (draft: BroadcastDraft) => void
+  disabled?: boolean
 }) {
   const [open, setOpen] = useState(true)
   const [topic, setTopic] = useState("")
   const [keywords, setKeywords] = useState("")
   const [audience, setAudience] = useState("")
-  const [tone, setTone] = useState<keyof typeof AUTOBLOG_TONES>("research")
-  const [length, setLength] = useState<keyof typeof AUTOBLOG_LENGTHS>("medium")
+  const [goal, setGoal] = useState<(typeof GOALS)[number]["value"]>("newsletter")
+  const [tone, setTone] = useState<keyof typeof AUTOBLOG_TONES>("conversational")
   const [error, setError] = useState<string | null>(null)
   const [info, setInfo] = useState<string | null>(null)
   const [isPending, startTransition] = useTransition()
@@ -54,7 +54,7 @@ export function AutoblogPanel({
     setInfo(null)
     const trimmed = topic.trim()
     if (!trimmed) {
-      setError("Enter a topic first.")
+      setError("Describe what this email should be about.")
       return
     }
 
@@ -62,12 +62,12 @@ export function AutoblogPanel({
     fd.set("topic", trimmed)
     fd.set("keywords", keywords.trim())
     fd.set("audience", audience.trim())
+    fd.set("goal", goal)
     fd.set("tone", tone)
-    fd.set("length", length)
 
     startTransition(async () => {
       try {
-        const result = await generateBlogDraftAction(fd)
+        const result = await generateBroadcastDraftAction(fd)
         if (!result) {
           setError("No response from the AI. Try again.")
           return
@@ -78,10 +78,10 @@ export function AutoblogPanel({
         }
         onGenerated(result.draft)
         setInfo(
-          "Draft generated. Review the Title, Excerpt, and Content below — edit anything before publishing.",
+          "Draft generated. Review the subject, preview, and body — edit anything before sending.",
         )
       } catch (err) {
-        console.error("[v0] autoblog generate failed:", err)
+        console.error("[v0] broadcast drafter failed:", err)
         setError(
           err instanceof Error
             ? err.message
@@ -103,7 +103,7 @@ export function AutoblogPanel({
           <span className="inline-flex items-center justify-center w-7 h-7 rounded-md bg-accent/20 text-accent-foreground">
             <Sparkles className="w-4 h-4" />
           </span>
-          <span className="font-medium text-foreground">Autoblog — generate a draft from a topic</span>
+          <span className="font-medium text-foreground">AI drafter — generate an email from a brief</span>
         </span>
         {open ? (
           <ChevronUp className="w-4 h-4 text-muted-foreground" />
@@ -115,84 +115,84 @@ export function AutoblogPanel({
       {open && (
         <div className="px-5 pb-5 pt-1 space-y-4 border-t border-accent/20">
           <div className="space-y-2">
-            <Label htmlFor="autoblog-topic">Topic</Label>
+            <Label htmlFor="drafter-topic">Brief</Label>
             <Textarea
-              id="autoblog-topic"
+              id="drafter-topic"
               value={topic}
               onChange={(e) => setTopic(e.target.value)}
               rows={3}
               placeholder={
-                "e.g. 'The research rationale for BPC-157 in tendon repair models' or 'How GLP-1 agonists compare: semaglutide vs tirzepatide'"
+                "e.g. 'Announce 15% off GLP-1 peptides through Friday, include semaglutide and tirzepatide' or 'Monthly newsletter — new arrivals, restock of BPC-157, and a link to the latest research post'"
               }
               maxLength={500}
-              disabled={isPending}
+              disabled={disabled || isPending}
             />
             <p className="text-xs text-muted-foreground">
-              Be specific. The AI knows our full product catalog and will insert product cards where relevant.
+              Be specific. The AI knows the full product catalog and can embed product cards.
             </p>
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div className="space-y-2">
-              <Label htmlFor="autoblog-keywords">Keywords <span className="text-xs text-muted-foreground font-normal">(optional)</span></Label>
+              <Label htmlFor="drafter-keywords">
+                Keywords <span className="text-xs text-muted-foreground font-normal">(optional)</span>
+              </Label>
               <Input
-                id="autoblog-keywords"
+                id="drafter-keywords"
                 value={keywords}
                 onChange={(e) => setKeywords(e.target.value)}
-                placeholder="GLP-1, satiety, incretin"
+                placeholder="free shipping, limited stock"
                 maxLength={400}
-                disabled={isPending}
+                disabled={disabled || isPending}
               />
-              <p className="text-xs text-muted-foreground">Comma-separated — woven in naturally.</p>
             </div>
-
             <div className="space-y-2">
-              <Label htmlFor="autoblog-audience">Audience <span className="text-xs text-muted-foreground font-normal">(optional)</span></Label>
+              <Label htmlFor="drafter-audience">
+                Audience <span className="text-xs text-muted-foreground font-normal">(optional)</span>
+              </Label>
               <Input
-                id="autoblog-audience"
+                id="drafter-audience"
                 value={audience}
                 onChange={(e) => setAudience(e.target.value)}
-                placeholder="Experienced research-peptide buyers"
+                placeholder="Repeat customers"
                 maxLength={200}
-                disabled={isPending}
+                disabled={disabled || isPending}
               />
-              <p className="text-xs text-muted-foreground">Who is this piece for?</p>
             </div>
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div className="space-y-2">
-              <Label htmlFor="autoblog-tone">Tone</Label>
+              <Label htmlFor="drafter-goal">Goal</Label>
               <Select
-                value={tone}
-                onValueChange={(v) => setTone(v as keyof typeof AUTOBLOG_TONES)}
-                disabled={isPending}
+                value={goal}
+                onValueChange={(v) => setGoal(v as (typeof GOALS)[number]["value"])}
+                disabled={disabled || isPending}
               >
-                <SelectTrigger id="autoblog-tone">
+                <SelectTrigger id="drafter-goal">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  {Object.entries(AUTOBLOG_TONES).map(([key, cfg]) => (
-                    <SelectItem key={key} value={key}>
-                      {cfg.label}
+                  {GOALS.map((g) => (
+                    <SelectItem key={g.value} value={g.value}>
+                      {g.label}
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
             </div>
-
             <div className="space-y-2">
-              <Label htmlFor="autoblog-length">Length</Label>
+              <Label htmlFor="drafter-tone">Tone</Label>
               <Select
-                value={length}
-                onValueChange={(v) => setLength(v as keyof typeof AUTOBLOG_LENGTHS)}
-                disabled={isPending}
+                value={tone}
+                onValueChange={(v) => setTone(v as keyof typeof AUTOBLOG_TONES)}
+                disabled={disabled || isPending}
               >
-                <SelectTrigger id="autoblog-length">
+                <SelectTrigger id="drafter-tone">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  {Object.entries(AUTOBLOG_LENGTHS).map(([key, cfg]) => (
+                  {Object.entries(AUTOBLOG_TONES).map(([key, cfg]) => (
                     <SelectItem key={key} value={key}>
                       {cfg.label}
                     </SelectItem>
@@ -218,14 +218,15 @@ export function AutoblogPanel({
 
           <div className="flex items-center justify-between gap-3 pt-1">
             <p className="text-xs text-muted-foreground">
-              Generated drafts are a starting point — review everything before publishing.
+              Generated drafts are a starting point — review before sending.
             </p>
-            <Button type="button" onClick={handleGenerate} disabled={isPending} className="gap-2">
-              {isPending ? (
-                <Loader2 className="w-4 h-4 animate-spin" />
-              ) : (
-                <Sparkles className="w-4 h-4" />
-              )}
+            <Button
+              type="button"
+              onClick={handleGenerate}
+              disabled={disabled || isPending}
+              className="gap-2"
+            >
+              {isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
               {isPending ? "Generating…" : "Generate draft"}
             </Button>
           </div>

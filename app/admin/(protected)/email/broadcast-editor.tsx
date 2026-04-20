@@ -18,12 +18,15 @@ import {
   createBroadcastDraftAction,
   updateBroadcastAction,
   deleteBroadcastAction,
+  duplicateBroadcastAction,
   sendBroadcastAction,
+  type BroadcastDraft,
 } from "@/app/admin/actions/broadcasts"
-import { Loader2, Send, Save, Trash2, Eye, Pencil } from "lucide-react"
+import { Loader2, Send, Save, Trash2, Eye, Pencil, Copy } from "lucide-react"
 import ReactMarkdown from "react-markdown"
 import remarkGfm from "remark-gfm"
 import { ProductPicker } from "@/components/admin/product-picker"
+import { BroadcastDrafter } from "./broadcast-drafter"
 
 type EditorInitial = {
   id: string
@@ -138,10 +141,37 @@ export function BroadcastEditor({
     })
   }
 
+  async function handleDuplicate() {
+    if (!initial) return
+    setMessage(null)
+    setError(null)
+    startTransition(async () => {
+      const fd = new FormData()
+      fd.set("id", initial.id)
+      const res = await duplicateBroadcastAction(fd)
+      // duplicateBroadcastAction redirects on success, so we only hit this
+      // branch when it explicitly returns an error.
+      if (res && "error" in res && res.error) setError(res.error)
+    })
+  }
+
+  /**
+   * Pull an AI-generated draft into the editor fields. We only overwrite
+   * fields the model produced so a half-typed form is never silently wiped.
+   */
+  function applyAiDraft(draft: BroadcastDraft) {
+    if (draft.subject) setSubject(draft.subject)
+    if (draft.preview) setPreview(draft.preview)
+    if (draft.body_markdown) setBody(draft.body_markdown)
+    setTab("preview")
+  }
+
   return (
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
       <form action={handleSave} className="lg:col-span-2 space-y-5">
         {mode === "edit" && initial && <input type="hidden" name="id" value={initial.id} />}
+
+        {!locked && <BroadcastDrafter onGenerated={applyAiDraft} disabled={isPending} />}
 
         <Card className="p-5 space-y-4">
           <div className="space-y-2">
@@ -270,6 +300,21 @@ export function BroadcastEditor({
                 Delete
               </Button>
             )}
+          </div>
+        )}
+
+        {locked && mode === "edit" && initial && (
+          <div className="flex flex-wrap gap-2">
+            <Button
+              type="button"
+              variant="secondary"
+              onClick={handleDuplicate}
+              disabled={isPending}
+              className="gap-2"
+            >
+              {isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Copy className="w-4 h-4" />}
+              Duplicate as new draft
+            </Button>
           </div>
         )}
       </form>
