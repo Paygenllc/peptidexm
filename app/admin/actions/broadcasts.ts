@@ -269,10 +269,16 @@ const BROADCAST_GOAL_DIRECTIVES: Record<string, string> = {
     "This is a re-engagement email to lapsed customers. Warm open, brief recap of what's new since they last visited, low-pressure CTA.",
 }
 
-export const BROADCAST_GOALS = Object.keys(BROADCAST_GOAL_DIRECTIVES) as [
+// Internal only. A top-level "use server" module can only *export* async
+// functions, so the list of goal keys stays file-local — the client UI
+// keeps its own mirror in broadcast-drafter.tsx.
+const BROADCAST_GOALS = Object.keys(BROADCAST_GOAL_DIRECTIVES) as [
   string,
   ...string[],
 ]
+// Referenced only so eslint doesn't flag the unused constant while keeping
+// the intent (and the link to the directives object) visible.
+void BROADCAST_GOALS
 
 export async function generateBroadcastDraftAction(
   formData: FormData,
