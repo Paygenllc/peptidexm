@@ -1,6 +1,7 @@
 "use client"
 
 import { useRef, useState, useTransition } from "react"
+import { useRouter } from "next/navigation"
 import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -61,6 +62,27 @@ export function BroadcastEditor({
   const [error, setError] = useState<string | null>(null)
   const [isPending, startTransition] = useTransition()
   const bodyRef = useRef<HTMLTextAreaElement>(null)
+  const router = useRouter()
+
+  /**
+   * Build FormData from the controlled state rather than the DOM.
+   *
+   * The audience Select and custom-recipients Textarea live in the `<aside>`
+   * (outside the main `<form>`) for layout reasons, which means a native
+   * form submission wouldn't include them. Reading from state makes the
+   * server action behaviour independent of how the markup is arranged —
+   * any visible field always ends up in the payload.
+   */
+  function buildFormData(): FormData {
+    const fd = new FormData()
+    if (mode === "edit" && initial) fd.set("id", initial.id)
+    fd.set("subject", subject)
+    fd.set("preview", preview)
+    fd.set("body_markdown", body)
+    fd.set("audience", audience)
+    fd.set("custom_recipients", customRecipients)
+    return fd
+  }
 
   const sent = initial?.status === "sent"
   const sending = initial?.status === "sending"
@@ -94,15 +116,51 @@ export function BroadcastEditor({
     })
   }
 
-  function handleSave(formData: FormData) {
+  /**
+   * Save handler. Validates on the client so we give immediate feedback
+   * without a round trip, then delegates to the right server action.
+   * On create-success we navigate client-side; the server action no longer
+   * calls `redirect()` because that pattern is brittle when mixed with
+   * `startTransition`+`await` on Next 16.
+   */
+  async function handleSave(e?: React.FormEvent<HTMLFormElement>) {
+    if (e) e.preventDefault()
     setMessage(null)
     setError(null)
+
+    if (!subject.trim()) {
+      setError("Subject is required")
+      return
+    }
+    if (!body.trim()) {
+      setError("Body is required")
+      return
+    }
+
+    const formData = buildFormData()
+
     startTransition(async () => {
-      const result = mode === "create"
-        ? await createBroadcastDraftAction(formData)
-        : await updateBroadcastAction(formData)
-      if ("error" in result && result.error) setError(result.error)
-      else if ("success" in result && result.success) setMessage("Draft saved")
+      try {
+        if (mode === "create") {
+          const result = await createBroadcastDraftAction(formData)
+          if ("error" in result && result.error) {
+            setError(result.error)
+            return
+          }
+          if ("success" in result && result.success && result.id) {
+            router.push(`/admin/email/${result.id}`)
+            return
+          }
+          setError("Unexpected response from server.")
+        } else {
+          const result = await updateBroadcastAction(formData)
+          if ("error" in result && result.error) setError(result.error)
+          else if ("success" in result && result.success) setMessage("Draft saved")
+        }
+      } catch (err) {
+        console.log("[v0] handleSave: unexpected error", err)
+        setError(err instanceof Error ? err.message : "Something went wrong while saving.")
+      }
     })
   }
 
@@ -168,7 +226,7 @@ export function BroadcastEditor({
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-      <form action={handleSave} className="lg:col-span-2 space-y-5">
+      <form onSubmit={handleSave} className="lg:col-span-2 space-y-5">
         {mode === "edit" && initial && <input type="hidden" name="id" value={initial.id} />}
 
         {!locked && <BroadcastDrafter onGenerated={applyAiDraft} disabled={isPending} />}
