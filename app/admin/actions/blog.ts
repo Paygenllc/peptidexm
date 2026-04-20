@@ -89,7 +89,7 @@ export async function createBlogPostAction(formData: FormData) {
 
     const slug = await uniqueSlug(slugify(slugInput || title))
     const tags = parseTags(tagsRaw)
-    const safeContent = sanitizePostContent(content)
+    const safeContent = await sanitizePostContent(content)
 
     const supabase = await createClient()
     const { data, error } = await supabase
@@ -173,7 +173,7 @@ export async function updateBlogPostAction(formData: FormData) {
           : null // back to draft, clear the timestamp
 
     const tags = parseTags(tagsRaw)
-    const safeContent = sanitizePostContent(content)
+    const safeContent = await sanitizePostContent(content)
 
     const { error } = await supabase
       .from("blog_posts")
