@@ -5,20 +5,32 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Send as SendIcon, PenSquare, Mail } from "lucide-react"
 import { InboxTabs } from "../inbox-tabs"
+import { Pagination, parsePage } from "@/components/admin/pagination"
 
 export const dynamic = "force-dynamic"
 
-export default async function OutboxPage() {
+const PAGE_SIZE = 25
+
+export default async function OutboxPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ page?: string }>
+}) {
+  const { page: pageRaw } = await searchParams
+  const page = parsePage(pageRaw)
   const supabase = await createClient()
+  const from = (page - 1) * PAGE_SIZE
 
   // Load unread inbound count so the Inbox tab badge stays accurate here.
   const [sentRes, unreadRes] = await Promise.all([
     supabase
       .from("mail_messages")
-      .select("id, to_email, subject, body_text, created_at, status, error_message")
+      .select("id, to_email, subject, body_text, created_at, status, error_message", {
+        count: "exact",
+      })
       .eq("direction", "outbound")
       .order("created_at", { ascending: false })
-      .limit(100),
+      .range(from, from + PAGE_SIZE - 1),
     supabase
       .from("mail_messages")
       .select("id", { count: "exact", head: true })
@@ -28,6 +40,7 @@ export default async function OutboxPage() {
   ])
 
   const rows = sentRes.data ?? []
+  const total = sentRes.count ?? 0
   const unreadCount = unreadRes.count ?? 0
 
   return (
@@ -104,6 +117,14 @@ export default async function OutboxPage() {
           </table>
         </div>
       </Card>
+
+      <Pagination
+        basePath="/admin/inbox/outbox"
+        params={{}}
+        page={page}
+        pageSize={PAGE_SIZE}
+        total={total}
+      />
     </div>
   )
 }

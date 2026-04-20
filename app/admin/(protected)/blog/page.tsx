@@ -4,19 +4,40 @@ import { Card } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { FileText, Plus, ExternalLink } from "lucide-react"
+import { Pagination, parsePage } from "@/components/admin/pagination"
 
 export const dynamic = "force-dynamic"
 
-export default async function BlogAdminPage() {
-  const supabase = await createClient()
-  const { data: posts } = await supabase
-    .from("blog_posts")
-    .select("id, slug, title, excerpt, status, tags, published_at, created_at, updated_at")
-    .order("created_at", { ascending: false })
-    .limit(100)
+const PAGE_SIZE = 20
 
-  const published = (posts ?? []).filter((p) => p.status === "published").length
-  const drafts = (posts ?? []).filter((p) => p.status === "draft").length
+export default async function BlogAdminPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ page?: string }>
+}) {
+  const { page: pageRaw } = await searchParams
+  const page = parsePage(pageRaw)
+
+  const supabase = await createClient()
+  const from = (page - 1) * PAGE_SIZE
+  const [pageRes, totalsRes] = await Promise.all([
+    supabase
+      .from("blog_posts")
+      .select("id, slug, title, excerpt, status, tags, published_at, created_at, updated_at", {
+        count: "exact",
+      })
+      .order("created_at", { ascending: false })
+      .range(from, from + PAGE_SIZE - 1),
+    // Second call is tiny — just `status` — so summary counts stay accurate
+    // across the whole catalog, not just the current page.
+    supabase.from("blog_posts").select("status"),
+  ])
+
+  const posts = pageRes.data ?? []
+  const total = pageRes.count ?? 0
+  const allStatuses = totalsRes.data ?? []
+  const published = allStatuses.filter((p) => p.status === "published").length
+  const drafts = allStatuses.filter((p) => p.status === "draft").length
 
   return (
     <div className="space-y-6">
@@ -44,7 +65,7 @@ export default async function BlogAdminPage() {
         </div>
       </div>
 
-      {(!posts || posts.length === 0) ? (
+      {posts.length === 0 ? (
         <Card className="p-10 text-center">
           <FileText className="w-10 h-10 mx-auto text-muted-foreground/50 mb-3" />
           <p className="text-foreground font-medium">No blog posts yet</p>
@@ -126,6 +147,14 @@ export default async function BlogAdminPage() {
           </div>
         </Card>
       )}
+
+      <Pagination
+        basePath="/admin/blog"
+        params={{}}
+        page={page}
+        pageSize={PAGE_SIZE}
+        total={total}
+      />
     </div>
   )
 }
