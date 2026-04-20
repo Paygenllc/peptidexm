@@ -403,6 +403,7 @@ export function BlogPostEditor({
           )}
         </Card>
       </aside>
-    </form>
+      </form>
+    </div>
   )
 }
