@@ -40,7 +40,7 @@ export default async function ComposePage({
       })
       const quoted = original.body_text
         .split("\n")
-        .map((l) => `> ${l}`)
+        .map((l: string) => `> ${l}`)
         .join("\n")
       defaultBody = `\n\nOn ${when}, ${original.from_name ?? original.from_email} wrote:\n${quoted}`
     }
