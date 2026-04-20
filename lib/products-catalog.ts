@@ -48,15 +48,26 @@ export interface Product {
   variants: Variant[]
 }
 
-// Top-level category filter used by the homepage grid. Keep ordering meaningful:
-// the most commercially important categories come first.
+// Top-level category filter used by the homepage grid. Ordered by commercial
+// importance: GLP-1 weight-loss first, then growth hormone and recovery which
+// drive most of the catalog's volume, followed by the specialty shelves
+// (sexual health, cognitive, sleep, performance, fertility, skin) that a
+// returning customer typically browses for. "Research" is kept as a
+// fallback bucket for new or uncategorized compounds, and "Accessories" is
+// always last since it only holds support items (water, syringes).
 export const categories = [
   "All",
   "GLP-1",
   "Growth Hormone",
   "Recovery",
-  "Cognitive",
+  "Sexual Health",
   "Anti-Aging",
+  "Cognitive",
+  "Sleep",
+  "Performance & Muscle",
+  "Fertility & Hormonal",
+  "Skin & Beauty",
+  "Bundles",
   "Research",
   "Accessories",
 ]
@@ -292,7 +303,7 @@ export const products: Product[] = [
   {
     id: 19,
     name: "GHK-Cu",
-    category: "Recovery",
+    category: "Skin & Beauty",
     description: "Copper tripeptide for skin and tissue healing research.",
     purity: "98.9%",
     inStock: true,
@@ -360,7 +371,7 @@ export const products: Product[] = [
   {
     id: 25,
     name: "DSIP",
-    category: "Cognitive",
+    category: "Sleep",
     description: "Delta sleep-inducing peptide for sleep cycle research.",
     purity: "98.8%",
     inStock: true,
@@ -440,7 +451,7 @@ export const products: Product[] = [
   {
     id: 32,
     name: "Snap-8",
-    category: "Anti-Aging",
+    category: "Skin & Beauty",
     description: "Octapeptide for skincare and neuromodulatory research.",
     purity: "98.8%",
     inStock: true,
@@ -464,7 +475,7 @@ export const products: Product[] = [
   {
     id: 34,
     name: "PT-141",
-    category: "Research",
+    category: "Sexual Health",
     description: "Melanocortin receptor agonist for sexual health research.",
     purity: "99.0%",
     inStock: true,
@@ -475,7 +486,7 @@ export const products: Product[] = [
   {
     id: 35,
     name: "Melanotan 2",
-    category: "Research",
+    category: "Skin & Beauty",
     description: "Synthetic analog of alpha-melanocyte-stimulating hormone.",
     purity: "98.7%",
     inStock: true,
@@ -487,7 +498,7 @@ export const products: Product[] = [
     id: 36,
     name: "Oxytocin Acetate",
     slug: "oxytocin",
-    category: "Research",
+    category: "Sexual Health",
     description: "Nine-amino-acid peptide hormone for social behavior research.",
     purity: "99.1%",
     inStock: true,
@@ -498,7 +509,7 @@ export const products: Product[] = [
   {
     id: 37,
     name: "Kisspeptin-10",
-    category: "Research",
+    category: "Fertility & Hormonal",
     description: "GPR54 agonist peptide for reproductive endocrinology research.",
     purity: "98.9%",
     inStock: true,
@@ -509,7 +520,7 @@ export const products: Product[] = [
   {
     id: 38,
     name: "HCG",
-    category: "Research",
+    category: "Fertility & Hormonal",
     description: "Human chorionic gonadotropin for endocrine research.",
     purity: "99.0%",
     inStock: true,
@@ -520,7 +531,7 @@ export const products: Product[] = [
   {
     id: 39,
     name: "HMG",
-    category: "Research",
+    category: "Fertility & Hormonal",
     description: "Human menopausal gonadotropin for reproductive research.",
     purity: "98.8%",
     inStock: true,
@@ -531,7 +542,7 @@ export const products: Product[] = [
   {
     id: 40,
     name: "FST344",
-    category: "Research",
+    category: "Performance & Muscle",
     description: "Follistatin 344 for myostatin inhibition research.",
     purity: "98.7%",
     inStock: true,
@@ -543,7 +554,7 @@ export const products: Product[] = [
     id: 41,
     name: "GDF-8 (Myostatin)",
     slug: "gdf-8",
-    category: "Research",
+    category: "Performance & Muscle",
     description: "Growth differentiation factor 8 for muscle biology research.",
     purity: "98.9%",
     inStock: true,
@@ -555,7 +566,7 @@ export const products: Product[] = [
     id: 42,
     name: "GW501516 (Cardarine)",
     slug: "gw501516",
-    category: "Research",
+    category: "Performance & Muscle",
     description: "PPAR-delta agonist research compound (tablets).",
     purity: "99.0%",
     inStock: true,
@@ -566,7 +577,7 @@ export const products: Product[] = [
   {
     id: 43,
     name: "SLU-PP-332",
-    category: "Research",
+    category: "Performance & Muscle",
     description: "ERR agonist research compound (tablets).",
     purity: "99.0%",
     inStock: true,
@@ -577,7 +588,7 @@ export const products: Product[] = [
   {
     id: 44,
     name: "GLOW Blend",
-    category: "Research",
+    category: "Skin & Beauty",
     description: "Blend of BPC-157 / TB-500 / GHK-Cu for tissue research.",
     purity: "99.0%",
     inStock: true,
@@ -590,7 +601,7 @@ export const products: Product[] = [
   {
     id: 45,
     name: "Starter Kit",
-    category: "Accessories",
+    category: "Bundles",
     description: "Syringe plus 30ml bacteriostatic water — everything needed to get started.",
     purity: "Sterile",
     inStock: true,
