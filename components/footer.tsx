@@ -5,28 +5,28 @@ import { CONTACT_EMAIL, mailto } from "@/lib/contact"
 
 const navigation = {
   products: [
-    { name: "Tirzepatide", href: "#" },
-    { name: "Semaglutide", href: "#" },
-    { name: "Retatrutide", href: "#" },
-    { name: "BPC-157", href: "#" },
-    { name: "All 47+ Products", href: "#products" },
+    { name: "Tirzepatide", href: "/products/tirzepatide" },
+    { name: "Semaglutide", href: "/products/semaglutide" },
+    { name: "Retatrutide", href: "/products/retatrutide" },
+    { name: "BPC-157", href: "/products/bpc-157" },
+    { name: "All 47+ Products", href: "/#products" },
   ],
   company: [
     { name: "About Us", href: "/#about" },
     { name: "Science", href: "/#science" },
     { name: "Journal", href: "/blog" },
-    { name: "Quality", href: "#" },
+    { name: "Quality", href: "/quality" },
   ],
   support: [
-    { name: "FAQ", href: "#faq" },
-    { name: "Shipping", href: "#" },
-    { name: "Returns", href: "#" },
-    { name: "Contact", href: mailto("PeptideXM inquiry") },
+    { name: "FAQ", href: "/#faq" },
+    { name: "Shipping", href: "/shipping" },
+    { name: "Returns", href: "/returns" },
+    { name: "Contact", href: "/contact" },
   ],
   legal: [
-    { name: "Privacy Policy", href: "#" },
-    { name: "Terms of Service", href: "#" },
-    { name: "Research Disclaimer", href: "#" },
+    { name: "Privacy Policy", href: "/privacy" },
+    { name: "Terms of Service", href: "/terms" },
+    { name: "Research Disclaimer", href: "/research-disclaimer" },
   ],
 }
 
