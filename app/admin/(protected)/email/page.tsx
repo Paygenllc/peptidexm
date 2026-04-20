@@ -4,18 +4,40 @@ import { Card } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Mail, Plus, Send, Users, ShieldCheck, FileText, History } from "lucide-react"
+import { Pagination, parsePage } from "@/components/admin/pagination"
 
 export const dynamic = "force-dynamic"
 
-export default async function BroadcastsPage() {
-  const supabase = await createClient()
+const HISTORY_PAGE_SIZE = 20
 
-  const [broadcastsRes, audienceCountsRes] = await Promise.all([
+export default async function BroadcastsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ page?: string }>
+}) {
+  const { page: pageRaw } = await searchParams
+  // Drafts are few by design (admins don't accumulate hundreds of unsent
+  // emails), so we only paginate the "History" / sent list.
+  const historyPage = parsePage(pageRaw)
+  const supabase = await createClient()
+  const historyFrom = (historyPage - 1) * HISTORY_PAGE_SIZE
+
+  const [draftsRes, historyRes, audienceCountsRes] = await Promise.all([
     supabase
       .from("email_broadcasts")
       .select("id, subject, audience, status, recipient_count, sent_count, failed_count, created_at, sent_at")
+      .neq("status", "sent")
       .order("created_at", { ascending: false })
       .limit(50),
+    supabase
+      .from("email_broadcasts")
+      .select(
+        "id, subject, audience, status, recipient_count, sent_count, failed_count, created_at, sent_at",
+        { count: "exact" },
+      )
+      .eq("status", "sent")
+      .order("sent_at", { ascending: false })
+      .range(historyFrom, historyFrom + HISTORY_PAGE_SIZE - 1),
     // Parallel counts for each potential audience — shows admins
     // exactly how many people each audience option would touch.
     supabase
@@ -23,10 +45,9 @@ export default async function BroadcastsPage() {
       .select("is_admin, newsletter_subscribed, banned_at"),
   ])
 
-  const broadcasts = broadcastsRes.data ?? []
-  // Split by lifecycle: drafts (incl. in-flight / failed) vs. sent history.
-  const drafts = broadcasts.filter((b) => b.status !== "sent")
-  const history = broadcasts.filter((b) => b.status === "sent")
+  const drafts = draftsRes.data ?? []
+  const history = historyRes.data ?? []
+  const historyTotal = historyRes.count ?? 0
   const allProfiles = audienceCountsRes.data ?? []
   const subscribers = allProfiles.filter((p) => p.newsletter_subscribed && !p.banned_at).length
   const customers = allProfiles.filter((p) => !p.banned_at).length
@@ -91,10 +112,18 @@ export default async function BroadcastsPage() {
         icon={<History className="w-4 h-4" />}
         title="History"
         subtitle="Every broadcast you've sent, newest first. Sent broadcasts cannot be edited."
-        count={history.length}
+        count={historyTotal}
         rows={history}
         emptyMessage="No broadcasts sent yet."
         showSentDate
+      />
+
+      <Pagination
+        basePath="/admin/email"
+        params={{}}
+        page={historyPage}
+        pageSize={HISTORY_PAGE_SIZE}
+        total={historyTotal}
       />
     </div>
   )

@@ -4,6 +4,7 @@ import type { Metadata } from "next"
 import { createClient } from "@/lib/supabase/server"
 import { Header } from "@/components/header"
 import { Footer } from "@/components/footer"
+import { Pagination, parsePage } from "@/components/admin/pagination"
 
 export const metadata: Metadata = {
   title: "Journal — PeptideXM",
@@ -13,13 +14,24 @@ export const metadata: Metadata = {
 // Always fetch fresh on request so new posts appear immediately after publish.
 export const dynamic = "force-dynamic"
 
-export default async function BlogIndexPage() {
+const PAGE_SIZE = 10
+
+export default async function BlogIndexPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ page?: string }>
+}) {
+  const { page: pageRaw } = await searchParams
+  const page = parsePage(pageRaw)
   const supabase = await createClient()
-  const { data: posts } = await supabase
+  const from = (page - 1) * PAGE_SIZE
+  const { data: posts, count } = await supabase
     .from("blog_posts")
-    .select("slug, title, excerpt, cover_image_url, tags, published_at")
+    .select("slug, title, excerpt, cover_image_url, tags, published_at", { count: "exact" })
     .eq("status", "published")
     .order("published_at", { ascending: false })
+    .range(from, from + PAGE_SIZE - 1)
+  const total = count ?? 0
 
   return (
     <main id="main-content" tabIndex={-1} className="min-h-screen focus:outline-none">
@@ -43,6 +55,7 @@ export default async function BlogIndexPage() {
       <section className="py-12 sm:py-16">
         <div className="mx-auto max-w-4xl px-4 sm:px-6 lg:px-8">
           {posts && posts.length > 0 ? (
+            <>
             <ul className="space-y-10">
               {posts.map((post) => (
                 <li key={post.slug} className="group">
@@ -95,6 +108,14 @@ export default async function BlogIndexPage() {
                 </li>
               ))}
             </ul>
+            <Pagination
+              basePath="/blog"
+              params={{}}
+              page={page}
+              pageSize={PAGE_SIZE}
+              total={total}
+            />
+            </>
           ) : (
             <div className="py-24 text-center">
               <p className="font-serif text-2xl text-foreground mb-2">Nothing published yet.</p>

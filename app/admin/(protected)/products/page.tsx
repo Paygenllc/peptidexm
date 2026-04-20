@@ -5,28 +5,37 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Plus, Search } from "lucide-react"
+import { Pagination, parsePage } from "@/components/admin/pagination"
 
 export const dynamic = "force-dynamic"
+
+const PAGE_SIZE = 25
 
 export default async function ProductsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ q?: string; category?: string }>
+  searchParams: Promise<{ q?: string; category?: string; page?: string }>
 }) {
   const params = await searchParams
   const q = params.q ?? ""
   const category = params.category ?? "all"
+  const page = parsePage(params.page)
 
   const supabase = await createClient()
   let query = supabase
     .from("products")
-    .select("id, slug, name, category, active, featured, image_url, product_variants(id, variant_name, price)")
+    .select(
+      "id, slug, name, category, active, featured, image_url, product_variants(id, variant_name, price)",
+      { count: "exact" },
+    )
     .order("sort_order", { ascending: true })
 
   if (q) query = query.ilike("name", `%${q}%`)
   if (category !== "all") query = query.eq("category", category)
 
-  const { data: products } = await query
+  const from = (page - 1) * PAGE_SIZE
+  const { data: products, count } = await query.range(from, from + PAGE_SIZE - 1)
+  const total = count ?? 0
 
   const { data: allCategories } = await supabase.from("products").select("category")
   const categories = Array.from(
@@ -136,6 +145,14 @@ export default async function ProductsPage({
           </table>
         </div>
       </Card>
+
+      <Pagination
+        basePath="/admin/products"
+        params={{ q, category: category === "all" ? undefined : category }}
+        page={page}
+        pageSize={PAGE_SIZE}
+        total={total}
+      />
     </div>
   )
 }

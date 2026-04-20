@@ -7,22 +7,32 @@ import { Badge } from "@/components/ui/badge"
 import { ArrowLeft, Mail, Search, Users, UserCheck, UserX, Trash2 } from "lucide-react"
 import { toggleNewsletterAction } from "@/app/admin/actions/customers"
 import { removeStandaloneSubscriberAction } from "@/app/admin/actions/subscribers"
+import { Pagination, parsePage } from "@/components/admin/pagination"
 
 export const dynamic = "force-dynamic"
+
+const PAGE_SIZE = 25
 
 type Filter = "subscribed" | "unsubscribed" | "all"
 
 export default async function SubscribersPage({
   searchParams,
 }: {
-  searchParams: Promise<{ q?: string; filter?: Filter }>
+  searchParams: Promise<{ q?: string; filter?: Filter; page?: string; spage?: string }>
 }) {
-  const { q = "", filter = "subscribed" } = await searchParams
+  const { q = "", filter = "subscribed", page: pageRaw, spage: spageRaw } = await searchParams
+  // Two independent paginators on one page — profiles and the separate
+  // "Newsletter signups" table — so we use two distinct page keys.
+  const page = parsePage(pageRaw)
+  const spage = parsePage(spageRaw)
   const supabase = await createClient()
 
   let query = supabase
     .from("profiles")
-    .select("id, email, full_name, newsletter_subscribed, banned_at, last_seen_at, created_at")
+    .select(
+      "id, email, full_name, newsletter_subscribed, banned_at, last_seen_at, created_at",
+      { count: "exact" },
+    )
     .not("email", "is", null)
     .order("created_at", { ascending: false })
 
@@ -34,35 +44,38 @@ export default async function SubscribersPage({
     query = query.or(`email.ilike.${term},full_name.ilike.${term}`)
   }
 
-  const [{ data: rows }, totalsRes, standaloneRes] = await Promise.all([
-    query.limit(500),
+  const from = (page - 1) * PAGE_SIZE
+
+  const [profilesRes, totalsRes, standaloneRes, profileEmailsRes] = await Promise.all([
+    query.range(from, from + PAGE_SIZE - 1),
     supabase.from("profiles").select("newsletter_subscribed, banned_at"),
+    // Pull the full standalone list (still capped at 1k) so we can dedupe
+    // against profile emails before paginating client-side. The table is
+    // small enough — a few thousand newsletter-only signups at most —
+    // that one trip is simpler and faster than a two-phase dedupe.
     supabase
       .from("newsletter_subscribers")
       .select("id, email, source, subscribed_at")
       .is("unsubscribed_at", null)
       .order("subscribed_at", { ascending: false })
-      .limit(500),
+      .limit(1000),
+    supabase.from("profiles").select("email").not("email", "is", null),
   ])
 
+  const list = profilesRes.data ?? []
+  const totalFiltered = profilesRes.count ?? 0
   const totals = totalsRes.data ?? []
   const totalSubscribed = totals.filter((p) => p.newsletter_subscribed && !p.banned_at).length
   const totalUnsubscribed = totals.filter((p) => !p.newsletter_subscribed).length
   const totalAll = totals.length
 
-  const list = rows ?? []
   const standaloneRaw = standaloneRes.data ?? []
-
-  // Hide standalone rows whose email also exists on a profile — they'll
-  // already show up in the "subscribed customers" table above.
-  const profileEmailsRes = await supabase
-    .from("profiles")
-    .select("email")
-    .not("email", "is", null)
   const profileEmails = new Set<string>()
   for (const p of profileEmailsRes.data ?? []) {
     if (p.email) profileEmails.add(p.email.toLowerCase())
   }
+  // Hide standalone rows whose email also exists on a profile — they'll
+  // already show up in the "subscribed customers" table above.
   const standalone = standaloneRaw.filter(
     (s) => s.email && !profileEmails.has(s.email.toLowerCase()),
   )
@@ -70,6 +83,10 @@ export default async function SubscribersPage({
   const filteredStandalone = q.trim()
     ? standalone.filter((s) => s.email?.toLowerCase().includes(q.trim().toLowerCase()))
     : standalone
+  // Slice the standalone list for the current "spage" — separate pager.
+  const standaloneTotal = filteredStandalone.length
+  const standaloneStart = (spage - 1) * PAGE_SIZE
+  const standalonePage = filteredStandalone.slice(standaloneStart, standaloneStart + PAGE_SIZE)
 
   return (
     <div className="space-y-6">
@@ -211,11 +228,13 @@ export default async function SubscribersPage({
         </div>
       </Card>
 
-      {list.length === 500 && (
-        <p className="text-xs text-muted-foreground text-center">
-          Showing the most recent 500 matches. Refine your search to see more.
-        </p>
-      )}
+      <Pagination
+        basePath="/admin/email/subscribers"
+        params={{ q, filter, spage: spageRaw }}
+        page={page}
+        pageSize={PAGE_SIZE}
+        total={totalFiltered}
+      />
 
       <div className="pt-2">
         <div className="flex items-end justify-between gap-3 mb-3">
@@ -230,7 +249,7 @@ export default async function SubscribersPage({
             </p>
           </div>
           <Badge variant="secondary" className="tabular-nums">
-            {standalone.length}
+            {standaloneTotal}
           </Badge>
         </div>
         <Card className="overflow-hidden">
@@ -245,7 +264,7 @@ export default async function SubscribersPage({
                 </tr>
               </thead>
               <tbody>
-                {filteredStandalone.length === 0 && (
+                {standalonePage.length === 0 && (
                   <tr>
                     <td colSpan={4} className="p-8 text-center text-muted-foreground">
                       {q.trim()
@@ -254,7 +273,7 @@ export default async function SubscribersPage({
                     </td>
                   </tr>
                 )}
-                {filteredStandalone.map((s) => (
+                {standalonePage.map((s) => (
                   <tr
                     key={s.id}
                     className="border-b border-border last:border-0 hover:bg-accent/30"
@@ -302,6 +321,15 @@ export default async function SubscribersPage({
             </table>
           </div>
         </Card>
+
+        <Pagination
+          basePath="/admin/email/subscribers"
+          params={{ q, filter, page: pageRaw }}
+          page={spage}
+          pageSize={PAGE_SIZE}
+          total={standaloneTotal}
+          pageKey="spage"
+        />
       </div>
     </div>
   )

@@ -4,13 +4,17 @@ import { Card } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
 import { Search, ShieldCheck, Ban, Mail, Users } from "lucide-react"
+import { Pagination, parsePage } from "@/components/admin/pagination"
 
 export const dynamic = "force-dynamic"
 
-type SearchParams = Promise<{ q?: string; filter?: string }>
+const PAGE_SIZE = 25
+
+type SearchParams = Promise<{ q?: string; filter?: string; page?: string }>
 
 export default async function CustomersPage({ searchParams }: { searchParams: SearchParams }) {
-  const { q, filter } = await searchParams
+  const { q, filter, page: pageRaw } = await searchParams
+  const page = parsePage(pageRaw)
   const supabase = await createClient()
 
   // Build filtered query. For server-side text search we use Postgres `ilike`
@@ -22,7 +26,6 @@ export default async function CustomersPage({ searchParams }: { searchParams: Se
       { count: "exact" },
     )
     .order("created_at", { ascending: false })
-    .limit(100)
 
   if (q && q.trim()) {
     const like = `%${q.trim()}%`
@@ -32,12 +35,14 @@ export default async function CustomersPage({ searchParams }: { searchParams: Se
   else if (filter === "banned") query = query.not("banned_at", "is", null)
   else if (filter === "subscribed") query = query.eq("newsletter_subscribed", true)
 
+  const from = (page - 1) * PAGE_SIZE
   const [profilesRes, totalsRes] = await Promise.all([
-    query,
+    query.range(from, from + PAGE_SIZE - 1),
     supabase.from("profiles").select("is_admin, banned_at, newsletter_subscribed"),
   ])
 
   const profiles = profilesRes.data ?? []
+  const totalFiltered = profilesRes.count ?? 0
   const totals = totalsRes.data ?? []
   const totalCustomers = totals.length
   const totalAdmins = totals.filter((p) => p.is_admin).length
@@ -167,6 +172,14 @@ export default async function CustomersPage({ searchParams }: { searchParams: Se
           </table>
         </div>
       </Card>
+
+      <Pagination
+        basePath="/admin/customers"
+        params={{ q, filter }}
+        page={page}
+        pageSize={PAGE_SIZE}
+        total={totalFiltered}
+      />
     </div>
   )
 }

@@ -4,26 +4,30 @@ import { Card } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
 import { Search } from "lucide-react"
+import { Pagination, parsePage } from "@/components/admin/pagination"
 
 export const dynamic = "force-dynamic"
 
 const STATUSES = ["all", "processing", "confirmed", "shipped", "delivered", "cancelled", "refunded"] as const
+const PAGE_SIZE = 25
 
 export default async function OrdersPage({
   searchParams,
 }: {
-  searchParams: Promise<{ status?: string; q?: string; payment?: string }>
+  searchParams: Promise<{ status?: string; q?: string; payment?: string; page?: string }>
 }) {
   const params = await searchParams
   const status = params.status ?? "all"
   const q = params.q ?? ""
   const payment = params.payment
+  const page = parsePage(params.page)
 
   const supabase = await createClient()
   let query = supabase
     .from("orders")
     .select(
-      "id, order_number, email, first_name, last_name, status, payment_status, payment_reference, total, created_at"
+      "id, order_number, email, first_name, last_name, status, payment_status, payment_reference, total, created_at",
+      { count: "exact" },
     )
     .order("created_at", { ascending: false })
 
@@ -42,7 +46,9 @@ export default async function OrdersPage({
     query = query.or(`order_number.ilike.%${q}%,email.ilike.%${q}%,first_name.ilike.%${q}%,last_name.ilike.%${q}%`)
   }
 
-  const { data: orders, error } = await query.limit(100)
+  const from = (page - 1) * PAGE_SIZE
+  const { data: orders, error, count } = await query.range(from, from + PAGE_SIZE - 1)
+  const total = count ?? 0
 
   return (
     <div className="space-y-6">
@@ -61,6 +67,9 @@ export default async function OrdersPage({
             {STATUSES.map((s) => (
               <Link
                 key={s}
+                // Note: we intentionally drop `page` here so changing
+                // filters always jumps back to page 1, rather than
+                // landing on an empty page N of a smaller result set.
                 href={{ query: { ...(q ? { q } : {}), ...(s !== "all" ? { status: s } : {}) } }}
                 className={`px-3 py-1.5 rounded-md text-sm capitalize transition-colors ${
                   status === s
@@ -147,6 +156,14 @@ export default async function OrdersPage({
           </table>
         </div>
       </Card>
+
+      <Pagination
+        basePath="/admin/orders"
+        params={{ status: status === "all" ? undefined : status, q, payment }}
+        page={page}
+        pageSize={PAGE_SIZE}
+        total={total}
+      />
     </div>
   )
 }

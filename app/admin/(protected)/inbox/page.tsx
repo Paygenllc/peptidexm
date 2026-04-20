@@ -5,22 +5,45 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Inbox as InboxIcon, PenSquare, Mail } from "lucide-react"
 import { InboxTabs } from "./inbox-tabs"
+import { Pagination, parsePage } from "@/components/admin/pagination"
 
 export const dynamic = "force-dynamic"
 
-export default async function InboxPage() {
+const PAGE_SIZE = 25
+
+export default async function InboxPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ page?: string }>
+}) {
+  const { page: pageRaw } = await searchParams
+  const page = parsePage(pageRaw)
   const supabase = await createClient()
+  const from = (page - 1) * PAGE_SIZE
 
-  const { data: messages } = await supabase
-    .from("mail_messages")
-    .select("id, from_email, from_name, subject, body_text, read_at, created_at, status")
-    .eq("direction", "inbound")
-    .is("archived_at", null)
-    .order("created_at", { ascending: false })
-    .limit(100)
+  // Fetch the paginated page + an accurate unread count in parallel.
+  // Unread count must span ALL pages — it drives the InboxTabs badge.
+  const [messagesRes, unreadRes] = await Promise.all([
+    supabase
+      .from("mail_messages")
+      .select("id, from_email, from_name, subject, body_text, read_at, created_at, status", {
+        count: "exact",
+      })
+      .eq("direction", "inbound")
+      .is("archived_at", null)
+      .order("created_at", { ascending: false })
+      .range(from, from + PAGE_SIZE - 1),
+    supabase
+      .from("mail_messages")
+      .select("id", { count: "exact", head: true })
+      .eq("direction", "inbound")
+      .is("read_at", null)
+      .is("archived_at", null),
+  ])
 
-  const rows = messages ?? []
-  const unreadCount = rows.filter((m) => !m.read_at).length
+  const rows = messagesRes.data ?? []
+  const total = messagesRes.count ?? 0
+  const unreadCount = unreadRes.count ?? 0
 
   return (
     <div className="space-y-6">
@@ -109,6 +132,14 @@ export default async function InboxPage() {
           </table>
         </div>
       </Card>
+
+      <Pagination
+        basePath="/admin/inbox"
+        params={{}}
+        page={page}
+        pageSize={PAGE_SIZE}
+        total={total}
+      />
     </div>
   )
 }
