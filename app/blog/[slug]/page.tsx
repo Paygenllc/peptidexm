@@ -2,7 +2,7 @@ import Link from "next/link"
 import Image from "next/image"
 import { notFound } from "next/navigation"
 import type { Metadata } from "next"
-import { ArrowLeft } from "lucide-react"
+import { ArrowLeft, Pencil } from "lucide-react"
 import { createClient } from "@/lib/supabase/server"
 import { Header } from "@/components/header"
 import { Footer } from "@/components/footer"
@@ -42,12 +42,27 @@ export default async function BlogPostPage({ params }: Props) {
   const supabase = await createClient()
   const { data: post } = await supabase
     .from("blog_posts")
-    .select("title, excerpt, content_markdown, cover_image_url, tags, published_at")
+    .select("id, title, excerpt, content_markdown, cover_image_url, tags, published_at")
     .eq("slug", slug)
     .eq("status", "published")
     .maybeSingle()
 
   if (!post) notFound()
+
+  // If the viewer is a signed-in admin, surface a direct "Edit" link so
+  // they can jump from the public view straight into the editor.
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+  let isAdmin = false
+  if (user) {
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("is_admin")
+      .eq("id", user.id)
+      .maybeSingle()
+    isAdmin = Boolean(profile?.is_admin)
+  }
 
   // Expand `[[product:slug]]` tokens to rendered product cards before the
   // content hits the sanitizer/renderer. Tokens that don't match an active
@@ -63,13 +78,25 @@ export default async function BlogPostPage({ params }: Props) {
 
       <article className="pt-28 sm:pt-32 pb-16 sm:pb-24">
         <div className="mx-auto max-w-3xl px-4 sm:px-6 lg:px-8">
-          <Link
-            href="/blog"
-            className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors mb-8"
-          >
-            <ArrowLeft className="h-3.5 w-3.5" />
-            All posts
-          </Link>
+          <div className="mb-8 flex items-center justify-between gap-3">
+            <Link
+              href="/blog"
+              className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors"
+            >
+              <ArrowLeft className="h-3.5 w-3.5" />
+              All posts
+            </Link>
+
+            {isAdmin && (
+              <Link
+                href={`/admin/blog/${post.id}`}
+                className="inline-flex items-center gap-1.5 rounded-md border border-border bg-background px-3 py-1.5 text-xs font-medium text-foreground/80 shadow-sm transition-colors hover:bg-secondary hover:text-foreground"
+              >
+                <Pencil className="h-3.5 w-3.5" />
+                Edit post
+              </Link>
+            )}
+          </div>
 
           {post.tags && post.tags.length > 0 && (
             <div className="mb-4 flex flex-wrap gap-1.5">
