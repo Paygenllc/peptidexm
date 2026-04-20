@@ -7,6 +7,7 @@ import { Separator } from "@/components/ui/separator"
 import { ArrowLeft } from "lucide-react"
 import { OrderStatusForm } from "./order-status-form"
 import { PaymentReminderButton } from "./payment-reminder-button"
+import { DeleteOrderButton } from "./delete-order-button"
 
 export const dynamic = "force-dynamic"
 
@@ -192,7 +193,7 @@ export default async function OrderDetailPage({ params }: { params: Promise<{ id
           </Card>
         </div>
 
-        <div>
+        <div className="space-y-4">
           <OrderStatusForm
             orderId={order.id}
             currentStatus={order.status}
@@ -202,6 +203,12 @@ export default async function OrderDetailPage({ params }: { params: Promise<{ id
             currentTrackingUrl={order.tracking_url}
             currentNotes={order.notes}
           />
+          <Card className="p-4">
+            <div className="text-xs uppercase tracking-wide text-muted-foreground mb-2">
+              Danger zone
+            </div>
+            <DeleteOrderButton orderId={order.id} orderNumber={order.order_number} />
+          </Card>
         </div>
       </div>
     </div>

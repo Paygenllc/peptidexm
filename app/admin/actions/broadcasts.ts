@@ -7,6 +7,14 @@ import { markdownToHtml, markdownToPlainText } from "@/lib/markdown"
 import { renderContentWithProducts } from "@/lib/product-embeds"
 import { revalidatePath } from "next/cache"
 import { redirect } from "next/navigation"
+import { generateText, Output } from "ai"
+import { z } from "zod"
+import {
+  AUTOBLOG_TONES,
+  TONE_KEYS,
+  type AutoblogTone,
+} from "@/lib/autoblog-config"
+import { products, productSlug } from "@/lib/products-catalog"
 
 export type BroadcastAudience = "subscribers" | "all_customers" | "admins" | "custom"
 
@@ -138,6 +146,208 @@ export async function deleteBroadcastAction(formData: FormData) {
 
   revalidatePath("/admin/email")
   redirect("/admin/email")
+}
+
+/**
+ * Duplicate an existing broadcast (typically a sent one) as a fresh draft.
+ *
+ * Handy for running the same campaign to a different audience, or iterating
+ * on subject/copy from a known-good starting point. Status fields (sent_at,
+ * recipient/sent/failed counts) are all reset so analytics stay honest.
+ */
+export async function duplicateBroadcastAction(formData: FormData) {
+  const { user } = await requireAdmin()
+  const id = String(formData.get("id") || "")
+  if (!id) return { error: "Missing broadcast id" }
+
+  const supabase = await createClient()
+  const { data: source, error: loadErr } = await supabase
+    .from("email_broadcasts")
+    .select("subject, preview, body_markdown, audience, custom_recipients")
+    .eq("id", id)
+    .single()
+  if (loadErr || !source) return { error: "Broadcast not found" }
+
+  const { data: inserted, error: insertErr } = await supabase
+    .from("email_broadcasts")
+    .insert({
+      subject: prefixCopy(source.subject),
+      preview: source.preview,
+      body_markdown: source.body_markdown,
+      audience: source.audience,
+      custom_recipients: source.custom_recipients ?? [],
+      status: "draft",
+      created_by: user.id,
+    })
+    .select("id")
+    .single()
+
+  if (insertErr || !inserted) return { error: insertErr?.message ?? "Couldn't duplicate" }
+
+  revalidatePath("/admin/email")
+  redirect(`/admin/email/${inserted.id}`)
+}
+
+/**
+ * Prefix the duplicated subject so the copy is obvious at a glance, but only
+ * once — re-duplicating doesn't keep stacking "(copy) (copy) (copy)".
+ */
+function prefixCopy(subject: string): string {
+  const trimmed = subject.trim()
+  if (/^\(copy\)/i.test(trimmed)) return trimmed
+  return `(copy) ${trimmed}`.slice(0, 120)
+}
+
+/**
+ * AI-generated broadcast draft.
+ *
+ * Produces subject / preview / body markdown in one shot so the admin can
+ * review-and-send rather than starting from a blank textarea. We reuse the
+ * autoblog tone directives so voice stays consistent across the site's
+ * editorial surfaces — newsletter voice should match blog voice.
+ *
+ * Body is markdown (not HTML) because the broadcast editor renders markdown
+ * natively and supports our [[product:slug]] embed tokens.
+ */
+const BroadcastDraftSchema = z.object({
+  subject: z.string().describe("Email subject line, max 80 characters. Specific and compelling, not clickbait."),
+  preview: z
+    .string()
+    .describe(
+      "Inbox preview text (max 140 chars). Complements — does not repeat — the subject.",
+    ),
+  body_markdown: z
+    .string()
+    .describe(
+      "Email body in markdown. Use # headings, **bold**, _italic_, [links](url), - bullet lists, > blockquotes. " +
+        "To embed a product card, put [[product:<slug>]] on its own line using one of the slugs from the catalog. " +
+        "Never embed more than 2 product tokens. End with a short closing line.",
+    ),
+})
+
+export type BroadcastDraft = z.infer<typeof BroadcastDraftSchema>
+
+type BroadcastDraftResult = { draft: BroadcastDraft } | { error: string }
+
+function buildProductCatalogSummary(): string {
+  return products
+    .map((p) => `- ${p.name} (slug: ${productSlug(p)}, category: ${p.category})`)
+    .join("\n")
+}
+
+/**
+ * Goal buckets map to campaign-specific instructions layered on top of the
+ * shared tone. E.g. a "product launch" in a conversational tone still needs
+ * a CTA and a dated launch hook — the goal captures that.
+ */
+const BROADCAST_GOAL_DIRECTIVES: Record<string, string> = {
+  announcement:
+    "This is a customer announcement. Open with the news, explain why it matters in 1–2 paragraphs, close with a clear next step (browse, read the blog post, reply).",
+  launch:
+    "This is a product launch. Open with the product hook, use exactly one [[product:slug]] embed for the launching product, add 2–3 benefit bullets, close with a launch-day CTA.",
+  promotion:
+    "This is a promotional campaign. Lead with the offer and its end date, explain what's included in plain terms, and close with an urgent CTA. Never imply therapeutic benefit.",
+  newsletter:
+    "This is a periodic newsletter. Pick 2–3 topical items (new products, research notes, stock updates) and present each under a short bold lead-in. Keep the overall email scannable.",
+  educational:
+    "This is an educational email. Teach one idea well. No hard sell — optionally include one [[product:slug]] embed if it naturally illustrates the concept.",
+  reengagement:
+    "This is a re-engagement email to lapsed customers. Warm open, brief recap of what's new since they last visited, low-pressure CTA.",
+}
+
+export const BROADCAST_GOALS = Object.keys(BROADCAST_GOAL_DIRECTIVES) as [
+  string,
+  ...string[],
+]
+
+export async function generateBroadcastDraftAction(
+  formData: FormData,
+): Promise<BroadcastDraftResult> {
+  try {
+    await requireAdmin()
+  } catch (err) {
+    console.log("[v0] broadcast drafter: requireAdmin failed", err)
+    return { error: "You must be signed in as an admin to generate drafts." }
+  }
+
+  const topic = String(formData.get("topic") ?? "").trim()
+  const goalRaw = String(formData.get("goal") ?? "newsletter").trim()
+  const toneRaw = String(formData.get("tone") ?? "conversational").trim()
+  const keywords = String(formData.get("keywords") ?? "").trim()
+  const audience = String(formData.get("audience") ?? "").trim()
+
+  if (!topic) return { error: "Describe what this email is about." }
+  if (topic.length > 500) return { error: "Brief is too long. Keep it under 500 characters." }
+
+  const toneKey: AutoblogTone = (TONE_KEYS as readonly string[]).includes(toneRaw)
+    ? (toneRaw as AutoblogTone)
+    : "conversational"
+  const goalDirective =
+    BROADCAST_GOAL_DIRECTIVES[goalRaw] ?? BROADCAST_GOAL_DIRECTIVES.newsletter
+
+  const system = [
+    "You are the senior email copywriter for PeptideXM, a research-peptide supplier.",
+    "You write short, engaging transactional/marketing emails for a US research-only audience.",
+    "Emails must never recommend human self-administration, never claim to diagnose or",
+    "treat disease, and never make unqualified medical promises.",
+    "",
+    "## Shop catalog (use these EXACT slugs inside [[product:<slug>]] tokens)",
+    buildProductCatalogSummary(),
+    "",
+    "## Voice directive",
+    AUTOBLOG_TONES[toneKey].directive,
+    "",
+    "## Campaign goal",
+    goalDirective,
+    "",
+    "## Output rules",
+    "- Body is MARKDOWN (not HTML). Allowed: # heading, ## subheading, **bold**, _italic_, [link](url), - list, > quote, [[product:slug]] tokens.",
+    "- Keep the email short enough to read in 30 seconds unless the goal genuinely demands more.",
+    "- Use at most ONE H1 (#) heading at the very top, optional.",
+    "- Always include a clear, single primary CTA — either a markdown link or a product embed.",
+    "- Subjects: specific, no ALL-CAPS, no clickbait (\"You won't believe…\"). Max 80 chars.",
+    "- Preview text complements the subject — don't just restate it.",
+  ].join("\n")
+
+  const userPrompt = [
+    `Brief: ${topic}`,
+    keywords ? `Keywords to weave in naturally: ${keywords}` : "",
+    audience ? `Primary reader: ${audience}` : "Primary reader: an existing PeptideXM customer on our newsletter list.",
+    "",
+    "Generate the subject, preview, and markdown body now.",
+  ]
+    .filter(Boolean)
+    .join("\n")
+
+  try {
+    const result = await generateText({
+      model: "openai/gpt-5-mini",
+      system,
+      prompt: userPrompt,
+      experimental_output: Output.object({ schema: BroadcastDraftSchema }),
+    })
+
+    const draft = result.experimental_output
+    if (!draft) return { error: "The AI returned an empty draft. Try again." }
+
+    return {
+      draft: {
+        subject: draft.subject.trim().slice(0, 120),
+        preview: draft.preview.trim().slice(0, 200),
+        body_markdown: draft.body_markdown.trim(),
+      },
+    }
+  } catch (err) {
+    console.log("[v0] broadcast drafter: generation failed", err)
+    const msg = err instanceof Error ? err.message : String(err)
+    if (/api.*key|unauthor|forbidden/i.test(msg)) {
+      return {
+        error:
+          "AI provider not configured. Check your Vercel AI Gateway settings.",
+      }
+    }
+    return { error: "The AI couldn't generate a draft. Please try again in a moment." }
+  }
 }
 
 const ALLOWED_AUDIENCES: ReadonlySet<BroadcastAudience> = new Set([
