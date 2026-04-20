@@ -15,7 +15,7 @@ export default function ContactPage() {
   return (
     <>
       <Header />
-      <main className="mx-auto max-w-3xl px-4 sm:px-6 py-12 sm:py-16">
+      <main className="mx-auto max-w-3xl px-4 sm:px-6 pt-28 pb-16 sm:pt-32 sm:pb-20">
         <div className="space-y-3 mb-10">
           <div className="inline-flex items-center gap-2 text-xs font-medium uppercase tracking-wider text-muted-foreground">
             <Mail className="h-3.5 w-3.5" /> Contact
