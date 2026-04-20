@@ -14,6 +14,7 @@ import {
   ShoppingBag,
   Users,
   Mail,
+  Inbox,
   FileText,
   LogOut,
   Home,
@@ -40,7 +41,8 @@ const navSections: Array<{
   {
     label: "Content",
     items: [
-      { href: "/admin/email", icon: Mail, label: "Email" },
+      { href: "/admin/inbox", icon: Inbox, label: "Inbox" },
+      { href: "/admin/email", icon: Mail, label: "Broadcasts" },
       { href: "/admin/blog", icon: FileText, label: "Blog" },
     ],
   },
