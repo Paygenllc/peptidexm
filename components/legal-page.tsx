@@ -23,7 +23,12 @@ export function LegalPage({
   return (
     <div className="min-h-screen bg-background text-foreground">
       <Header />
-      <main className="mx-auto max-w-3xl px-4 sm:px-6 py-12 sm:py-20 lg:px-8">
+      {/*
+        Header is fixed (~64px) so we need extra top padding to clear it,
+        otherwise the title renders underneath the header on mobile where
+        py-12 was only giving us ~48px of breathing room.
+      */}
+      <main className="mx-auto max-w-3xl px-4 sm:px-6 pt-28 pb-16 sm:pt-32 sm:pb-20 lg:px-8">
         <header className="mb-10 sm:mb-14">
           <h1 className="font-serif text-3xl sm:text-4xl md:text-5xl tracking-tight text-balance">
             {title}
