@@ -24,6 +24,7 @@ import { Loader2, Save, Trash2, Eye, Pencil, Upload } from "lucide-react"
 import { RichEditor } from "@/components/admin/rich-editor"
 import { PostContent } from "@/components/post-content"
 import { createClient as createBrowserSupabase } from "@/lib/supabase/client"
+import { AutoblogPanel, type AutoblogDraft } from "./autoblog-panel"
 
 type EditorInitial = {
   id: string
@@ -136,6 +137,23 @@ export function BlogPostEditor({
     })
   }
 
+  function handleAutoblogGenerated(draft: AutoblogDraft) {
+    // Fill the editor state from the AI-generated draft. We only overwrite
+    // fields the admin hasn't already typed into, so a half-typed draft
+    // never gets clobbered by an accidental regenerate.
+    if (!title.trim()) setTitle(draft.title)
+    if (!slug.trim()) setSlug(draft.slug)
+    if (!excerpt.trim()) setExcerpt(draft.excerpt)
+    if (!content.trim()) setContent(draft.content_html)
+    if (!tags.trim() && draft.tags.length) setTags(draft.tags.join(", "))
+    // Scroll the title into view so the admin sees where the draft landed.
+    setTimeout(() => {
+      const el = document.getElementById("title")
+      el?.scrollIntoView({ behavior: "smooth", block: "center" })
+      if (el instanceof HTMLInputElement) el.focus()
+    }, 50)
+  }
+
   async function handleCoverUpload(file: File) {
     if (!file.type.startsWith("image/")) {
       setError("Cover file must be an image.")
@@ -167,8 +185,11 @@ export function BlogPostEditor({
   }
 
   return (
-    <form action={handleSave} className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-      {mode === "edit" && initial && <input type="hidden" name="id" value={initial.id} />}
+    <div className="space-y-6">
+      {mode === "create" && <AutoblogPanel onGenerated={handleAutoblogGenerated} />}
+
+      <form action={handleSave} className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {mode === "edit" && initial && <input type="hidden" name="id" value={initial.id} />}
 
       <div className="lg:col-span-2 space-y-5">
         <Card className="p-5 space-y-4">
@@ -382,6 +403,7 @@ export function BlogPostEditor({
           )}
         </Card>
       </aside>
-    </form>
+      </form>
+    </div>
   )
 }
