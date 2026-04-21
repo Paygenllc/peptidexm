@@ -45,11 +45,15 @@ export async function generateSquadcoPaymentLinkAction(input: {
   try {
     // Squadco payment link creation endpoint.
     // Docs: https://docs.squadco.com/Payments/Payment-Links
+    // Try auth format: some APIs use Authorization: Bearer, others use a
+    // custom header. We'll try Bearer first (standard), but this can be
+    // adjusted if needed.
     const response = await fetch('https://api.squadco.com/v1/payment_links/', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        Authorization: `Bearer ${apiKey}`,
+        // Standard Bearer token format for REST APIs
+        'Authorization': `Bearer ${apiKey}`,
       },
       body: JSON.stringify({
         // Squadco expects amounts in the smallest unit: cents for USD,
@@ -74,31 +78,66 @@ export async function generateSquadcoPaymentLinkAction(input: {
       }),
     })
 
+    const responseText = await response.text()
+    console.log('[v0] Squadco API request to: https://api.squadco.com/v1/payment_links/')
+    console.log('[v0] Response status:', response.status, response.statusText)
+    console.log('[v0] API key present:', !!apiKey, 'length:', apiKey?.length)
+    
     if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}))
-      console.error('[v0] Squadco API error:', response.status, errorData)
+      let errorMessage = ''
+      try {
+        const errorData = JSON.parse(responseText)
+        errorMessage = JSON.stringify(errorData, null, 2)
+        console.error('[v0] Squadco error response:', errorMessage)
+      } catch {
+        errorMessage = responseText
+        console.error('[v0] Squadco error (non-JSON):', responseText)
+      }
+      
+      // 403 typically means auth issue or insufficient permissions
+      if (response.status === 403) {
+        console.error('[v0] 403 Auth Error — Check:')
+        console.error('[v0]   1. API key is valid and active in Squadco dashboard')
+        console.error('[v0]   2. API key is the SECRET key, not public key')
+        console.error('[v0]   3. API key has permission for payment links')
+        return {
+          error: 'Authentication failed. Verify API key in Squadco dashboard is active and is the SECRET key (not public).',
+        }
+      }
+      
       return {
-        error: 'Failed to create payment link. Please try again or contact support.',
+        error: `Payment service error (${response.status}). Please try again or contact support.`,
       }
     }
 
-    const data = (await response.json()) as {
-      data?: { payment_link?: string; link?: string }
+    let data: unknown
+    try {
+      data = JSON.parse(responseText)
+    } catch {
+      console.error('[v0] Failed to parse Squadco response as JSON')
+      return { error: 'Invalid response from payment service. Please try again.' }
     }
-    // Squadco returns the link in data.data.payment_link or data.data.link
+
+    console.log('[v0] Squadco response:', JSON.stringify(data).slice(0, 300))
+
+    // Squadco response structure can vary; try multiple possible paths
     const paymentUrl =
-      data?.data?.payment_link ||
-      data?.data?.link ||
+      (data as any)?.data?.payment_link ||
+      (data as any)?.data?.link ||
+      (data as any)?.payment_link ||
+      (data as any)?.link ||
+      (data as any)?.url ||
       null
 
     if (!paymentUrl) {
-      console.error('[v0] Squadco response missing payment link', data)
+      console.error('[v0] Squadco response missing payment link:', data)
       return { error: 'Payment link generation failed. Please try again.' }
     }
 
+    console.log('[v0] Payment link generated successfully')
     return { url: paymentUrl }
   } catch (err) {
-    console.error('[v0] generateSquadcoPaymentLink failed:', err)
+    console.error('[v0] generateSquadcoPaymentLink exception:', err)
     return {
       error: 'Network error creating payment link. Please check your connection and try again.',
     }
