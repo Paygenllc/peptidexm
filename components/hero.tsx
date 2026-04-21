@@ -1,7 +1,7 @@
 "use client"
 
 import { Button } from "@/components/ui/button"
-import { ArrowRight, FlaskConical, ShieldCheck, Truck, ChevronDown, Sparkles } from "lucide-react"
+import { ArrowRight, FlaskConical, ShieldCheck, Truck, ChevronDown } from "lucide-react"
 import Link from "next/link"
 import { useEffect, useRef, useState } from "react"
 import { VialMockup } from "@/components/vial-mockup"
@@ -151,22 +151,24 @@ export function Hero() {
               friction right at the decision point. */}
           <div className="mt-8 sm:mt-12 w-full sm:w-auto opacity-0 animate-[hero-fade-up_0.8s_ease-out_450ms_both]">
             <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 w-full sm:w-auto">
-              {/* Primary: commercial-intent copy ("Shop Peptides" beats the
-                  previous "View Products"), plus a soft accent-colored
-                  shadow that lifts on hover for a tactile feel. */}
+              {/* Primary: transactional copy ("Buy Now") — strongest
+                  purchase-intent verb, matching the CTA language
+                  shoppers already see on product tiles. The old
+                  Sparkles glyph was dropped so nothing competes with
+                  the wordmark; label is bumped up to text-base /
+                  text-lg for a more confident, clickable presence
+                  and the button is a bit taller to keep the vertical
+                  rhythm in balance. Arrow stays as the sole icon to
+                  preserve motion affordance. */}
               <Button
                 size="lg"
-                className="group relative gap-2 px-8 h-12 w-full sm:w-auto font-medium shadow-sm shadow-accent/20 transition-all hover:-translate-y-0.5 hover:shadow-md hover:shadow-accent/30 focus-visible:-translate-y-0.5"
+                className="group relative gap-2.5 px-10 h-14 w-full sm:w-auto text-base sm:text-lg font-semibold shadow-sm shadow-accent/20 transition-all hover:-translate-y-0.5 hover:shadow-md hover:shadow-accent/30 focus-visible:-translate-y-0.5"
                 asChild
               >
                 <Link href="#products">
-                  <Sparkles
-                    className="h-4 w-4 text-current/80 transition-transform group-hover:scale-110"
-                    aria-hidden="true"
-                  />
-                  Shop Peptides
+                  Buy Now
                   <ArrowRight
-                    className="h-4 w-4 transition-transform group-hover:translate-x-1"
+                    className="h-5 w-5 transition-transform group-hover:translate-x-1"
                     aria-hidden="true"
                   />
                 </Link>
