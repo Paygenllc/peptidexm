@@ -1,7 +1,7 @@
 "use client"
 
 import { Button } from "@/components/ui/button"
-import { ArrowRight, FlaskConical, ShieldCheck, Truck, ChevronDown } from "lucide-react"
+import { ArrowRight, FlaskConical, ShieldCheck, Truck, ChevronDown, Sparkles } from "lucide-react"
 import Link from "next/link"
 import { useEffect, useRef, useState } from "react"
 import { VialMockup } from "@/components/vial-mockup"
@@ -146,25 +146,64 @@ export function Hero() {
           </p>
 
           {/* CTAs */}
-          <div className="mt-8 sm:mt-12 flex flex-col sm:flex-row gap-3 sm:gap-4 w-full sm:w-auto opacity-0 animate-[hero-fade-up_0.8s_ease-out_450ms_both]">
-            <Button
-              size="lg"
-              className="group gap-2 px-8 h-12 w-full sm:w-auto transition-transform hover:-translate-y-0.5"
-              asChild
-            >
-              <Link href="#products">
-                View Products
-                <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
-              </Link>
-            </Button>
-            <Button
-              size="lg"
-              variant="outline"
-              className="px-8 h-12 w-full sm:w-auto transition-colors hover:border-accent hover:text-accent"
-              asChild
-            >
-              <Link href="#science">Learn More</Link>
-            </Button>
+          {/* Wrapper also holds the conversion microline underneath the
+              pair — free-shipping + same-day dispatch removes purchase
+              friction right at the decision point. */}
+          <div className="mt-8 sm:mt-12 w-full sm:w-auto opacity-0 animate-[hero-fade-up_0.8s_ease-out_450ms_both]">
+            <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 w-full sm:w-auto">
+              {/* Primary: commercial-intent copy ("Shop Peptides" beats the
+                  previous "View Products"), plus a soft accent-colored
+                  shadow that lifts on hover for a tactile feel. */}
+              <Button
+                size="lg"
+                className="group relative gap-2 px-8 h-12 w-full sm:w-auto font-medium shadow-sm shadow-accent/20 transition-all hover:-translate-y-0.5 hover:shadow-md hover:shadow-accent/30 focus-visible:-translate-y-0.5"
+                asChild
+              >
+                <Link href="#products">
+                  <Sparkles
+                    className="h-4 w-4 text-current/80 transition-transform group-hover:scale-110"
+                    aria-hidden="true"
+                  />
+                  Shop Peptides
+                  <ArrowRight
+                    className="h-4 w-4 transition-transform group-hover:translate-x-1"
+                    aria-hidden="true"
+                  />
+                </Link>
+              </Button>
+              {/* Secondary: concrete ("See the Science") rather than the
+                  generic "Learn More". Signals scientific rigor for the
+                  skeptical buyer. Mirrors the primary's icon-left pattern
+                  with FlaskConical to create a semantic pair. */}
+              <Button
+                size="lg"
+                variant="outline"
+                className="group gap-2 px-8 h-12 w-full sm:w-auto transition-colors hover:border-accent hover:text-accent hover:bg-accent/5"
+                asChild
+              >
+                <Link href="#science">
+                  <FlaskConical
+                    className="h-4 w-4 transition-transform group-hover:rotate-6"
+                    aria-hidden="true"
+                  />
+                  See the Science
+                </Link>
+              </Button>
+            </div>
+
+            {/* Conversion microline — factual, matches promises enforced
+                in lib/shipping.ts and the trust strip. Kept small so the
+                CTA pair remains the visual anchor. */}
+            <p className="mt-3 text-xs text-muted-foreground/80 text-center sm:text-left">
+              <span className="inline-flex items-center gap-1.5">
+                <Truck className="h-3 w-3 text-accent" aria-hidden="true" />
+                Free US shipping over $500
+              </span>
+              <span className="mx-2 text-muted-foreground/40" aria-hidden="true">
+                ·
+              </span>
+              <span>Ships within 24h</span>
+            </p>
           </div>
 
           {/* Featured peptide chips — intuitive "here's what we carry" preview. */}
