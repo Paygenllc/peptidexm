@@ -2,6 +2,14 @@ import Link from "next/link"
 import { Mail } from "lucide-react"
 import { NewsletterForm } from "@/components/newsletter-form"
 import { CONTACT_EMAIL, mailto } from "@/lib/contact"
+import {
+  ZelleLogo,
+  TetherLogo,
+  VisaLogo,
+  MastercardLogo,
+  AmexLogo,
+  DiscoverLogo,
+} from "@/components/payment-logos"
 
 const navigation = {
   products: [
@@ -141,8 +149,31 @@ export function Footer() {
           </div>
         </div>
 
+        {/* Accepted payment methods — sits above the copyright row so the
+            list of brands is the first thing customers see when they scan
+            the footer. Logos have their own opaque fills so they render
+            cleanly on the dark footer background. */}
+        <div className="mt-12 sm:mt-16 pt-6 sm:pt-8 border-t border-background/10">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4">
+            <p className="text-xs font-medium uppercase tracking-wider text-background/50">
+              We accept
+            </p>
+            <div
+              aria-label="Accepted payment methods: Zelle, USDT on the TRON network, Visa, Mastercard, American Express, and Discover"
+              className="flex items-center gap-2 flex-wrap"
+            >
+              <ZelleLogo className="h-6 w-auto" />
+              <TetherLogo className="h-6 w-auto" />
+              <VisaLogo className="h-6 w-auto" />
+              <MastercardLogo className="h-6 w-auto" />
+              <AmexLogo className="h-6 w-auto" />
+              <DiscoverLogo className="h-6 w-auto" />
+            </div>
+          </div>
+        </div>
+
         {/* Bottom section */}
-        <div className="mt-12 sm:mt-16 pt-6 sm:pt-8 border-t border-background/10 safe-pb">
+        <div className="mt-6 sm:mt-8 pt-6 sm:pt-8 border-t border-background/10 safe-pb">
           <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 sm:gap-4">
             <p className="text-xs sm:text-sm text-background/40">
               &copy; {new Date().getFullYear()} PeptideXM. All rights reserved.
