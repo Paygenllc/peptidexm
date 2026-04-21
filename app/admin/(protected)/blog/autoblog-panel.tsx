@@ -13,8 +13,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-import { Sparkles, Loader2, ChevronDown, ChevronUp } from "lucide-react"
-import { generateBlogDraftAction } from "@/app/admin/actions/autoblog"
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs"
+import { Sparkles, Loader2, ChevronDown, ChevronUp, Wand2 } from "lucide-react"
+import {
+  generateBlogDraftAction,
+  remixBlogDraftAction,
+} from "@/app/admin/actions/autoblog"
 import { AUTOBLOG_TONES, AUTOBLOG_LENGTHS } from "@/lib/autoblog-config"
 
 export type AutoblogDraft = {
@@ -25,14 +29,21 @@ export type AutoblogDraft = {
   tags: string[]
 }
 
+type Mode = "topic" | "remix"
+
 /**
  * Autoblog: AI-assisted first-draft generator.
  *
- * Typing a topic and clicking "Generate" calls the server action, which uses
- * the AI SDK with `Output.object()` to produce a structured post draft. On
- * success we hand the draft back up to the editor via `onGenerated`, which
- * fills the form fields in place — the admin then edits, reviews in the
- * Preview tab, and publishes normally. Nothing is persisted until Save.
+ * Two entry points share the same tone/length/audience/keywords controls:
+ *   • "From topic"  → describe what you want, the model writes it.
+ *   • "Remix article" → paste an existing article, the model rewrites it
+ *                       in PeptideXM voice with our product catalog
+ *                       (anti-plagiarism framing enforced server-side).
+ *
+ * On success we hand the draft back up to the editor via `onGenerated`,
+ * which fills the form fields in place — the admin then edits, reviews
+ * in the Preview tab, and publishes normally. Nothing is persisted
+ * until Save.
  */
 export function AutoblogPanel({
   onGenerated,
@@ -40,11 +51,23 @@ export function AutoblogPanel({
   onGenerated: (draft: AutoblogDraft) => void
 }) {
   const [open, setOpen] = useState(true)
+  const [mode, setMode] = useState<Mode>("topic")
+
+  // Topic-mode fields.
   const [topic, setTopic] = useState("")
+
+  // Remix-mode fields. `source` is the pasted article; `source_url` and
+  // `focus` are optional hints the model uses without publishing them.
+  const [source, setSource] = useState("")
+  const [sourceUrl, setSourceUrl] = useState("")
+  const [focus, setFocus] = useState("")
+
+  // Shared across both modes.
   const [keywords, setKeywords] = useState("")
   const [audience, setAudience] = useState("")
   const [tone, setTone] = useState<keyof typeof AUTOBLOG_TONES>("research")
   const [length, setLength] = useState<keyof typeof AUTOBLOG_LENGTHS>("medium")
+
   const [error, setError] = useState<string | null>(null)
   const [info, setInfo] = useState<string | null>(null)
   const [isPending, startTransition] = useTransition()
@@ -52,14 +75,31 @@ export function AutoblogPanel({
   function handleGenerate() {
     setError(null)
     setInfo(null)
-    const trimmed = topic.trim()
-    if (!trimmed) {
-      setError("Enter a topic first.")
-      return
-    }
 
     const fd = new FormData()
-    fd.set("topic", trimmed)
+
+    if (mode === "topic") {
+      const trimmed = topic.trim()
+      if (!trimmed) {
+        setError("Enter a topic first.")
+        return
+      }
+      fd.set("topic", trimmed)
+    } else {
+      const src = source.trim()
+      if (!src) {
+        setError("Paste the source article first.")
+        return
+      }
+      if (src.length < 200) {
+        setError("Source is too short to remix — paste the full article.")
+        return
+      }
+      fd.set("source", src)
+      if (sourceUrl.trim()) fd.set("source_url", sourceUrl.trim())
+      if (focus.trim()) fd.set("focus", focus.trim())
+    }
+
     fd.set("keywords", keywords.trim())
     fd.set("audience", audience.trim())
     fd.set("tone", tone)
@@ -67,7 +107,10 @@ export function AutoblogPanel({
 
     startTransition(async () => {
       try {
-        const result = await generateBlogDraftAction(fd)
+        const result =
+          mode === "topic"
+            ? await generateBlogDraftAction(fd)
+            : await remixBlogDraftAction(fd)
         if (!result) {
           setError("No response from the AI. Try again.")
           return
@@ -78,7 +121,9 @@ export function AutoblogPanel({
         }
         onGenerated(result.draft)
         setInfo(
-          "Draft generated. Review the Title, Excerpt, and Content below — edit anything before publishing.",
+          mode === "topic"
+            ? "Draft generated. Review the Title, Excerpt, and Content below — edit anything before publishing."
+            : "Remix ready. Compare carefully against the source, edit freely, then publish when happy.",
         )
       } catch (err) {
         console.error("[v0] autoblog generate failed:", err)
@@ -90,6 +135,8 @@ export function AutoblogPanel({
       }
     })
   }
+
+  const sourceChars = source.length
 
   return (
     <Card className="p-0 overflow-hidden border-accent/40 bg-accent/5">
@@ -103,7 +150,7 @@ export function AutoblogPanel({
           <span className="inline-flex items-center justify-center w-7 h-7 rounded-md bg-accent/20 text-accent-foreground">
             <Sparkles className="w-4 h-4" />
           </span>
-          <span className="font-medium text-foreground">Autoblog — generate a draft from a topic</span>
+          <span className="font-medium text-foreground">Autoblog — generate or remix a draft</span>
         </span>
         {open ? (
           <ChevronUp className="w-4 h-4 text-muted-foreground" />
@@ -114,23 +161,95 @@ export function AutoblogPanel({
 
       {open && (
         <div className="px-5 pb-5 pt-1 space-y-4 border-t border-accent/20">
-          <div className="space-y-2">
-            <Label htmlFor="autoblog-topic">Topic</Label>
-            <Textarea
-              id="autoblog-topic"
-              value={topic}
-              onChange={(e) => setTopic(e.target.value)}
-              rows={3}
-              placeholder={
-                "e.g. 'The research rationale for BPC-157 in tendon repair models' or 'How GLP-1 agonists compare: semaglutide vs tirzepatide'"
-              }
-              maxLength={500}
-              disabled={isPending}
-            />
-            <p className="text-xs text-muted-foreground">
-              Be specific. The AI knows our full product catalog and will insert product cards where relevant.
-            </p>
-          </div>
+          <Tabs value={mode} onValueChange={(v) => setMode(v as Mode)} className="w-full">
+            <TabsList className="grid grid-cols-2 w-full max-w-sm">
+              <TabsTrigger value="topic" className="gap-1.5" disabled={isPending}>
+                <Sparkles className="w-3.5 h-3.5" />
+                From topic
+              </TabsTrigger>
+              <TabsTrigger value="remix" className="gap-1.5" disabled={isPending}>
+                <Wand2 className="w-3.5 h-3.5" />
+                Remix article
+              </TabsTrigger>
+            </TabsList>
+
+            <TabsContent value="topic" className="mt-4 space-y-2">
+              <Label htmlFor="autoblog-topic">Topic</Label>
+              <Textarea
+                id="autoblog-topic"
+                value={topic}
+                onChange={(e) => setTopic(e.target.value)}
+                rows={3}
+                placeholder={
+                  "e.g. 'The research rationale for BPC-157 in tendon repair models' or 'How GLP-1 agonists compare: semaglutide vs tirzepatide'"
+                }
+                maxLength={500}
+                disabled={isPending}
+              />
+              <p className="text-xs text-muted-foreground">
+                Be specific. The AI knows our full product catalog and will insert product cards where relevant.
+              </p>
+            </TabsContent>
+
+            <TabsContent value="remix" className="mt-4 space-y-3">
+              <div className="space-y-2">
+                <div className="flex items-center justify-between gap-2">
+                  <Label htmlFor="autoblog-source">Source article</Label>
+                  <span className="text-xs text-muted-foreground tabular-nums">
+                    {sourceChars.toLocaleString("en-US")} / 60,000
+                  </span>
+                </div>
+                <Textarea
+                  id="autoblog-source"
+                  value={source}
+                  onChange={(e) => setSource(e.target.value)}
+                  rows={10}
+                  placeholder="Paste the full article here. Plain text or basic HTML both work."
+                  maxLength={60_000}
+                  disabled={isPending}
+                  className="font-mono text-xs leading-relaxed"
+                />
+                <p className="text-xs text-muted-foreground">
+                  The AI treats this as reference material and rewrites it in our voice — it won&apos;t copy
+                  sentences verbatim, mention the source, or republish medical claims. Always review output
+                  before publishing.
+                </p>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="space-y-2">
+                  <Label htmlFor="autoblog-source-url">
+                    Source URL <span className="text-xs text-muted-foreground font-normal">(optional)</span>
+                  </Label>
+                  <Input
+                    id="autoblog-source-url"
+                    type="url"
+                    value={sourceUrl}
+                    onChange={(e) => setSourceUrl(e.target.value)}
+                    placeholder="https://…"
+                    maxLength={400}
+                    disabled={isPending}
+                  />
+                  <p className="text-xs text-muted-foreground">For your records — never linked in the post.</p>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="autoblog-focus">
+                    Our angle <span className="text-xs text-muted-foreground font-normal">(optional)</span>
+                  </Label>
+                  <Input
+                    id="autoblog-focus"
+                    value={focus}
+                    onChange={(e) => setFocus(e.target.value)}
+                    placeholder="e.g. 'focus on receptor mechanism, skip dosing sections'"
+                    maxLength={400}
+                    disabled={isPending}
+                  />
+                  <p className="text-xs text-muted-foreground">What to emphasize, drop, or reframe.</p>
+                </div>
+              </div>
+            </TabsContent>
+          </Tabs>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div className="space-y-2">
@@ -218,15 +337,25 @@ export function AutoblogPanel({
 
           <div className="flex items-center justify-between gap-3 pt-1">
             <p className="text-xs text-muted-foreground">
-              Generated drafts are a starting point — review everything before publishing.
+              {mode === "topic"
+                ? "Generated drafts are a starting point — review everything before publishing."
+                : "Remixed drafts rewrite the source in our voice. Review carefully and fact-check before publishing."}
             </p>
             <Button type="button" onClick={handleGenerate} disabled={isPending} className="gap-2">
               {isPending ? (
                 <Loader2 className="w-4 h-4 animate-spin" />
-              ) : (
+              ) : mode === "topic" ? (
                 <Sparkles className="w-4 h-4" />
+              ) : (
+                <Wand2 className="w-4 h-4" />
               )}
-              {isPending ? "Generating…" : "Generate draft"}
+              {isPending
+                ? mode === "topic"
+                  ? "Generating…"
+                  : "Remixing…"
+                : mode === "topic"
+                  ? "Generate draft"
+                  : "Remix draft"}
             </Button>
           </div>
         </div>

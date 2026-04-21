@@ -172,3 +172,157 @@ export async function generateBlogDraftAction(formData: FormData): Promise<Draft
     return { error: "The AI couldn't generate a draft. Please try again in a moment." }
   }
 }
+
+/**
+ * Remix an existing article into a PeptideXM draft.
+ *
+ * The admin pastes a source article (their own research dump, a competitor
+ * post, a press release — anything) and we rewrite it in our voice, with
+ * our product catalog, safety framing, and structural rules. The output
+ * schema and downstream editor wiring are identical to the topic generator
+ * above — only the system/user prompts differ.
+ *
+ * Anti-plagiarism posture: the prompt is explicit that the model must
+ * *synthesize and rewrite*, not paraphrase sentence-by-sentence. We're
+ * counting on the LLM here, not a similarity checker — the admin still
+ * reviews the output before publishing.
+ */
+export async function remixBlogDraftAction(formData: FormData): Promise<DraftResult> {
+  try {
+    await requireAdmin()
+  } catch (err) {
+    console.log("[v0] autoblog remix: requireAdmin failed", err)
+    return { error: "You must be signed in as an admin to remix articles." }
+  }
+
+  const sourceRaw = String(formData.get("source") ?? "").trim()
+  const sourceUrlRaw = String(formData.get("source_url") ?? "").trim()
+  const focusRaw = String(formData.get("focus") ?? "").trim()
+  const keywordsRaw = String(formData.get("keywords") ?? "").trim()
+  const audienceRaw = String(formData.get("audience") ?? "").trim()
+  const toneRaw = String(formData.get("tone") ?? "research").trim()
+  const lengthRaw = String(formData.get("length") ?? "medium").trim()
+
+  if (!sourceRaw) return { error: "Paste the source article in the Source field first." }
+  if (sourceRaw.length < 200) {
+    return { error: "Source is too short to remix — paste the full article (at least a few paragraphs)." }
+  }
+  // Hard ceiling so we don't blow the context window. Articles longer than
+  // this get truncated with a notice appended; the model still gets the
+  // opening + body + a tail signal that we cut off.
+  const MAX_SOURCE = 60_000
+  const sourceTrimmed =
+    sourceRaw.length > MAX_SOURCE
+      ? sourceRaw.slice(0, MAX_SOURCE) + "\n\n[...source truncated for length...]"
+      : sourceRaw
+
+  if (sourceUrlRaw.length > 400) return { error: "Source URL is too long." }
+  if (focusRaw.length > 400) return { error: "Focus note is too long. Keep it under 400 characters." }
+  if (keywordsRaw.length > 400) return { error: "Keyword list is too long. Keep it under 400 characters." }
+  if (audienceRaw.length > 200) return { error: "Audience description is too long. Keep it under 200 characters." }
+
+  const toneKey: AutoblogTone = (TONE_KEYS as readonly string[]).includes(toneRaw)
+    ? (toneRaw as AutoblogTone)
+    : "research"
+  const lengthKey: AutoblogLength = (LENGTH_KEYS as readonly string[]).includes(lengthRaw)
+    ? (lengthRaw as AutoblogLength)
+    : "medium"
+
+  const toneDirective = AUTOBLOG_TONES[toneKey].directive
+  const lengthDirective = AUTOBLOG_LENGTHS[lengthKey].directive
+
+  const system = [
+    "You are the senior content editor for PeptideXM, a research-peptide supplier's blog.",
+    "The admin has given you a SOURCE ARTICLE and wants a fresh, publishable post that",
+    "covers similar ground in OUR voice, for OUR audience, with OUR product framing.",
+    "",
+    "## Hard rules",
+    "- Do NOT copy sentences or paragraphs verbatim. Rewrite everything in your own words.",
+    "- Do NOT paraphrase sentence-by-sentence. Restructure: reorder sections, merge ideas, drop fluff, add our angle.",
+    "- Treat the source as *reference material* — extract facts, claims, and structure, then write anew.",
+    "- Remove any therapeutic/medical claims, dosing instructions, or self-administration language from the source.",
+    "  Replace with neutral, research-only framing.",
+    "- Never attribute claims to the original author. Never mention or link the source.",
+    "- All content is for research use only. Never recommend human consumption.",
+    "",
+    "## Shop catalog (use these EXACT slugs inside [[product:<slug>]] tokens)",
+    buildProductCatalogSummary(),
+    "",
+    "## Voice directive",
+    toneDirective,
+    "",
+    "## Length directive",
+    lengthDirective,
+    "Do not pad to hit the word count — under-run rather than repeat yourself.",
+    "",
+    "## Output rules",
+    "- Output HTML only for the body. No <html>/<body>/<head>/<script>/<style>/inline styles.",
+    "- Allowed tags: h2, h3, p, ul, ol, li, blockquote, strong, em, a, hr.",
+    "- Start with a short hook paragraph, then H2 sections. Close with a 1–2 sentence summary.",
+    "- When a section naturally references a product we sell, insert [[product:<slug>]] on its own line. Never invent slugs. Max 2 per post.",
+    "- Tags must be lowercase, kebab-case, no leading #.",
+    "- The slug MUST be derived from the title, lowercase, ASCII, hyphenated. Do NOT reuse the source's slug or headline verbatim.",
+  ].join("\n")
+
+  const userPromptLines = [
+    sourceUrlRaw ? `Source URL (for your context only — do not link or mention it): ${sourceUrlRaw}` : "",
+    focusRaw ? `Our angle / what to emphasize in the remix: ${focusRaw}` : "",
+    keywordsRaw ? `Keywords to weave in naturally: ${keywordsRaw}` : "",
+    audienceRaw
+      ? `Primary reader: ${audienceRaw}`
+      : "Primary reader: US-based research-peptide buyer with intermediate biology literacy.",
+    "",
+    "=== SOURCE ARTICLE BEGIN ===",
+    sourceTrimmed,
+    "=== SOURCE ARTICLE END ===",
+    "",
+    "Now write the remixed article in our voice, returning the structured JSON exactly as the schema requires.",
+    "Remember: synthesize, don't paraphrase. The title, slug, headings, and phrasing should all be original.",
+  ]
+    .filter(Boolean)
+    .join("\n")
+
+  try {
+    const result = await generateText({
+      model: "openai/gpt-5-mini",
+      system,
+      prompt: userPromptLines,
+      experimental_output: Output.object({ schema: DraftSchema }),
+    })
+
+    const draft = result.experimental_output
+    if (!draft) {
+      return { error: "The AI returned an empty draft. Try again or trim the source." }
+    }
+
+    const normalized: z.infer<typeof DraftSchema> = {
+      title: draft.title.trim().slice(0, 160),
+      slug: draft.slug
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, "-")
+        .replace(/^-+|-+$/g, "")
+        .slice(0, 80),
+      excerpt: draft.excerpt.trim().slice(0, 240),
+      content_html: draft.content_html.trim(),
+      tags: (draft.tags ?? [])
+        .map((t) => t.toLowerCase().replace(/[^a-z0-9-]+/g, "-").replace(/^-+|-+$/g, ""))
+        .filter((t) => t.length > 0)
+        .slice(0, 5),
+    }
+
+    return { draft: normalized }
+  } catch (err) {
+    console.log("[v0] autoblog remix: generation failed", err)
+    const msg = err instanceof Error ? err.message : String(err)
+    if (/api.*key|unauthor|forbidden/i.test(msg)) {
+      return {
+        error:
+          "AI provider not configured. The Vercel AI Gateway should work zero-config for OpenAI, but this request failed. Check your Vercel AI Gateway settings.",
+      }
+    }
+    if (/context|token|too.*long/i.test(msg)) {
+      return { error: "Source is too long for the model. Trim it to the key sections and try again." }
+    }
+    return { error: "The AI couldn't remix the source. Please try again in a moment." }
+  }
+}
