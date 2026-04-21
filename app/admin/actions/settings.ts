@@ -1,6 +1,13 @@
 "use server"
 
 import { createClient } from "@/lib/supabase/server"
+// The write path must use the service-role client. `site_settings` has
+// RLS enabled with only a SELECT policy (so any anon/authenticated
+// reader can list the flags) — INSERT/UPDATE are blocked for regular
+// sessions. `requireAdmin()` below already gates the action itself,
+// so using service-role for the write is safe and matches the pattern
+// used by every other admin action in this folder.
+import { createAdminClient } from "@/lib/supabase/admin"
 import { requireAdmin } from "@/lib/auth/require-admin"
 import { revalidatePath } from "next/cache"
 import {
@@ -36,13 +43,19 @@ export async function setPaymentMethodEnabledAction(input: {
   }
 
   try {
-    const supabase = await createClient()
+    // Grab the current admin's user id from the session client purely
+    // for the `updated_by` audit column. The actual upsert goes
+    // through the service-role admin client so RLS can't silently
+    // block the write.
+    const sessionClient = await createClient()
+    const { data: authUser } = await sessionClient.auth.getUser()
+
+    const admin = createAdminClient()
 
     // Upsert the row with the new boolean + bump the audit timestamp.
     // We use to_jsonb semantics implicitly — the jsonb column accepts
     // native JSON booleans on insert/update from the JS client.
-    const { data: authUser } = await supabase.auth.getUser()
-    const { error } = await supabase.from("site_settings").upsert(
+    const { error } = await admin.from("site_settings").upsert(
       {
         key: settingKey,
         value: enabled,
