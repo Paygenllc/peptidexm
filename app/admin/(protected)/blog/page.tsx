@@ -3,7 +3,7 @@ import { createClient } from "@/lib/supabase/server"
 import { Card } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { FileText, Plus, ExternalLink } from "lucide-react"
+import { FileText, Plus, ExternalLink, Eye } from "lucide-react"
 import { Pagination, parsePage } from "@/components/admin/pagination"
 
 export const dynamic = "force-dynamic"
@@ -23,9 +23,10 @@ export default async function BlogAdminPage({
   const [pageRes, totalsRes] = await Promise.all([
     supabase
       .from("blog_posts")
-      .select("id, slug, title, excerpt, status, tags, published_at, created_at, updated_at", {
-        count: "exact",
-      })
+      .select(
+        "id, slug, title, excerpt, status, tags, published_at, created_at, updated_at, view_count",
+        { count: "exact" },
+      )
       .order("created_at", { ascending: false })
       .range(from, from + PAGE_SIZE - 1),
     // Second call is tiny — just `status` — so summary counts stay accurate
@@ -87,6 +88,7 @@ export default async function BlogAdminPage({
                   <th className="p-3 font-medium text-muted-foreground">Title</th>
                   <th className="p-3 font-medium text-muted-foreground">Tags</th>
                   <th className="p-3 font-medium text-muted-foreground">Status</th>
+                  <th className="p-3 font-medium text-muted-foreground">Views</th>
                   <th className="p-3 font-medium text-muted-foreground">Updated</th>
                   <th className="p-3 font-medium text-muted-foreground" />
                 </tr>
@@ -120,6 +122,12 @@ export default async function BlogAdminPage({
                       <Badge variant={p.status === "published" ? "default" : "outline"} className="capitalize">
                         {p.status}
                       </Badge>
+                    </td>
+                    <td className="p-3 text-muted-foreground whitespace-nowrap tabular-nums">
+                      <span className="inline-flex items-center gap-1">
+                        <Eye className="w-3.5 h-3.5 text-muted-foreground/70" />
+                        {(p.view_count ?? 0).toLocaleString("en-US")}
+                      </span>
                     </td>
                     <td className="p-3 text-muted-foreground whitespace-nowrap">
                       {new Date(p.updated_at).toLocaleDateString("en-US", {

@@ -3,6 +3,7 @@ import { DM_Serif_Display, Inter } from "next/font/google"
 import { Analytics } from "@vercel/analytics/next"
 import { CartProvider } from "@/context/cart-context"
 import { AuthErrorBridge } from "@/components/auth-error-bridge"
+import { AttributionBeacon } from "@/components/attribution-beacon"
 import "./globals.css"
 
 const dmSerif = DM_Serif_Display({
@@ -127,6 +128,7 @@ export default function RootLayout({
           Skip to content
         </a>
         <AuthErrorBridge />
+        <AttributionBeacon />
         <CartProvider>{children}</CartProvider>
         {process.env.NODE_ENV === "production" && <Analytics />}
       </body>

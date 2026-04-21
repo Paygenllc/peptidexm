@@ -4,10 +4,11 @@ import { createClient } from "@/lib/supabase/server"
 import { Card } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Separator } from "@/components/ui/separator"
-import { ArrowLeft } from "lucide-react"
+import { ArrowLeft, Compass } from "lucide-react"
 import { OrderStatusForm } from "./order-status-form"
 import { PaymentReminderButton } from "./payment-reminder-button"
 import { DeleteOrderButton } from "./delete-order-button"
+import { sourceLabel, type SourceChannel } from "@/lib/traffic-source"
 
 export const dynamic = "force-dynamic"
 
@@ -165,6 +166,64 @@ export default async function OrderDetailPage({ params }: { params: Promise<{ id
               <br />
               {order.country}
             </address>
+          </Card>
+
+          <Card className="p-6">
+            <h2 className="font-semibold text-foreground mb-4 flex items-center gap-2">
+              <Compass className="w-4 h-4 text-muted-foreground" />
+              Traffic source
+            </h2>
+            {order.source_channel ? (
+              <dl className="grid grid-cols-1 sm:grid-cols-2 gap-y-3 gap-x-6 text-sm">
+                <Field
+                  label="Channel"
+                  value={sourceLabel(order.source_channel as SourceChannel)}
+                />
+                <Field label="Landing page" value={order.landing_path || "—"} />
+                <div className="sm:col-span-2">
+                  <dt className="text-xs text-muted-foreground uppercase tracking-wide">Referrer</dt>
+                  <dd className="text-foreground mt-0.5 break-all">
+                    {order.referrer ? (
+                      <a
+                        href={order.referrer}
+                        target="_blank"
+                        rel="noreferrer noopener"
+                        className="text-primary hover:underline"
+                      >
+                        {order.referrer}
+                      </a>
+                    ) : (
+                      <span className="text-muted-foreground italic">None (typed / bookmarked)</span>
+                    )}
+                  </dd>
+                </div>
+                {(order.utm_source || order.utm_medium || order.utm_campaign) && (
+                  <div className="sm:col-span-2 pt-2 border-t border-border">
+                    <dt className="text-xs text-muted-foreground uppercase tracking-wide mb-2">Campaign tags</dt>
+                    <dd className="flex flex-wrap gap-2 text-xs">
+                      {order.utm_source && (
+                        <Badge variant="secondary">source: {order.utm_source}</Badge>
+                      )}
+                      {order.utm_medium && (
+                        <Badge variant="secondary">medium: {order.utm_medium}</Badge>
+                      )}
+                      {order.utm_campaign && (
+                        <Badge variant="secondary">campaign: {order.utm_campaign}</Badge>
+                      )}
+                      {order.utm_term && <Badge variant="secondary">term: {order.utm_term}</Badge>}
+                      {order.utm_content && (
+                        <Badge variant="secondary">content: {order.utm_content}</Badge>
+                      )}
+                    </dd>
+                  </div>
+                )}
+              </dl>
+            ) : (
+              <p className="text-sm text-muted-foreground">
+                No attribution captured. Orders placed before attribution was enabled (or by shoppers
+                who blocked cookies) will show this message.
+              </p>
+            )}
           </Card>
 
           <Card className="p-6">
