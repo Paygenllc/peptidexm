@@ -34,6 +34,10 @@ import {
 import { ZellePaymentPanel } from '@/components/zelle-payment-panel'
 import { CryptoPaymentPanel } from '@/components/crypto-payment-panel'
 import { ZelleLogo, TetherLogo, PaypalLogo, CardBrandRow } from '@/components/payment-logos'
+// Interactive free-shipping progress + 1-click upsell suggestions.
+// Replaces the passive "Add $X more" text that used to live in the
+// order summary card with something shoppers can actually act on.
+import { FreeShippingUpsell } from '@/components/free-shipping-upsell'
 import { AbandonedCartTracker } from '@/components/abandoned-cart-tracker'
 // Card payment link generator. Aliased so the provider identity stays
 // abstracted at the checkout-page level — if we ever swap providers,
@@ -1445,14 +1449,18 @@ export default function CheckoutPage() {
                                 <span className="tabular-nums">${shippingFee.toFixed(2)}</span>
                               )}
                             </div>
+                            {/* Interactive upsell: progress bar + 1-click
+                                suggestions (upgrade to Kit of 10, bump
+                                quantity, or add an accessory). Replaces the
+                                passive "Add $X more" copy that used to live
+                                here. Only renders for US shoppers below the
+                                threshold — the component itself no-ops once
+                                the cart qualifies, so the gate is external
+                                purely to match the current country check. */}
                             {isUS && freeShipRemaining !== null && freeShipRemaining > 0 && (
-                              <p className="text-xs text-muted-foreground/90 bg-accent/5 border border-accent/20 rounded-md px-2 py-1.5 mt-1">
-                                Add{' '}
-                                <span className="font-semibold text-foreground tabular-nums">
-                                  ${freeShipRemaining.toFixed(2)}
-                                </span>{' '}
-                                more for free US shipping.
-                              </p>
+                              <div className="mt-1">
+                                <FreeShippingUpsell compact />
+                              </div>
                             )}
                           </div>
 
