@@ -76,6 +76,21 @@ export async function placeOrderAction(input: PlaceOrderInput) {
   if (!input.email || !input.email.includes("@")) return { error: "Valid email is required" }
   if (!input.items || input.items.length === 0) return { error: "Cart is empty" }
 
+  // Honor the admin payment-method toggles server-side. A client with
+  // a stale page, browser cache, or a hand-crafted request can't
+  // bypass the UI by posting a disabled method — we block it here.
+  // Import is dynamic to avoid pulling the server supabase client into
+  // modules that statically import this file outside of a request.
+  const { getPaymentMethodToggles } = await import("@/lib/payment-methods")
+  const toggles = await getPaymentMethodToggles()
+  const requestedMethod = input.paymentMethod ?? "zelle"
+  if (!toggles[requestedMethod]) {
+    return {
+      error:
+        "This payment method is currently unavailable. Please choose another option.",
+    }
+  }
+
   const subtotal = input.items.reduce((sum, i) => sum + i.unitPrice * i.quantity, 0)
   // Pass subtotal so US orders at/over the free-shipping threshold get $0
   // shipping server-side — client values are never trusted for pricing.
