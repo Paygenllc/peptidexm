@@ -1314,7 +1314,17 @@ export default function CheckoutPage() {
                            * with the order total and redirect the
                            * customer. Our payment partner handles all
                            * card data; we never see or store it. */}
-                          {enabledMethods.card && (
+                          {/* Card is shown in one of two states:
+                           *   - Active: real selectable radio tile, per usual.
+                           *   - Maintenance: same layout (so shoppers still
+                           *     see that card IS a supported rail) but
+                           *     non-interactive, with an amber "Under
+                           *     maintenance" badge instead of the green
+                           *     "Secure Checkout" pill. This matters for
+                           *     trust — silently hiding the card option
+                           *     can make returning customers think the
+                           *     site is broken or sketchy. */}
+                          {enabledMethods.card ? (
                           <label
                             className={`flex items-start gap-3 rounded-lg border-2 p-4 cursor-pointer transition-colors ${
                               paymentMethod === 'card'
@@ -1362,7 +1372,42 @@ export default function CheckoutPage() {
                               </p>
                             </div>
                           </label>
-                          )}
+                          ) : methodsLoaded ? (
+                            /* Maintenance state — visually dimmed, not
+                             * clickable, no radio input so it can't be
+                             * selected or submitted. aria-disabled
+                             * communicates the state to screen readers. */
+                            <div
+                              role="group"
+                              aria-disabled="true"
+                              aria-label="Credit or debit card — currently under maintenance"
+                              className="flex items-start gap-3 rounded-lg border-2 border-dashed border-border bg-muted/40 p-4 cursor-not-allowed opacity-80"
+                            >
+                              <div
+                                className="mt-0.5 h-5 w-5 rounded-full border-2 border-border/60 flex-shrink-0"
+                                aria-hidden="true"
+                              />
+                              <div className="min-w-0 flex-1">
+                                <div className="flex items-center gap-2.5 flex-wrap">
+                                  <p className="font-medium text-muted-foreground">
+                                    Credit / Debit card
+                                  </p>
+                                  <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-700 border border-amber-500/30 uppercase tracking-wider">
+                                    Under maintenance
+                                  </span>
+                                </div>
+                                <div className="mt-2 flex items-center gap-1.5 flex-wrap opacity-60">
+                                  <CardBrandRow />
+                                </div>
+                                <p className="text-sm text-muted-foreground mt-2 leading-relaxed">
+                                  Card payments are temporarily unavailable while we
+                                  upgrade our processor. Please choose another method
+                                  above — your order will be processed just as
+                                  securely.
+                                </p>
+                              </div>
+                            </div>
+                          ) : null}
 
                           {enabledMethods.zelle && (
                           <label
