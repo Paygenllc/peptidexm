@@ -37,7 +37,16 @@ import { AbandonedCartTracker } from '@/components/abandoned-cart-tracker'
 // Card payment link generator. Aliased so the provider identity stays
 // abstracted at the checkout-page level — if we ever swap providers,
 // nothing else in this file has to change.
-import { generateSquadcoPaymentLinkAction as generateCardPaymentLinkAction } from '@/app/actions/squadco'
+// Card payment link generator + order-link persistence. Both live in
+// app/actions/squadco.ts. We alias the link generator so the provider
+// identity stays abstracted at the checkout-page level (if we ever
+// swap providers, only the action file has to change), while the
+// persistence helper keeps its explicit Squadco name because it
+// touches provider-specific columns.
+import {
+  generateSquadcoPaymentLinkAction as generateCardPaymentLinkAction,
+  persistSquadcoLinkToOrderAction,
+} from '@/app/actions/squadco'
 
 interface CustomerInfo {
   email: string
@@ -213,8 +222,28 @@ export default function CheckoutPage() {
           return
         }
 
-        // Now that we have the real order_number, we could regenerate the
-        // link, but for now we'll just redirect to the initial link.
+        // Attach the payment-link reference (`linkResult.reference` is the
+        // Squadco hash) to the order row. This is the piece that lets our
+        // webhook handler match Squadco's "payment completed" callback
+        // back to THIS order — without it, the webhook has no idea which
+        // order to mark as paid.
+        if (orderResult.orderId) {
+          const persistResult = await persistSquadcoLinkToOrderAction({
+            orderId: orderResult.orderId,
+            hash: linkResult.reference,
+            checkoutUrl: linkResult.url,
+          })
+          if (!persistResult.ok) {
+            // Non-fatal — the order is placed and the link works. We just
+            // won't be able to reconcile automatically if the webhook
+            // fires before a manual fix. Log loudly so support sees it.
+            console.error(
+              '[v0] Failed to persist payment link on order:',
+              persistResult.error,
+            )
+          }
+        }
+
         setPlacedOrderNumber(orderResult.orderNumber || null)
         setPlacedOrderId(orderResult.orderId || null)
         setPlacedOrderTotal(orderTotal)

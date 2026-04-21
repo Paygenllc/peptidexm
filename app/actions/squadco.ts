@@ -1,5 +1,7 @@
 "use server"
 
+import { createAdminClient } from "@/lib/supabase/admin"
+
 /**
  * Squadco One-Time Payment Link generator.
  *
@@ -220,5 +222,53 @@ export async function generateSquadcoPaymentLinkAction(
       error:
         "Could not reach the payment service. Please check your connection and try again.",
     }
+  }
+}
+
+/**
+ * Persist the Squadco payment link on the order row so the webhook
+ * handler can match incoming payment confirmations back to this order.
+ *
+ * The webhook has no knowledge of our order_id — Squadco only echoes
+ * the `hash` we chose when creating the link. Writing it to the order
+ * row (indexed via `orders_squadco_hash_idx` from 019) is what makes
+ * reconciliation possible.
+ *
+ * Runs server-side with the admin client because order rows are
+ * RLS-locked from the anon role during the "post-placement" window.
+ * The caller is trusted (our own checkout page, right after it just
+ * placed this exact order), so no additional auth is performed here.
+ */
+export async function persistSquadcoLinkToOrderAction(input: {
+  orderId: string
+  hash: string
+  checkoutUrl: string
+}): Promise<{ ok: true } | { ok: false; error: string }> {
+  const { orderId, hash, checkoutUrl } = input
+
+  if (!orderId || !hash) {
+    return { ok: false, error: "Missing order id or hash." }
+  }
+
+  try {
+    const supabase = createAdminClient()
+    const { error } = await supabase
+      .from("orders")
+      .update({
+        squadco_hash: hash,
+        squadco_checkout_url: checkoutUrl,
+        squadco_updated_at: new Date().toISOString(),
+      })
+      .eq("id", orderId)
+
+    if (error) {
+      console.error("[v0] persistSquadcoLinkToOrderAction update error:", error.message)
+      return { ok: false, error: error.message }
+    }
+
+    return { ok: true }
+  } catch (err) {
+    console.error("[v0] persistSquadcoLinkToOrderAction threw:", err)
+    return { ok: false, error: "Failed to link payment to order." }
   }
 }
