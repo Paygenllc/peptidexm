@@ -231,7 +231,11 @@ export default function CheckoutPage() {
   // most frictionless path (no copy-pasting order numbers into their bank
   // app or a crypto wallet). Zelle and USDT remain one click away for
   // shoppers who prefer them.
-  const [paymentMethod, setPaymentMethod] = useState<'zelle' | 'crypto' | 'card' | 'paypal'>('card')
+  // Default selection is PayPal — it's the #1 option customers expect to
+  // see and clicks straight through to their existing PayPal balance or
+  // linked card. If PayPal is toggled off in admin settings, the
+  // fallback logic below snaps the selection to the next enabled rail.
+  const [paymentMethod, setPaymentMethod] = useState<'zelle' | 'crypto' | 'card' | 'paypal'>('paypal')
 
   // Admin-controlled payment method toggles. Default to all-enabled
   // while the fetch is in flight so the UI doesn't flash an empty
@@ -253,14 +257,14 @@ export default function CheckoutPage() {
         setMethodsLoaded(true)
         // If the currently-selected method got turned off (admin change,
         // stale component mount), snap the selection to the first
-        // enabled rail — preference order: card → paypal → zelle → crypto.
-        // Card leads because it's the most frictionless rail; PayPal
-        // slots in ahead of Zelle/Crypto because it's also one-click
-        // and doesn't require the customer to copy/paste anything.
+        // enabled rail — preference order: paypal → card → zelle → crypto.
+        // PayPal leads because it's the primary brand-recognized rail
+        // shoppers expect; card slots in right after for anyone without
+        // a PayPal account, then the manual rails (Zelle, crypto).
         setPaymentMethod((current) => {
           if (toggles[current]) return current
-          if (toggles.card) return 'card'
           if (toggles.paypal) return 'paypal'
+          if (toggles.card) return 'card'
           if (toggles.zelle) return 'zelle'
           if (toggles.crypto) return 'crypto'
           return current
@@ -1253,11 +1257,62 @@ export default function CheckoutPage() {
                         >
                           <legend className="sr-only">Payment method</legend>
 
-                          {/* Card payment — listed FIRST because it's the
-                           * default selection. PCI-compliant hosted
-                           * payment links: we generate a unique link
-                           * pre-filled with the order total and redirect
-                           * the customer. Our payment partner handles all
+                          {/* PayPal — listed FIRST because it's the
+                           * default selection and the most recognizable
+                           * rail for shoppers. Redirect-mode checkout:
+                           * we create the PayPal order server-side,
+                           * redirect the customer to paypal.com to
+                           * approve, and capture the payment when they
+                           * return. No card data touches our servers. */}
+                          {enabledMethods.paypal && (
+                          <label
+                            className={`flex items-start gap-3 rounded-lg border-2 p-4 cursor-pointer transition-colors ${
+                              paymentMethod === 'paypal'
+                                ? 'border-accent bg-accent/5'
+                                : 'border-border hover:border-accent/40'
+                            }`}
+                          >
+                            <input
+                              type="radio"
+                              name="paymentMethod"
+                              value="paypal"
+                              checked={paymentMethod === 'paypal'}
+                              onChange={() => setPaymentMethod('paypal')}
+                              className="sr-only"
+                            />
+                            <div
+                              className={`mt-0.5 h-5 w-5 rounded-full border-2 flex items-center justify-center flex-shrink-0 ${
+                                paymentMethod === 'paypal'
+                                  ? 'border-accent bg-accent'
+                                  : 'border-border'
+                              }`}
+                              aria-hidden="true"
+                            >
+                              {paymentMethod === 'paypal' && (
+                                <div className="h-2 w-2 rounded-full bg-accent-foreground" />
+                              )}
+                            </div>
+                            <div className="min-w-0 flex-1">
+                              <div className="flex items-center gap-2.5">
+                                <PaypalLogo
+                                  className="h-7 w-7 shrink-0"
+                                  aria-hidden="true"
+                                />
+                                <p className="font-medium text-foreground">PayPal</p>
+                              </div>
+                              <p className="text-sm text-muted-foreground mt-1.5 leading-relaxed">
+                                Pay with your PayPal balance, linked bank, or card.
+                                You&apos;ll be redirected to PayPal to approve the
+                                payment — we never see your login or card details.
+                              </p>
+                            </div>
+                          </label>
+                          )}
+
+                          {/* Card payment — PCI-compliant hosted payment
+                           * links: we generate a unique link pre-filled
+                           * with the order total and redirect the
+                           * customer. Our payment partner handles all
                            * card data; we never see or store it. */}
                           {enabledMethods.card && (
                           <label
@@ -1402,55 +1457,6 @@ export default function CheckoutPage() {
                           </label>
                           )}
 
-                          {/* PayPal — redirect-mode checkout. We create
-                           * the PayPal order server-side, redirect the
-                           * customer to paypal.com to approve, and
-                           * capture the payment when they return. No
-                           * card data touches our servers. */}
-                          {enabledMethods.paypal && (
-                          <label
-                            className={`flex items-start gap-3 rounded-lg border-2 p-4 cursor-pointer transition-colors ${
-                              paymentMethod === 'paypal'
-                                ? 'border-accent bg-accent/5'
-                                : 'border-border hover:border-accent/40'
-                            }`}
-                          >
-                            <input
-                              type="radio"
-                              name="paymentMethod"
-                              value="paypal"
-                              checked={paymentMethod === 'paypal'}
-                              onChange={() => setPaymentMethod('paypal')}
-                              className="sr-only"
-                            />
-                            <div
-                              className={`mt-0.5 h-5 w-5 rounded-full border-2 flex items-center justify-center flex-shrink-0 ${
-                                paymentMethod === 'paypal'
-                                  ? 'border-accent bg-accent'
-                                  : 'border-border'
-                              }`}
-                              aria-hidden="true"
-                            >
-                              {paymentMethod === 'paypal' && (
-                                <div className="h-2 w-2 rounded-full bg-accent-foreground" />
-                              )}
-                            </div>
-                            <div className="min-w-0 flex-1">
-                              <div className="flex items-center gap-2.5">
-                                <PaypalLogo
-                                  className="h-7 w-7 shrink-0"
-                                  aria-hidden="true"
-                                />
-                                <p className="font-medium text-foreground">PayPal</p>
-                              </div>
-                              <p className="text-sm text-muted-foreground mt-1.5 leading-relaxed">
-                                Pay with your PayPal balance, linked bank, or card.
-                                You&apos;ll be redirected to PayPal to approve the
-                                payment — we never see your login or card details.
-                              </p>
-                            </div>
-                          </label>
-                          )}
                         </fieldset>
                       </CardContent>
                     </Card>
