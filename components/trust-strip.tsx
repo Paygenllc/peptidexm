@@ -8,8 +8,9 @@ import { FlaskConical, Truck, ShieldCheck, Lock } from "lucide-react"
  *  - third-party testing — see `purity` on every catalog entry
  *  - free shipping over $500 — see `lib/shipping.ts`
  *  - same-day dispatch — our order fulfillment SLA (static copy)
- *  - secure crypto + Zelle checkout — HMAC-verified NOWPayments IPN + no
- *    credit card data ever stored
+ *  - secure crypto + Zelle + card checkout — HMAC-verified NOWPayments IPN
+ *    for crypto, PCI-compliant tokenised card processing, and no card
+ *    data ever persisted on our servers
  *
  * Keep this strictly factual. No invented order counts, no fabricated
  * review numbers. Real social proof lives in `RecentActivityStrip` and is
@@ -30,7 +31,11 @@ export function TrustStrip() {
     {
       icon: Lock,
       title: "Secure checkout",
-      body: "Pay with Zelle or USDT on the TRON network.",
+      // Keep this readable on two lines at the narrow grid width — we list
+      // the card brands by category ("credit & debit card") rather than
+      // enumerating Visa/MC/Amex/Discover, which are surfaced visually on
+      // the checkout payment selector via <CardBrandRow />.
+      body: "Pay with Zelle, USDT on TRON, or credit & debit card.",
     },
     {
       icon: ShieldCheck,
