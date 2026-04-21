@@ -3,8 +3,7 @@
 import { useState, useTransition } from "react"
 import { CreditCard, AlertTriangle, CheckCircle2 } from "lucide-react"
 import { Switch } from "@/components/ui/switch"
-import { ZelleLogo } from "@/components/logos/zelle-logo"
-import { TetherLogo } from "@/components/logos/tether-logo"
+import { ZelleLogo, TetherLogo } from "@/components/payment-logos"
 import { setPaymentMethodEnabledAction } from "@/app/admin/actions/settings"
 import type {
   PaymentMethodKey,
