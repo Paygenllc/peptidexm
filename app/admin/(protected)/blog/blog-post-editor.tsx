@@ -20,11 +20,12 @@ import {
   updateBlogPostAction,
   deleteBlogPostAction,
 } from "@/app/admin/actions/blog"
-import { Loader2, Save, Trash2, Eye, Pencil, Upload } from "lucide-react"
+import { Loader2, Save, Trash2, Eye, Pencil, Upload, Sparkles, X } from "lucide-react"
 import { RichEditor } from "@/components/admin/rich-editor"
 import { PostContent } from "@/components/post-content"
 import { createClient as createBrowserSupabase } from "@/lib/supabase/client"
 import { AutoblogPanel, type AutoblogDraft } from "./autoblog-panel"
+import { generateBlogCoverAction } from "@/app/admin/actions/blog-cover"
 
 type EditorInitial = {
   id: string
@@ -56,6 +57,12 @@ export function BlogPostEditor({
   const [error, setError] = useState<string | null>(null)
   const [isPending, startTransition] = useTransition()
   const [coverUploading, setCoverUploading] = useState(false)
+  // AI cover-generation UI state. `coverPrompt` is only shown when the
+  // admin opens the generator so the sidebar stays compact by default.
+  const [coverGenOpen, setCoverGenOpen] = useState(false)
+  const [coverPrompt, setCoverPrompt] = useState("")
+  const [coverGenerating, setCoverGenerating] = useState(false)
+  const [coverGenError, setCoverGenError] = useState<string | null>(null)
   const coverInputRef = useRef<HTMLInputElement>(null)
   const router = useRouter()
 
@@ -152,6 +159,48 @@ export function BlogPostEditor({
       el?.scrollIntoView({ behavior: "smooth", block: "center" })
       if (el instanceof HTMLInputElement) el.focus()
     }, 50)
+  }
+
+  /**
+   * Seed the prompt with a sensible starter derived from the post's own
+   * title / excerpt. The admin can edit this freely before generating.
+   */
+  function openCoverGenerator() {
+    setCoverGenError(null)
+    if (!coverPrompt.trim()) {
+      const seed = [title.trim(), excerpt.trim()].filter(Boolean).join(" — ")
+      setCoverPrompt(
+        seed
+          ? `Editorial hero image about: ${seed}. Abstract scientific imagery, soft lighting, muted palette.`
+          : "",
+      )
+    }
+    setCoverGenOpen(true)
+  }
+
+  async function handleCoverGenerate() {
+    if (!coverPrompt.trim()) {
+      setCoverGenError("Describe what the image should show.")
+      return
+    }
+    setCoverGenError(null)
+    setCoverGenerating(true)
+    try {
+      const fd = new FormData()
+      fd.set("prompt", coverPrompt.trim())
+      const res = await generateBlogCoverAction(fd)
+      if ("error" in res) {
+        setCoverGenError(res.error)
+        return
+      }
+      setCoverImage(res.url)
+      setCoverGenOpen(false)
+    } catch (err) {
+      console.error("[v0] cover generate failed", err)
+      setCoverGenError("Couldn't reach the image service. Please try again.")
+    } finally {
+      setCoverGenerating(false)
+    }
   }
 
   async function handleCoverUpload(file: File) {
@@ -352,23 +401,36 @@ export function BlogPostEditor({
         </Card>
 
         <Card className="p-5 space-y-3">
-          <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between gap-2 flex-wrap">
             <Label htmlFor="cover_image_url">Cover image</Label>
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              className="gap-1.5 h-8 text-xs"
-              onClick={() => coverInputRef.current?.click()}
-              disabled={coverUploading}
-            >
-              {coverUploading ? (
-                <Loader2 className="w-3.5 h-3.5 animate-spin" />
-              ) : (
-                <Upload className="w-3.5 h-3.5" />
-              )}
-              Upload
-            </Button>
+            <div className="flex items-center gap-1.5">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="gap-1.5 h-8 text-xs"
+                onClick={openCoverGenerator}
+                disabled={coverUploading || coverGenerating}
+              >
+                <Sparkles className="w-3.5 h-3.5" />
+                Generate
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="gap-1.5 h-8 text-xs"
+                onClick={() => coverInputRef.current?.click()}
+                disabled={coverUploading || coverGenerating}
+              >
+                {coverUploading ? (
+                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                ) : (
+                  <Upload className="w-3.5 h-3.5" />
+                )}
+                Upload
+              </Button>
+            </div>
             <input
               ref={coverInputRef}
               type="file"
@@ -381,13 +443,78 @@ export function BlogPostEditor({
               }}
             />
           </div>
+
+          {coverGenOpen && (
+            <div className="rounded-md border border-border bg-secondary/40 p-3 space-y-2">
+              <div className="flex items-center justify-between">
+                <p className="text-xs font-medium text-foreground flex items-center gap-1.5">
+                  <Sparkles className="w-3.5 h-3.5 text-muted-foreground" />
+                  AI cover generator
+                </p>
+                <button
+                  type="button"
+                  onClick={() => setCoverGenOpen(false)}
+                  className="text-muted-foreground hover:text-foreground"
+                  aria-label="Close generator"
+                  disabled={coverGenerating}
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              </div>
+              <Textarea
+                value={coverPrompt}
+                onChange={(e) => setCoverPrompt(e.target.value)}
+                placeholder="Describe the scene, mood, and style. Concrete subjects and lighting cues work best."
+                rows={3}
+                maxLength={1000}
+                disabled={coverGenerating}
+                className="text-xs"
+              />
+              <p className="text-[11px] text-muted-foreground leading-relaxed">
+                Auto-applied: landscape 16:9, editorial/scientific look, no text or people. Edit the
+                prompt to override subject, palette, or mood.
+              </p>
+              {coverGenError && (
+                <p role="alert" className="text-xs text-destructive">
+                  {coverGenError}
+                </p>
+              )}
+              <div className="flex items-center gap-2">
+                <Button
+                  type="button"
+                  size="sm"
+                  className="gap-1.5 h-8 text-xs"
+                  onClick={handleCoverGenerate}
+                  disabled={coverGenerating || !coverPrompt.trim()}
+                >
+                  {coverGenerating ? (
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                  ) : (
+                    <Sparkles className="w-3.5 h-3.5" />
+                  )}
+                  {coverGenerating ? "Generating…" : "Generate image"}
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="ghost"
+                  className="h-8 text-xs"
+                  onClick={() => setCoverGenOpen(false)}
+                  disabled={coverGenerating}
+                >
+                  Cancel
+                </Button>
+              </div>
+            </div>
+          )}
+
           <Input
             id="cover_image_url"
             name="cover_image_url"
             type="url"
             value={coverImage}
             onChange={(e) => setCoverImage(e.target.value)}
-            placeholder="https://... or click Upload"
+            placeholder="https://... or click Generate / Upload"
           />
           {coverImage && (
             <div className="relative aspect-[16/9] w-full overflow-hidden rounded-md border border-border bg-secondary">
