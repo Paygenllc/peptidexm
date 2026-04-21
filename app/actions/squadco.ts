@@ -77,8 +77,16 @@ export async function generateSquadcoPaymentLinkAction(
     firstName,
     lastName,
     redirectUrl,
-    currency = "USD",
   } = input
+
+  // Currency resolution: we let the operator pin the default with
+  // SQUADCO_CURRENCY because Squadco accounts are provisioned per-currency
+  // and sending USD to an NGN-only account comes back as a generic
+  // "Transaction Failed" with no further detail. Explicit input wins,
+  // env var is next, NGN is the final fallback (Squadco's house currency).
+  const currency: "USD" | "NGN" =
+    input.currency ??
+    (process.env.SQUADCO_CURRENCY === "USD" ? "USD" : "NGN")
 
   // Amount sanity check — Squadco rejects non-integer or zero amounts with a
   // generic 400 that's hard to debug, so catch it locally with a clear error.
@@ -107,18 +115,21 @@ export async function generateSquadcoPaymentLinkAction(
         amount,
         email,
         currency,
-        // `inline` returns a checkout_url we can redirect to. The widget
-        // mode is `default` which is what Squadco's hosted page uses.
+        // `inline` returns a checkout_url we can redirect to.
         initiate_type: "inline",
         transaction_ref: transactionRef,
         callback_url: redirectUrl,
-        // Restrict to card to match the "Credit / Debit card" UX path. If
-        // we ever want to let Squadco also offer bank transfer + USSD as
-        // fallbacks we can widen this list.
-        payment_channels: ["card"],
+        // Intentionally NOT restricting payment_channels. Doing so causes
+        // Squadco to return a generic "Transaction Failed" whenever the
+        // listed channel isn't enabled on the merchant account (e.g. card
+        // in sandbox). The Squadco-hosted page shows only the methods the
+        // merchant actually has enabled, so leaving this off is both
+        // safer and matches the customer's real options.
         customer_name: `${firstName} ${lastName}`.trim() || email,
         metadata: {
           order_number: orderNumber,
+          first_name: firstName,
+          last_name: lastName,
           source: "peptidexm-checkout",
           created_at: new Date().toISOString(),
         },
@@ -133,12 +144,20 @@ export async function generateSquadcoPaymentLinkAction(
       // Fall through — we'll log the raw body below.
     }
 
+    // Squadco returns HTTP 200 with `success: false` for business-logic
+    // failures (disabled channel, currency mismatch, amount too small,
+    // etc.) so we have to inspect both the HTTP status and the body.
     if (!response.ok || !parsed?.success) {
       console.error("[v0] Squadco initiate failed", {
         status: response.status,
         statusText: response.statusText,
         endpoint,
-        body: parsed ?? rawBody.slice(0, 500),
+        environment: baseUrl.includes("sandbox") ? "sandbox" : "live",
+        currency,
+        amount,
+        // Log the full parsed body so we can see the exact Squadco payload —
+        // this is what tells us whether it's a currency, channel, or key issue.
+        responseBody: parsed ?? rawBody.slice(0, 1000),
       })
 
       if (response.status === 401 || response.status === 403) {
@@ -152,6 +171,16 @@ export async function generateSquadcoPaymentLinkAction(
         parsed?.message && typeof parsed.message === "string"
           ? parsed.message
           : null
+
+      // Squadco's generic "Transaction Failed" almost always means either
+      // a currency mismatch or an amount below their minimum. Surface a
+      // more actionable hint so the operator knows where to look.
+      if (providerMessage?.toLowerCase() === "transaction failed") {
+        return {
+          error:
+            "Card payment could not be initiated. Your Squadco account may not support this currency or amount. Please use Zelle or USDT, or contact support.",
+        }
+      }
 
       return {
         error: providerMessage
