@@ -40,6 +40,36 @@ export function ZelleLogo(props: SVGProps<SVGSVGElement>) {
 }
 
 /**
+ * PayPal "PP" monogram — the two overlapping P's on a white tile, framed
+ * with PayPal's signature blue (#003087 primary, #009CDE secondary).
+ * Recreated from the public brand for third-party method identification,
+ * same fair-use posture as the other marks above.
+ */
+export function PaypalLogo(props: SVGProps<SVGSVGElement>) {
+  return (
+    <svg
+      viewBox="0 0 40 40"
+      role="img"
+      aria-label="PayPal"
+      xmlns="http://www.w3.org/2000/svg"
+      {...props}
+    >
+      <rect width="40" height="40" rx="9" fill="#FFFFFF" stroke="#E5E7EB" />
+      {/* Back "P" — lighter PayPal blue, offset up and left */}
+      <path
+        d="M13.6 10.5h7.1c3.1 0 5.3 1.7 5.3 4.6 0 3.6-2.9 5.7-6.7 5.7h-2.7l-.9 4.7h-3.8l1.7-15z"
+        fill="#009CDE"
+      />
+      {/* Front "P" — primary PayPal blue, nudged down and right */}
+      <path
+        d="M16.7 14.2h6.7c2.9 0 5 1.6 5 4.3 0 3.4-2.7 5.4-6.2 5.4h-2.6l-1 5.5h-3.6l1.7-15.2z"
+        fill="#003087"
+      />
+    </svg>
+  )
+}
+
+/**
  * Tether (USDT) logo — the hexagon-T mark used on their site and in the
  * NOWPayments checkout. We pair it with a small "TRC-20" badge in the
  * parent component so customers know which network we accept.
