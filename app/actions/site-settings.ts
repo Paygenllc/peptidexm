@@ -1,9 +1,7 @@
 "use server"
 
-import {
-  getPaymentMethodToggles,
-  type PaymentMethodToggles,
-} from "@/lib/payment-methods"
+import { getPaymentMethodToggles } from "@/lib/payment-methods.server"
+import type { PaymentMethodToggles } from "@/lib/payment-methods"
 
 /**
  * Public server action: returns the current enabled state of each

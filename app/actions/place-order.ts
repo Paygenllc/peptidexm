@@ -81,9 +81,9 @@ export async function placeOrderAction(input: PlaceOrderInput) {
   // Honor the admin payment-method toggles server-side. A client with
   // a stale page, browser cache, or a hand-crafted request can't
   // bypass the UI by posting a disabled method — we block it here.
-  // Import is dynamic to avoid pulling the server supabase client into
-  // modules that statically import this file outside of a request.
-  const { getPaymentMethodToggles } = await import("@/lib/payment-methods")
+  // Import from the server-only module (the client-safe one holds
+  // only the types/constants, not the DB read).
+  const { getPaymentMethodToggles } = await import("@/lib/payment-methods.server")
   const toggles = await getPaymentMethodToggles()
   const requestedMethod = input.paymentMethod ?? "zelle"
   if (!toggles[requestedMethod]) {

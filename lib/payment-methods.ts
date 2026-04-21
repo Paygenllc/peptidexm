@@ -1,4 +1,18 @@
-import { createClient } from "@/lib/supabase/server"
+/**
+ * Payment-method registry — TYPES AND CONSTANTS ONLY.
+ *
+ * This module is safe to import from client components. It deliberately
+ * has zero server-only dependencies (no `next/headers`, no Supabase
+ * server client). The runtime read function lives in
+ * `lib/payment-methods.server.ts` and must only be imported from
+ * server components, server actions, or route handlers.
+ *
+ * Why the split: the checkout page is a client component that imports
+ * `DEFAULT_PAYMENT_TOGGLES` and the `PaymentMethodToggles` type. If
+ * those lived alongside a function that imports `next/headers`, the
+ * Next.js 16 Turbopack build fails because it can't prove the client
+ * bundle won't pull in a server-only module.
+ */
 
 /**
  * The payment rails the checkout can present. Keep this in sync with
@@ -36,50 +50,4 @@ export const DEFAULT_PAYMENT_TOGGLES: PaymentMethodToggles = {
   zelle: true,
   crypto: true,
   paypal: false,
-}
-
-/**
- * Read the current payment method toggle state from site_settings.
- *
- * Fails OPEN: if the table read errors or a row is missing, we fall
- * back to `DEFAULT_PAYMENT_TOGGLES` rather than hiding every payment
- * method and breaking checkout for real customers. Hard failures are
- * logged so admins see them in the Vercel log stream.
- *
- * Safe to call from server components and server actions. Uses the
- * anon-session client because `site_settings` has a read-all RLS
- * policy (see scripts/020_site_settings.sql).
- */
-export async function getPaymentMethodToggles(): Promise<PaymentMethodToggles> {
-  try {
-    const supabase = await createClient()
-    const keys = Object.values(PAYMENT_METHOD_SETTING_KEYS)
-    const { data, error } = await supabase
-      .from("site_settings")
-      .select("key, value")
-      .in("key", keys)
-
-    if (error) {
-      console.error("[v0] getPaymentMethodToggles read error:", error.message)
-      return { ...DEFAULT_PAYMENT_TOGGLES }
-    }
-
-    // Start from defaults (all true) and let DB rows override each one
-    // individually. This way a missing row for any single key doesn't
-    // knock the whole method offline.
-    const toggles: PaymentMethodToggles = { ...DEFAULT_PAYMENT_TOGGLES }
-    for (const row of data ?? []) {
-      const methodKey = (Object.entries(PAYMENT_METHOD_SETTING_KEYS).find(
-        ([, settingKey]) => settingKey === row.key,
-      )?.[0] ?? null) as PaymentMethodKey | null
-      if (!methodKey) continue
-      // `value` is jsonb — we seeded it with to_jsonb(true/false), so
-      // it comes back as a native boolean. Guard defensively anyway.
-      toggles[methodKey] = row.value === true
-    }
-    return toggles
-  } catch (err) {
-    console.error("[v0] getPaymentMethodToggles threw:", err)
-    return { ...DEFAULT_PAYMENT_TOGGLES }
-  }
 }

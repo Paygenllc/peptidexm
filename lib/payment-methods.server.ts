@@ -1,0 +1,58 @@
+import "server-only"
+
+import { createClient } from "@/lib/supabase/server"
+import {
+  DEFAULT_PAYMENT_TOGGLES,
+  PAYMENT_METHOD_SETTING_KEYS,
+  type PaymentMethodKey,
+  type PaymentMethodToggles,
+} from "@/lib/payment-methods"
+
+/**
+ * Server-only reader for the payment method toggle state stored in
+ * `site_settings`. The `import "server-only"` at the top of the file
+ * causes the build to error loudly if a client component ever imports
+ * this module by mistake — that's the whole point of the split.
+ *
+ * Fails OPEN: if the table read errors or a row is missing, we fall
+ * back to `DEFAULT_PAYMENT_TOGGLES` rather than hiding every payment
+ * method and breaking checkout for real customers. Hard failures are
+ * logged so admins see them in the Vercel log stream.
+ *
+ * Safe to call from server components and server actions. Uses the
+ * anon-session client because `site_settings` has a read-all RLS
+ * policy (see scripts/020_site_settings.sql).
+ */
+export async function getPaymentMethodToggles(): Promise<PaymentMethodToggles> {
+  try {
+    const supabase = await createClient()
+    const keys = Object.values(PAYMENT_METHOD_SETTING_KEYS)
+    const { data, error } = await supabase
+      .from("site_settings")
+      .select("key, value")
+      .in("key", keys)
+
+    if (error) {
+      console.error("[v0] getPaymentMethodToggles read error:", error.message)
+      return { ...DEFAULT_PAYMENT_TOGGLES }
+    }
+
+    // Start from defaults (all true except paypal) and let DB rows
+    // override each one individually. This way a missing row for any
+    // single key doesn't knock the whole method offline.
+    const toggles: PaymentMethodToggles = { ...DEFAULT_PAYMENT_TOGGLES }
+    for (const row of data ?? []) {
+      const methodKey = (Object.entries(PAYMENT_METHOD_SETTING_KEYS).find(
+        ([, settingKey]) => settingKey === row.key,
+      )?.[0] ?? null) as PaymentMethodKey | null
+      if (!methodKey) continue
+      // `value` is jsonb — we seeded it with to_jsonb(true/false), so
+      // it comes back as a native boolean. Guard defensively anyway.
+      toggles[methodKey] = row.value === true
+    }
+    return toggles
+  } catch (err) {
+    console.error("[v0] getPaymentMethodToggles threw:", err)
+    return { ...DEFAULT_PAYMENT_TOGGLES }
+  }
+}
