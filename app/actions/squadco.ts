@@ -133,9 +133,11 @@ export async function generateSquadcoPaymentLinkAction(
         Authorization: `Bearer ${secretKey}`,
       },
       body: JSON.stringify({
-        // Human-readable label shown in the Squadco dashboard and on the
-        // hosted payment page. Keep it specific so reconciliation is easy.
-        name: `PeptideXM Order ${orderNumber}`,
+        // Label shown in the Squadco dashboard (internal reconciliation)
+        // and on the hosted payment page. We intentionally keep this
+        // neutral — no "PeptideXM" or product descriptors — so the
+        // checkout page the customer sees on Squadco stays clean.
+        name: `Order ${orderNumber}`,
         hash,
         // 1 = active, 0 = inactive. Must be 1 for customers to pay.
         link_status: 1,
@@ -148,7 +150,7 @@ export async function generateSquadcoPaymentLinkAction(
             currency_id: currency,
           },
         ],
-        description: `PeptideXM research peptides — order ${orderNumber}`,
+        description: `Order ${orderNumber}`,
         redirect_link: redirectUrl,
         // Squadco's Payment Links API rejects any extra fields (including
         // `metadata`) with "not allowed", so we keep the payload minimal.
