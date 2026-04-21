@@ -9,6 +9,37 @@ import {
   type OrderEmailInput,
 } from "@/lib/email"
 import { revalidatePath } from "next/cache"
+import { cookies, headers } from "next/headers"
+import {
+  classifySource,
+  type AttributionPayload,
+} from "@/lib/traffic-source"
+
+/**
+ * Pull first-touch attribution off the `pxm_attr` cookie the
+ * <AttributionBeacon /> drops on landing. Returns empty values if the cookie
+ * is missing or malformed — attribution is best-effort, never fatal.
+ */
+async function readAttributionFromCookie(): Promise<AttributionPayload> {
+  try {
+    const cookieStore = await cookies()
+    const raw = cookieStore.get("pxm_attr")?.value
+    if (!raw) return {}
+    const parsed = JSON.parse(raw) as Partial<AttributionPayload>
+    return {
+      referrer: parsed.referrer ?? null,
+      landing_path: parsed.landing_path ?? null,
+      utm_source: parsed.utm_source ?? null,
+      utm_medium: parsed.utm_medium ?? null,
+      utm_campaign: parsed.utm_campaign ?? null,
+      utm_term: parsed.utm_term ?? null,
+      utm_content: parsed.utm_content ?? null,
+    }
+  } catch (err) {
+    console.log("[v0] placeOrder: failed to parse pxm_attr cookie", err)
+    return {}
+  }
+}
 
 interface OrderItemInput {
   productName: string
@@ -67,6 +98,15 @@ export async function placeOrderAction(input: PlaceOrderInput) {
       ? input.paymentMethod
       : "zelle"
 
+  // First-touch attribution (from the cookie dropped on site landing).
+  // We also look at the current request `host` to correctly classify
+  // internal-vs-external referrers without hardcoding a domain.
+  const attribution = await readAttributionFromCookie()
+  const hdrs = await headers()
+  const siteHost =
+    hdrs.get("x-forwarded-host") ?? hdrs.get("host") ?? null
+  const sourceChannel = classifySource(attribution, siteHost)
+
   const { data: order, error: orderError } = await admin
     .from("orders")
     .insert({
@@ -88,6 +128,15 @@ export async function placeOrderAction(input: PlaceOrderInput) {
       tax,
       total,
       user_id: user?.id ?? null,
+      // Attribution — all optional; null when the cookie was missing.
+      referrer: attribution.referrer || null,
+      landing_path: attribution.landing_path || null,
+      source_channel: sourceChannel,
+      utm_source: attribution.utm_source || null,
+      utm_medium: attribution.utm_medium || null,
+      utm_campaign: attribution.utm_campaign || null,
+      utm_term: attribution.utm_term || null,
+      utm_content: attribution.utm_content || null,
     })
     .select("id, order_number")
     .single()

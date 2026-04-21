@@ -7,6 +7,7 @@ import { createClient } from "@/lib/supabase/server"
 import { Header } from "@/components/header"
 import { Footer } from "@/components/footer"
 import { PostContent } from "@/components/post-content"
+import { BlogViewBeacon } from "@/components/blog-view-beacon"
 import { renderContentWithProducts } from "@/lib/product-embeds"
 
 export const dynamic = "force-dynamic"
@@ -74,6 +75,8 @@ export default async function BlogPostPage({ params }: Props) {
 
   return (
     <main id="main-content" tabIndex={-1} className="min-h-screen focus:outline-none">
+      {/* Fires a single /api/blog/view/[slug] POST per session (admin-excluded) */}
+      <BlogViewBeacon slug={slug} />
       <Header />
 
       <article className="pt-28 sm:pt-32 pb-16 sm:pb-24">
