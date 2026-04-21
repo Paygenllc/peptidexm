@@ -3,7 +3,7 @@
 import { useState, useTransition } from "react"
 import { CreditCard, AlertTriangle, CheckCircle2 } from "lucide-react"
 import { Switch } from "@/components/ui/switch"
-import { ZelleLogo, TetherLogo } from "@/components/payment-logos"
+import { ZelleLogo, TetherLogo, PaypalLogo } from "@/components/payment-logos"
 import { setPaymentMethodEnabledAction } from "@/app/admin/actions/settings"
 import type {
   PaymentMethodKey,
@@ -41,6 +41,13 @@ const METHODS: MethodDef[] = [
       "Tether on the TRON network via our crypto payment partner. Orders are auto-marked paid once the network confirms.",
     Icon: TetherLogo,
   },
+  {
+    key: "paypal",
+    label: "PayPal",
+    description:
+      "Redirect checkout to PayPal. Customer approves on paypal.com and returns to the store; we capture the payment and mark the order paid automatically. Requires PAYPAL_CLIENT_ID and PAYPAL_CLIENT_SECRET.",
+    Icon: PaypalLogo,
+  },
 ]
 
 export function PaymentToggles({
@@ -55,7 +62,7 @@ export function PaymentToggles({
   const [error, setError] = useState<string | null>(null)
   const [isPending, startTransition] = useTransition()
 
-  const allOff = !toggles.card && !toggles.zelle && !toggles.crypto
+  const allOff = !toggles.card && !toggles.zelle && !toggles.crypto && !toggles.paypal
 
   const handleToggle = (method: PaymentMethodKey, nextValue: boolean) => {
     // Optimistic update

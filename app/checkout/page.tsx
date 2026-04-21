@@ -33,7 +33,7 @@ import {
 } from '@/lib/shipping'
 import { ZellePaymentPanel } from '@/components/zelle-payment-panel'
 import { CryptoPaymentPanel } from '@/components/crypto-payment-panel'
-import { ZelleLogo, TetherLogo, CardBrandRow } from '@/components/payment-logos'
+import { ZelleLogo, TetherLogo, PaypalLogo, CardBrandRow } from '@/components/payment-logos'
 import { AbandonedCartTracker } from '@/components/abandoned-cart-tracker'
 // Card payment link generator. Aliased so the provider identity stays
 // abstracted at the checkout-page level — if we ever swap providers,
@@ -49,6 +49,10 @@ import {
   persistSquadcoLinkToOrderAction,
   verifyCardPaymentAction,
 } from '@/app/actions/squadco'
+// PayPal redirect checkout action. Creates a PayPal order server-side,
+// stores the paypal_order_id on the row, and returns the approve URL
+// for the browser to redirect to.
+import { startPaypalCheckoutAction } from '@/app/actions/paypal'
 // Enabled payment methods are admin-controlled via /admin/settings/payments.
 // We fetch them on mount so the radio list only renders the rails that
 // are currently live — disabled ones are hidden entirely, and the
@@ -178,13 +182,56 @@ export default function CheckoutPage() {
     })()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
+
+  // PayPal redirect return. Unlike Squadco (where we call a verify
+  // action from the client), the PayPal capture happens server-side in
+  // /api/paypal/return and the outcome is already written to the DB
+  // by the time the customer lands here. So this effect is just
+  // translating query flags into the shared success/pending/failed
+  // UI state — no extra network call required.
+  //   paid       → show paid panel, clear cart
+  //   pending    → server couldn't reach PayPal; show retry panel
+  //   failed     → server saw a non-success capture status
+  //   cancelled  → shopper clicked cancel on paypal.com; show failed
+  //                panel so they can retry or pick another method
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    const params = new URLSearchParams(window.location.search)
+    const paypalStatus = params.get('paypal_status')
+    const orderNumberParam = params.get('order')
+    if (!paypalStatus) return
+
+    setCardReturnOrderNumber(orderNumberParam)
+    setStep('success')
+
+    if (paypalStatus === 'paid') {
+      clearCart()
+      setCardReturnState('paid')
+    } else if (paypalStatus === 'pending') {
+      setCardReturnState('pending')
+    } else {
+      // 'failed' | 'cancelled' | anything unexpected
+      setCardReturnState('failed')
+    }
+
+    // Strip the query string so a refresh doesn't re-apply the state
+    // and the URL is shareable without the flags.
+    try {
+      const cleanUrl = window.location.pathname
+      window.history.replaceState({}, '', cleanUrl)
+    } catch {
+      // history API unavailable — harmless.
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
   // Which payment method the shopper chose on the checkout step. Drives both
   // the order row's payment_method column and which panel we show on success.
   // Default to card — it's the method most shoppers expect and it's the
   // most frictionless path (no copy-pasting order numbers into their bank
   // app or a crypto wallet). Zelle and USDT remain one click away for
   // shoppers who prefer them.
-  const [paymentMethod, setPaymentMethod] = useState<'zelle' | 'crypto' | 'card'>('card')
+  const [paymentMethod, setPaymentMethod] = useState<'zelle' | 'crypto' | 'card' | 'paypal'>('card')
 
   // Admin-controlled payment method toggles. Default to all-enabled
   // while the fetch is in flight so the UI doesn't flash an empty
@@ -206,10 +253,14 @@ export default function CheckoutPage() {
         setMethodsLoaded(true)
         // If the currently-selected method got turned off (admin change,
         // stale component mount), snap the selection to the first
-        // enabled rail — preference order: card → zelle → crypto.
+        // enabled rail — preference order: card → paypal → zelle → crypto.
+        // Card leads because it's the most frictionless rail; PayPal
+        // slots in ahead of Zelle/Crypto because it's also one-click
+        // and doesn't require the customer to copy/paste anything.
         setPaymentMethod((current) => {
           if (toggles[current]) return current
           if (toggles.card) return 'card'
+          if (toggles.paypal) return 'paypal'
           if (toggles.zelle) return 'zelle'
           if (toggles.crypto) return 'crypto'
           return current
@@ -227,7 +278,7 @@ export default function CheckoutPage() {
   }, [])
 
   const anyMethodEnabled =
-    enabledMethods.card || enabledMethods.zelle || enabledMethods.crypto
+    enabledMethods.card || enabledMethods.zelle || enabledMethods.crypto || enabledMethods.paypal
 
   // Subtotal decides free-shipping eligibility for US orders; pass it along
   // so the displayed fee matches what `placeOrderAction` will charge server-side.
@@ -385,6 +436,85 @@ export default function CheckoutPage() {
         return
       } catch (err) {
         console.error('[v0] Card payment flow error:', err)
+        setPlaceError('An unexpected error occurred. Please try again.')
+        setIsProcessing(false)
+        return
+      }
+    }
+
+    // PayPal redirect flow:
+    //   1. Place the order (payment_status='pending').
+    //   2. Call startPaypalCheckoutAction to create a PayPal order and
+    //      store the paypal_order_id + approve URL on the row.
+    //   3. Redirect the customer to the approve URL.
+    //   4. On return, /api/paypal/return captures and redirects back
+    //      here with ?paypal_status=paid|pending|failed&order=<num>,
+    //      which the useEffect below picks up.
+    if (paymentMethod === 'paypal') {
+      try {
+        const orderItems = items.map((item) => ({
+          productName: item.name,
+          variantName: item.variant,
+          unitPrice: item.price,
+          quantity: item.quantity,
+          imageUrl: item.image,
+        }))
+
+        const orderResult = await placeOrderAction({
+          email: customerInfo.email,
+          phone: customerInfo.phone,
+          firstName: customerInfo.firstName,
+          lastName: customerInfo.lastName,
+          address: customerInfo.address,
+          address2: customerInfo.address2,
+          city: customerInfo.city,
+          state: customerInfo.state,
+          zipCode: customerInfo.zipCode,
+          country: customerInfo.country,
+          items: orderItems,
+          paymentMethod: 'paypal',
+        })
+
+        if ('error' in orderResult) {
+          setPlaceError(orderResult.error || 'Failed to place order.')
+          setIsProcessing(false)
+          return
+        }
+
+        const realOrderNumber = orderResult.orderNumber || ''
+        const realOrderId = orderResult.orderId || ''
+
+        const redirectBase =
+          typeof window !== 'undefined' ? window.location.origin : ''
+
+        const paypalResult = await startPaypalCheckoutAction({
+          orderId: realOrderId,
+          orderNumber: realOrderNumber,
+          amountCents: Math.round(orderTotal * 100),
+          // PayPal appends `?token=<paypal_order_id>` to both of these
+          // URLs itself, so we don't include a token placeholder here.
+          returnUrl: `${redirectBase}/api/paypal/return`,
+          // Cancel goes back to the checkout so the shopper can pick
+          // a different method without losing their cart state.
+          cancelUrl: `${redirectBase}/checkout?paypal_status=cancelled&order=${encodeURIComponent(realOrderNumber)}`,
+        })
+
+        if (!paypalResult.ok) {
+          setPlaceError(paypalResult.error)
+          setIsProcessing(false)
+          return
+        }
+
+        setPlacedOrderNumber(realOrderNumber || null)
+        setPlacedOrderId(realOrderId || null)
+        setPlacedOrderTotal(orderTotal)
+
+        if (typeof window !== 'undefined') {
+          window.location.href = paypalResult.approveUrl
+        }
+        return
+      } catch (err) {
+        console.error('[v0] PayPal payment flow error:', err)
         setPlaceError('An unexpected error occurred. Please try again.')
         setIsProcessing(false)
         return
@@ -1267,6 +1397,56 @@ export default function CheckoutPage() {
                                 Pay in Tether on the TRON network via our secure
                                 payment partner. Your order is marked paid
                                 automatically once the network confirms.
+                              </p>
+                            </div>
+                          </label>
+                          )}
+
+                          {/* PayPal — redirect-mode checkout. We create
+                           * the PayPal order server-side, redirect the
+                           * customer to paypal.com to approve, and
+                           * capture the payment when they return. No
+                           * card data touches our servers. */}
+                          {enabledMethods.paypal && (
+                          <label
+                            className={`flex items-start gap-3 rounded-lg border-2 p-4 cursor-pointer transition-colors ${
+                              paymentMethod === 'paypal'
+                                ? 'border-accent bg-accent/5'
+                                : 'border-border hover:border-accent/40'
+                            }`}
+                          >
+                            <input
+                              type="radio"
+                              name="paymentMethod"
+                              value="paypal"
+                              checked={paymentMethod === 'paypal'}
+                              onChange={() => setPaymentMethod('paypal')}
+                              className="sr-only"
+                            />
+                            <div
+                              className={`mt-0.5 h-5 w-5 rounded-full border-2 flex items-center justify-center flex-shrink-0 ${
+                                paymentMethod === 'paypal'
+                                  ? 'border-accent bg-accent'
+                                  : 'border-border'
+                              }`}
+                              aria-hidden="true"
+                            >
+                              {paymentMethod === 'paypal' && (
+                                <div className="h-2 w-2 rounded-full bg-accent-foreground" />
+                              )}
+                            </div>
+                            <div className="min-w-0 flex-1">
+                              <div className="flex items-center gap-2.5">
+                                <PaypalLogo
+                                  className="h-7 w-7 shrink-0"
+                                  aria-hidden="true"
+                                />
+                                <p className="font-medium text-foreground">PayPal</p>
+                              </div>
+                              <p className="text-sm text-muted-foreground mt-1.5 leading-relaxed">
+                                Pay with your PayPal balance, linked bank, or card.
+                                You&apos;ll be redirected to PayPal to approve the
+                                payment — we never see your login or card details.
                               </p>
                             </div>
                           </label>

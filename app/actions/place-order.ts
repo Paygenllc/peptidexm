@@ -65,12 +65,14 @@ interface PlaceOrderInput {
    * How the shopper intends to pay. Determines the post-order flow:
    *  - "zelle"  → show Zelle payment panel on the success screen (default)
    *  - "crypto" → redirect to NOWPayments hosted invoice via createCryptoInvoiceAction
-   *  - "card"   → order placed, customer redirected to Squadco payment link (via webhook)
+   *  - "card"   → order placed, customer redirected to Squadco payment link
+   *  - "paypal" → order placed, customer redirected to PayPal approve URL;
+   *               captured by `/api/paypal/return` on completion
    */
-  paymentMethod?: "zelle" | "crypto" | "card"
+  paymentMethod?: "zelle" | "crypto" | "card" | "paypal"
 }
 
-const ALLOWED_PAYMENT_METHODS = new Set<PlaceOrderInput["paymentMethod"]>(["zelle", "crypto", "card"])
+const ALLOWED_PAYMENT_METHODS = new Set<PlaceOrderInput["paymentMethod"]>(["zelle", "crypto", "card", "paypal"])
 
 export async function placeOrderAction(input: PlaceOrderInput) {
   if (!input.email || !input.email.includes("@")) return { error: "Valid email is required" }
