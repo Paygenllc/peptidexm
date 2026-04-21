@@ -1,6 +1,7 @@
 import type { ReactNode } from "react"
 import { FlaskConical, Truck, ShieldCheck, Lock } from "lucide-react"
 import {
+  PaypalLogo,
   ZelleLogo,
   TetherLogo,
   VisaLogo,
@@ -32,9 +33,12 @@ export function TrustStrip() {
   const logoClass = "h-4 w-auto"
   const securePaymentMarks: ReactNode = (
     <div
-      aria-label="Accepted payment methods: Zelle, USDT on the TRON network, Visa, Mastercard, American Express, and Discover"
+      aria-label="Accepted payment methods: PayPal, Zelle, USDT on the TRON network, Visa, Mastercard, American Express, and Discover"
       className="mt-2 flex items-center gap-1.5 flex-wrap"
     >
+      {/* PayPal leads the row to match the order shoppers see on the
+          checkout page — default rail first, everything else after. */}
+      <PaypalLogo className={logoClass} />
       <ZelleLogo className={logoClass} />
       <TetherLogo className={logoClass} />
       <VisaLogo className={logoClass} />
@@ -58,7 +62,7 @@ export function TrustStrip() {
     {
       icon: Lock,
       title: "Secure checkout",
-      body: "Pay with Zelle, USDT on TRON, or credit & debit card.",
+      body: "Pay with PayPal, Zelle, USDT on TRON, or credit & debit card.",
       extra: securePaymentMarks,
     },
     {
