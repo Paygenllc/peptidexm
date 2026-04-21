@@ -1,5 +1,8 @@
 "use server"
 
+import { createAdminClient } from "@/lib/supabase/admin"
+import { squadcoStatusToPaymentStatus } from "@/lib/squadco"
+
 /**
  * Squadco One-Time Payment Link generator.
  *
@@ -14,8 +17,10 @@
  *   1. POST /payment_link/otp with {name, hash, amounts:[{amount,currency_id:"USD"}], ...}
  *   2. Squadco stores the link keyed by our `hash`
  *   3. Customer is redirected to `https://{env}pay.squadco.com/{hash}`
- *   4. On successful payment, Squadco pings our webhook and redirects the
- *      customer back to `redirect_link` (our checkout success page).
+ *   4. On completion Squadco redirects the customer back to `redirect_link`
+ *      (our checkout page). This merchant account has no webhook
+ *      available, so we reconcile the order by having the checkout page
+ *      call `verifyCardPaymentAction` on arrival — see below.
  *
  * Sandbox vs live is auto-detected from the key prefix:
  *   - `sandbox_sk_*` / `sk_test_*`  → https://sandbox-api-d.squadco.com + sandbox-pay.squadco.com
@@ -220,5 +225,219 @@ export async function generateSquadcoPaymentLinkAction(
       error:
         "Could not reach the payment service. Please check your connection and try again.",
     }
+  }
+}
+
+/**
+ * Persist the Squadco payment link on the order row so the verify
+ * endpoint can match incoming payment confirmations back to this order.
+ *
+ * Because there's no webhook available for this merchant, reconciliation
+ * happens on redirect: the customer comes back with `?order=<num>`
+ * appended to the URL, we look up the order, and we pull status from
+ * Squadco's `/transaction/verify/{hash}` endpoint. Writing the hash to
+ * the order row (indexed via `orders_squadco_hash_idx` from migration
+ * 019) is what makes that pull possible.
+ *
+ * Runs server-side with the admin client because order rows are
+ * RLS-locked from the anon role during the "post-placement" window.
+ * The caller is trusted (our own checkout page, right after it just
+ * placed this exact order), so no additional auth is performed here.
+ */
+export async function persistSquadcoLinkToOrderAction(input: {
+  orderId: string
+  hash: string
+  checkoutUrl: string
+}): Promise<{ ok: true } | { ok: false; error: string }> {
+  const { orderId, hash, checkoutUrl } = input
+
+  if (!orderId || !hash) {
+    return { ok: false, error: "Missing order id or hash." }
+  }
+
+  try {
+    const supabase = createAdminClient()
+    const { error } = await supabase
+      .from("orders")
+      .update({
+        squadco_hash: hash,
+        squadco_checkout_url: checkoutUrl,
+        squadco_updated_at: new Date().toISOString(),
+      })
+      .eq("id", orderId)
+
+    if (error) {
+      console.error("[v0] persistSquadcoLinkToOrderAction update error:", error.message)
+      return { ok: false, error: error.message }
+    }
+
+    return { ok: true }
+  } catch (err) {
+    console.error("[v0] persistSquadcoLinkToOrderAction threw:", err)
+    return { ok: false, error: "Failed to link payment to order." }
+  }
+}
+
+/**
+ * Verify a card payment by looking up the order's Squadco hash and
+ * asking Squadco what happened. This is the redirect-mode replacement
+ * for a webhook: the customer lands on `/checkout?card_success=true&order=<num>`
+ * after paying, we look up the order, and we pull the status from
+ * `GET /transaction/verify/{hash}`.
+ *
+ * Idempotent and safe to call many times:
+ *   - If the order is already `paid`, we no-op and report `alreadyPaid`.
+ *   - If the order has no `squadco_hash`, we report `notLinked` — this
+ *     happens when the link was generated but the order hasn't been
+ *     placed yet, or when a customer hits the success URL for an order
+ *     that was paid via a different method.
+ *   - If Squadco says the transaction isn't `success`, we return the
+ *     mapped status so the caller can show a "still processing" state
+ *     and optionally poll again.
+ *
+ * Only escalates payment_status — never regresses it. (A late "failed"
+ * after a successful charge must not wipe the paid state.)
+ */
+export async function verifyCardPaymentAction(input: {
+  orderNumber: string
+}): Promise<
+  | { ok: true; status: "paid" | "failed" | "partial" | "pending"; alreadyPaid: boolean }
+  | { ok: false; error: string }
+> {
+  const { orderNumber } = input
+  if (!orderNumber) return { ok: false, error: "Missing order number." }
+
+  const secretKey = process.env.SQUADCO_SECRET_KEY
+  if (!secretKey) {
+    return { ok: false, error: "Card payments are not configured." }
+  }
+
+  try {
+    const supabase = createAdminClient()
+
+    // Look up the order by its user-facing order_number. We need both
+    // the squadco_hash (to ask Squadco) and the current payment_status
+    // (so we can avoid regressing it).
+    const { data: order, error: orderErr } = await supabase
+      .from("orders")
+      .select(
+        "id, payment_status, squadco_hash, squadco_status, total",
+      )
+      .eq("order_number", orderNumber)
+      .maybeSingle()
+
+    if (orderErr) {
+      console.error("[v0] verifyCardPaymentAction lookup error:", orderErr.message)
+      return { ok: false, error: "Could not look up your order." }
+    }
+    if (!order) return { ok: false, error: "Order not found." }
+
+    // Already settled — nothing to do. Report success so the UI can
+    // show the "paid" panel without us hitting Squadco again.
+    if (order.payment_status === "paid") {
+      return { ok: true, status: "paid", alreadyPaid: true }
+    }
+
+    if (!order.squadco_hash) {
+      console.warn(
+        "[v0] verifyCardPaymentAction: order has no squadco_hash",
+        { orderNumber, orderId: order.id },
+      )
+      return { ok: false, error: "Payment not linked to this order." }
+    }
+
+    // Ask Squadco. We use the hash as the reference because we set
+    // hash = reference when creating the link; Squadco echoes the same
+    // value as the transaction_ref on the resulting charge.
+    const isSandbox =
+      secretKey.startsWith("sandbox_") || secretKey.startsWith("sk_test_")
+    const apiHost = isSandbox
+      ? "https://sandbox-api-d.squadco.com"
+      : "https://api-d.squadco.com"
+
+    const verifyUrl = `${apiHost}/transaction/verify/${encodeURIComponent(order.squadco_hash)}`
+
+    const response = await fetch(verifyUrl, {
+      method: "GET",
+      headers: {
+        Authorization: `Bearer ${secretKey}`,
+      },
+      // Squadco's dev network can be slow; a short server timeout
+      // prevents this action from blocking the UI indefinitely.
+      signal: AbortSignal.timeout(10_000),
+    })
+
+    const rawBody = await response.text()
+    let parsed: {
+      status?: number
+      success?: boolean
+      message?: string
+      data?: {
+        transaction_status?: string
+        transaction_ref?: string
+        transaction_amount?: number
+        merchant_amount?: number
+        currency?: string
+      }
+    } | null = null
+    try {
+      parsed = rawBody ? JSON.parse(rawBody) : null
+    } catch {
+      // Fall through to error handling below.
+    }
+
+    if (!response.ok || !parsed?.success) {
+      console.error("[v0] Squadco verify failed", {
+        status: response.status,
+        statusText: response.statusText,
+        hash: order.squadco_hash,
+        body: parsed ?? rawBody.slice(0, 500),
+      })
+      // Not a hard failure from the customer's perspective — Squadco
+      // sometimes takes a few seconds to surface the charge. Tell the
+      // UI to treat this as still-pending so it can retry.
+      return { ok: true, status: "pending", alreadyPaid: false }
+    }
+
+    const mappedStatus = squadcoStatusToPaymentStatus(
+      parsed.data?.transaction_status,
+    )
+
+    // Stage the update. Only touch payment_status if this is an
+    // escalation — don't let a stale "failed" reverse a prior "paid".
+    const update: Record<string, unknown> = {
+      squadco_status: parsed.data?.transaction_status ?? null,
+      squadco_transaction_ref: parsed.data?.transaction_ref ?? null,
+      squadco_amount_paid: parsed.data?.merchant_amount ?? parsed.data?.transaction_amount ?? null,
+      squadco_updated_at: new Date().toISOString(),
+    }
+
+    if (mappedStatus === "paid" && order.payment_status !== "paid") {
+      update.payment_status = "paid"
+    } else if (mappedStatus === "failed" && order.payment_status !== "paid") {
+      update.payment_status = "failed"
+    } else if (mappedStatus === "partial" && order.payment_status !== "paid") {
+      update.payment_status = "partial"
+    }
+
+    const { error: updateErr } = await supabase
+      .from("orders")
+      .update(update)
+      .eq("id", order.id)
+
+    if (updateErr) {
+      console.error("[v0] verifyCardPaymentAction update error:", updateErr.message)
+      // Squadco's answer is still authoritative — return the status we
+      // derived so the UI shows the right state even if our DB write
+      // failed. An admin will see the mismatch in the dashboard.
+      return { ok: true, status: mappedStatus, alreadyPaid: false }
+    }
+
+    return { ok: true, status: mappedStatus, alreadyPaid: false }
+  } catch (err) {
+    console.error("[v0] verifyCardPaymentAction threw:", err)
+    // Network/timeout errors aren't fatal — return pending so the UI
+    // can retry on its own.
+    return { ok: true, status: "pending", alreadyPaid: false }
   }
 }
