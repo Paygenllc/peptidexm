@@ -91,7 +91,11 @@ export default function CheckoutPage() {
   const [placeError, setPlaceError] = useState<string | null>(null)
   // Which payment method the shopper chose on the checkout step. Drives both
   // the order row's payment_method column and which panel we show on success.
-  const [paymentMethod, setPaymentMethod] = useState<'zelle' | 'crypto' | 'card'>('zelle')
+  // Default to card — it's the method most shoppers expect and it's the
+  // most frictionless path (no copy-pasting order numbers into their bank
+  // app or a crypto wallet). Zelle and USDT remain one click away for
+  // shoppers who prefer them.
+  const [paymentMethod, setPaymentMethod] = useState<'zelle' | 'crypto' | 'card'>('card')
 
   // Subtotal decides free-shipping eligibility for US orders; pass it along
   // so the displayed fee matches what `placeOrderAction` will charge server-side.
@@ -792,6 +796,59 @@ export default function CheckoutPage() {
                         >
                           <legend className="sr-only">Payment method</legend>
 
+                          {/* Card payment via Squadco — listed FIRST because
+                           * it's the default selection. PCI-compliant
+                           * payment links: we generate a unique Squadco
+                           * link pre-filled with the order total and
+                           * redirect the customer. Squadco handles all
+                           * card data; we never see it. */}
+                          <label
+                            className={`flex items-start gap-3 rounded-lg border-2 p-4 cursor-pointer transition-colors ${
+                              paymentMethod === 'card'
+                                ? 'border-accent bg-accent/5'
+                                : 'border-border hover:border-accent/40'
+                            }`}
+                          >
+                            <input
+                              type="radio"
+                              name="paymentMethod"
+                              value="card"
+                              checked={paymentMethod === 'card'}
+                              onChange={() => setPaymentMethod('card')}
+                              className="sr-only"
+                            />
+                            <div
+                              className={`mt-0.5 h-5 w-5 rounded-full border-2 flex items-center justify-center flex-shrink-0 ${
+                                paymentMethod === 'card'
+                                  ? 'border-accent bg-accent'
+                                  : 'border-border'
+                              }`}
+                              aria-hidden="true"
+                            >
+                              {paymentMethod === 'card' && (
+                                <div className="h-2 w-2 rounded-full bg-accent-foreground" />
+                              )}
+                            </div>
+                            <div className="min-w-0 flex-1">
+                              <div className="flex items-center gap-2.5 flex-wrap">
+                                <p className="font-medium text-foreground">
+                                  Credit / Debit card
+                                </p>
+                                <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-700 border border-emerald-500/30 uppercase tracking-wider">
+                                  Squadco Secure
+                                </span>
+                              </div>
+                              <div className="mt-2 flex items-center gap-1.5 flex-wrap">
+                                <CardBrandRow />
+                              </div>
+                              <p className="text-sm text-muted-foreground mt-2 leading-relaxed">
+                                Pay securely with Visa, Mastercard, American Express, or
+                                Discover via Squadco. Your card details are never stored on our
+                                servers — you&apos;ll be redirected to a secure payment page.
+                              </p>
+                            </div>
+                          </label>
+
                           <label
                             className={`flex items-start gap-3 rounded-lg border-2 p-4 cursor-pointer transition-colors ${
                               paymentMethod === 'zelle'
@@ -877,58 +934,6 @@ export default function CheckoutPage() {
                                 Pay in Tether on the TRON network via our secure
                                 payment partner. Your order is marked paid
                                 automatically once the network confirms.
-                              </p>
-                            </div>
-                          </label>
-
-                          {/* Card payment via Squadco — PCI-compliant payment links.
-                           * Admin selects card, form validates, we generate a
-                           * unique Squadco link pre-filled with the order
-                           * total, and redirect the customer there. Squadco
-                           * handles all card data; we never see it. */}
-                          <label
-                            className={`flex items-start gap-3 rounded-lg border-2 p-4 cursor-pointer transition-colors ${
-                              paymentMethod === 'card'
-                                ? 'border-accent bg-accent/5'
-                                : 'border-border hover:border-accent/40'
-                            }`}
-                          >
-                            <input
-                              type="radio"
-                              name="paymentMethod"
-                              value="card"
-                              checked={paymentMethod === 'card'}
-                              onChange={() => setPaymentMethod('card')}
-                              className="sr-only"
-                            />
-                            <div
-                              className={`mt-0.5 h-5 w-5 rounded-full border-2 flex items-center justify-center flex-shrink-0 ${
-                                paymentMethod === 'card'
-                                  ? 'border-accent bg-accent'
-                                  : 'border-border'
-                              }`}
-                              aria-hidden="true"
-                            >
-                              {paymentMethod === 'card' && (
-                                <div className="h-2 w-2 rounded-full bg-accent-foreground" />
-                              )}
-                            </div>
-                            <div className="min-w-0 flex-1">
-                              <div className="flex items-center gap-2.5 flex-wrap">
-                                <p className="font-medium text-foreground">
-                                  Credit / Debit card
-                                </p>
-                                <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-700 border border-emerald-500/30 uppercase tracking-wider">
-                                  Squadco Secure
-                                </span>
-                              </div>
-                              <div className="mt-2 flex items-center gap-1.5 flex-wrap">
-                                <CardBrandRow />
-                              </div>
-                              <p className="text-sm text-muted-foreground mt-2 leading-relaxed">
-                                Pay securely with Visa, Mastercard, American Express, or
-                                Discover via Squadco. Your card details are never stored on our
-                                servers — you&apos;ll be redirected to a secure payment page.
                               </p>
                             </div>
                           </label>
