@@ -45,6 +45,8 @@ export async function generateSquadcoPaymentLinkAction(input: {
   try {
     // Squadco payment link creation endpoint.
     // Docs: https://docs.squadco.com/Payments/Payment-Links
+    // Note: Squadco may return the link under different field names depending
+    // on the API version. We check multiple possible locations.
     const response = await fetch('https://api.squadco.com/v1/payment_links/', {
       method: 'POST',
       headers: {
@@ -74,31 +76,52 @@ export async function generateSquadcoPaymentLinkAction(input: {
       }),
     })
 
+    const responseText = await response.text()
+    console.log('[v0] Squadco response status:', response.status)
+    console.log('[v0] Squadco response body:', responseText.slice(0, 500))
+
     if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}))
-      console.error('[v0] Squadco API error:', response.status, errorData)
+      try {
+        const errorData = JSON.parse(responseText)
+        console.error('[v0] Squadco API error:', {
+          status: response.status,
+          statusText: response.statusText,
+          error: errorData,
+        })
+      } catch {
+        console.error('[v0] Squadco API error (non-JSON):', response.status, responseText)
+      }
       return {
-        error: 'Failed to create payment link. Please try again or contact support.',
+        error: `Payment service error (${response.status}). Please try again or contact support.`,
       }
     }
 
-    const data = (await response.json()) as {
-      data?: { payment_link?: string; link?: string }
+    let data: unknown
+    try {
+      data = JSON.parse(responseText)
+    } catch {
+      console.error('[v0] Failed to parse Squadco response as JSON')
+      return { error: 'Invalid response from payment service. Please try again.' }
     }
-    // Squadco returns the link in data.data.payment_link or data.data.link
+
+    // Squadco response structure can vary; try multiple possible paths
     const paymentUrl =
-      data?.data?.payment_link ||
-      data?.data?.link ||
+      (data as any)?.data?.payment_link ||
+      (data as any)?.data?.link ||
+      (data as any)?.payment_link ||
+      (data as any)?.link ||
+      (data as any)?.url ||
       null
 
     if (!paymentUrl) {
-      console.error('[v0] Squadco response missing payment link', data)
+      console.error('[v0] Squadco response missing payment link:', data)
       return { error: 'Payment link generation failed. Please try again.' }
     }
 
+    console.log('[v0] Payment link generated successfully')
     return { url: paymentUrl }
   } catch (err) {
-    console.error('[v0] generateSquadcoPaymentLink failed:', err)
+    console.error('[v0] generateSquadcoPaymentLink exception:', err)
     return {
       error: 'Network error creating payment link. Please check your connection and try again.',
     }
