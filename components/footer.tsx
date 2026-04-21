@@ -3,6 +3,7 @@ import { Mail } from "lucide-react"
 import { NewsletterForm } from "@/components/newsletter-form"
 import { CONTACT_EMAIL, mailto } from "@/lib/contact"
 import {
+  PaypalLogo,
   ZelleLogo,
   TetherLogo,
   VisaLogo,
@@ -159,9 +160,13 @@ export function Footer() {
               We accept
             </p>
             <div
-              aria-label="Accepted payment methods: Zelle, USDT on the TRON network, Visa, Mastercard, American Express, and Discover"
+              aria-label="Accepted payment methods: PayPal, Zelle, USDT on the TRON network, Visa, Mastercard, American Express, and Discover"
               className="flex items-center gap-2 flex-wrap"
             >
+              {/* PayPal leads the row to mirror the checkout page order;
+                  all marks have their own opaque fills so they stay
+                  legible against the dark footer background. */}
+              <PaypalLogo className="h-6 w-auto" />
               <ZelleLogo className="h-6 w-auto" />
               <TetherLogo className="h-6 w-auto" />
               <VisaLogo className="h-6 w-auto" />

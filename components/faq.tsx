@@ -20,7 +20,7 @@ const faqs = [
   },
   {
     question: "What payment methods do you accept?",
-    answer: "We accept all major credit cards, debit cards, cryptocurrency (Bitcoin, Ethereum), and bank transfers. All transactions are encrypted and processed securely. We also offer discreet billing for your privacy."
+    answer: "We accept PayPal, Zelle, USDT on the TRON network, and all major credit and debit cards (Visa, Mastercard, American Express, Discover). All transactions are processed through PCI-compliant providers — card details and PayPal credentials never touch our servers. We also offer discreet billing for your privacy."
   },
   {
     question: "Are your peptides for human use?",
