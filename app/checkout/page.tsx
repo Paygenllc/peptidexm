@@ -198,15 +198,15 @@ export default function CheckoutPage() {
         })
 
         if ('error' in orderResult) {
-          setPlaceError(orderResult.error)
+          setPlaceError(orderResult.error || 'Failed to place order.')
           setIsProcessing(false)
           return
         }
 
         // Now that we have the real order_number, we could regenerate the
         // link, but for now we'll just redirect to the initial link.
-        setPlacedOrderNumber(orderResult.orderNumber ?? '')
-        setPlacedOrderId(orderResult.orderId ?? '')
+        setPlacedOrderNumber(orderResult.orderNumber || null)
+        setPlacedOrderId(orderResult.orderId || null)
         setPlacedOrderTotal(orderTotal)
 
         // Redirect to Squadco payment link
