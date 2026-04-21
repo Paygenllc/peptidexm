@@ -30,7 +30,9 @@ export const metadata: Metadata = {
   },
   description: siteDescription,
   applicationName: siteName,
-  generator: "v0.app",
+  // NOTE: We intentionally do NOT set `generator` here. Leaving it
+  // unset (or non-"v0") prevents Chrome's PWA / app-shortcut detection
+  // from surfacing the build-tool brand instead of our own site name.
   keywords: [
     "research peptides",
     "buy peptides",
