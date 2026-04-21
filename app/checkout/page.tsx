@@ -20,6 +20,7 @@ import {
   ChevronDown,
   Home,
   Lock,
+  AlertCircle,
 } from 'lucide-react'
 import Link from 'next/link'
 import { US_STATES, COUNTRIES } from '@/lib/locations'
@@ -46,6 +47,7 @@ import { AbandonedCartTracker } from '@/components/abandoned-cart-tracker'
 import {
   generateSquadcoPaymentLinkAction as generateCardPaymentLinkAction,
   persistSquadcoLinkToOrderAction,
+  verifyCardPaymentAction,
 } from '@/app/actions/squadco'
 
 interface CustomerInfo {
@@ -101,6 +103,72 @@ export default function CheckoutPage() {
   const [placedOrderTotal, setPlacedOrderTotal] = useState<number | null>(null)
   const [placedOrderId, setPlacedOrderId] = useState<string | null>(null)
   const [placeError, setPlaceError] = useState<string | null>(null)
+  // Card-return verification. When Squadco redirects the customer back
+  // with `?card_success=true&order=<num>`, we pull status from Squadco's
+  // verify endpoint and show the appropriate panel.
+  //   verifying — request in flight
+  //   paid      — transaction_status was success; order is marked paid
+  //   pending   — Squadco hasn't settled yet; show a "processing" note
+  //               with a manual retry button
+  //   failed    — transaction explicitly failed; invite them to retry
+  //               or switch payment methods
+  const [cardReturnState, setCardReturnState] =
+    useState<'idle' | 'verifying' | 'paid' | 'pending' | 'failed'>('idle')
+  const [cardReturnOrderNumber, setCardReturnOrderNumber] = useState<string | null>(null)
+
+  // When the customer comes back from Squadco, the URL carries
+  //   ?card_success=true&order=<order_number>
+  // We use that to identify the order, call verifyCardPaymentAction, and
+  // flip the UI to the success/pending/failed panel accordingly. Running
+  // on mount only — the query params don't change during a session.
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    const params = new URLSearchParams(window.location.search)
+    const isCardReturn = params.get('card_success') === 'true'
+    const orderNumberParam = params.get('order')
+    if (!isCardReturn || !orderNumberParam) return
+
+    setCardReturnOrderNumber(orderNumberParam)
+    setCardReturnState('verifying')
+    setStep('success')
+
+    void (async () => {
+      try {
+        const result = await verifyCardPaymentAction({ orderNumber: orderNumberParam })
+        if (!result.ok) {
+          setPlaceError(result.error)
+          setCardReturnState('failed')
+          return
+        }
+        if (result.status === 'paid') {
+          // Payment confirmed. Clear the cart now that we know fulfillment
+          // will proceed. (We didn't clear it before the redirect because
+          // the shopper might have bailed on the Squadco page.)
+          clearCart()
+          setCardReturnState('paid')
+        } else if (result.status === 'failed') {
+          setCardReturnState('failed')
+        } else {
+          // partial / pending — keep the cart intact; the customer may
+          // want to retry via a different method.
+          setCardReturnState('pending')
+        }
+      } catch (err) {
+        console.error('[v0] Card return verify error:', err)
+        setCardReturnState('pending')
+      }
+
+      // Clean the query params out of the URL so a page refresh doesn't
+      // re-trigger verification (and so the URL is shareable again).
+      try {
+        const cleanUrl = window.location.pathname
+        window.history.replaceState({}, '', cleanUrl)
+      } catch {
+        // history API unavailable — harmless.
+      }
+    })()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
   // Which payment method the shopper chose on the checkout step. Drives both
   // the order row's payment_method column and which panel we show on success.
   // Default to card — it's the method most shoppers expect and it's the
@@ -166,12 +234,18 @@ export default function CheckoutPage() {
     setIsProcessing(true)
     setPlaceError(null)
 
-    // For card payments, first generate a hosted card payment link, then
-    // place the order with payment_method='card'. On the payment
-    // provider's callback via webhook, we'll mark the order as paid_captured.
+    // Card payment flow (redirect-mode, no webhook):
+    //   1. Place the order (payment_status='pending').
+    //   2. Generate the payment link using the REAL order_number — this
+    //      matters because the redirect URL we hand Squadco embeds the
+    //      order number so, on return, we can identify exactly which
+    //      order to reconcile without relying on a webhook.
+    //   3. Persist the hash on the order row (indexed for lookup).
+    //   4. Redirect the customer to Squadco.
+    //   5. On return, the useEffect below calls verifyCardPaymentAction
+    //      which pulls status from Squadco and updates the order.
     if (paymentMethod === 'card') {
       try {
-        // Map CartItem to OrderItemInput for the order
         const orderItems = items.map((item) => ({
           productName: item.name,
           variantName: item.variant,
@@ -180,27 +254,10 @@ export default function CheckoutPage() {
           imageUrl: item.image,
         }))
 
-        // Generate the hosted card payment link with the order total
-        const linkResult = await generateCardPaymentLinkAction({
-          orderNumber: `temp-${Date.now()}`, // Temporary; will be replaced with real order number
-          amountCents: Math.round(orderTotal * 100),
-          email: customerInfo.email,
-          firstName: customerInfo.firstName,
-          lastName: customerInfo.lastName,
-          // Generic success flag. The card provider identity is not
-          // leaked into the redirect URL on purpose.
-          redirectUrl: `${typeof window !== 'undefined' ? window.location.origin : ''}/checkout?card_success=true`,
-        })
-
-        if ('error' in linkResult) {
-          setPlaceError(linkResult.error)
-          setIsProcessing(false)
-          return
-        }
-
-        // Before redirecting to the card payment page, place the order so
-        // we have a proper order_id and order_number for the webhook to
-        // reference.
+        // Step 1 — place the order first so we have its order_number
+        // available to bake into the redirect URL. If link generation
+        // fails after this point, the order is left in `pending` and
+        // the customer can be offered a retry (or pay via Zelle/USDT).
         const orderResult = await placeOrderAction({
           email: customerInfo.email,
           phone: customerInfo.phone,
@@ -222,21 +279,42 @@ export default function CheckoutPage() {
           return
         }
 
-        // Attach the payment-link reference (`linkResult.reference` is the
-        // Squadco hash) to the order row. This is the piece that lets our
-        // webhook handler match Squadco's "payment completed" callback
-        // back to THIS order — without it, the webhook has no idea which
-        // order to mark as paid.
-        if (orderResult.orderId) {
+        const realOrderNumber = orderResult.orderNumber || ''
+        const realOrderId = orderResult.orderId || ''
+
+        // Step 2 — generate the payment link. The redirect URL carries
+        // the real order_number so the return-trip verify has something
+        // to key off of.
+        const redirectBase = typeof window !== 'undefined' ? window.location.origin : ''
+        const linkResult = await generateCardPaymentLinkAction({
+          orderNumber: realOrderNumber,
+          amountCents: Math.round(orderTotal * 100),
+          email: customerInfo.email,
+          firstName: customerInfo.firstName,
+          lastName: customerInfo.lastName,
+          redirectUrl: `${redirectBase}/checkout?card_success=true&order=${encodeURIComponent(realOrderNumber)}`,
+        })
+
+        if ('error' in linkResult) {
+          // Order is placed but we couldn't generate a link. Leave it
+          // pending and surface the provider error — the operator can
+          // manually follow up or the customer can re-submit.
+          setPlaceError(linkResult.error)
+          setIsProcessing(false)
+          return
+        }
+
+        // Step 3 — attach the hash to the order row so the verify
+        // endpoint can look it up on the return trip.
+        if (realOrderId) {
           const persistResult = await persistSquadcoLinkToOrderAction({
-            orderId: orderResult.orderId,
+            orderId: realOrderId,
             hash: linkResult.reference,
             checkoutUrl: linkResult.url,
           })
           if (!persistResult.ok) {
-            // Non-fatal — the order is placed and the link works. We just
-            // won't be able to reconcile automatically if the webhook
-            // fires before a manual fix. Log loudly so support sees it.
+            // Non-fatal: the order is placed and the link works. We
+            // just won't be able to auto-reconcile. Log so admin sees it.
             console.error(
               '[v0] Failed to persist payment link on order:',
               persistResult.error,
@@ -244,11 +322,11 @@ export default function CheckoutPage() {
           }
         }
 
-        setPlacedOrderNumber(orderResult.orderNumber || null)
-        setPlacedOrderId(orderResult.orderId || null)
+        setPlacedOrderNumber(realOrderNumber || null)
+        setPlacedOrderId(realOrderId || null)
         setPlacedOrderTotal(orderTotal)
 
-        // Redirect to the hosted card payment page
+        // Step 4 — off to the hosted payment page.
         if (typeof window !== 'undefined') {
           window.location.href = linkResult.url
         }
@@ -345,7 +423,150 @@ export default function CheckoutPage() {
   )}
   <div className="mx-auto max-w-5xl px-4 sm:px-6 lg:px-8">
   {/* Success Page */}
-        {step === 'success' && (
+        {step === 'success' && cardReturnState !== 'idle' ? (
+          /*
+           * Card-return success panel. We distinguish four states:
+           *   verifying — spinner while we call the verify endpoint
+           *   paid      — confirmed success: show green check + order #
+           *   pending   — processing: provider hasn't settled yet, offer
+           *               a manual refresh
+           *   failed    — payment explicitly failed: offer retry links
+           */
+          <div className="py-8 sm:py-12">
+            <div className="mx-auto max-w-xl text-center">
+              {cardReturnState === 'verifying' && (
+                <>
+                  <div className="inline-flex items-center justify-center h-14 w-14 sm:h-16 sm:w-16 rounded-full bg-muted mb-4">
+                    <div className="h-8 w-8 rounded-full border-4 border-muted-foreground/30 border-t-accent animate-spin" aria-hidden="true" />
+                  </div>
+                  <h1 className="font-serif text-2xl sm:text-3xl font-medium mb-2 text-balance">
+                    Confirming your payment…
+                  </h1>
+                  <p className="text-muted-foreground text-sm sm:text-base">
+                    This usually takes a few seconds.
+                  </p>
+                </>
+              )}
+
+              {cardReturnState === 'paid' && (
+                <>
+                  <div className="inline-flex items-center justify-center h-14 w-14 sm:h-16 sm:w-16 rounded-full bg-green-100 mb-4">
+                    <CheckCircle className="h-8 w-8 sm:h-9 sm:w-9 text-green-700" />
+                  </div>
+                  <h1 className="font-serif text-2xl sm:text-3xl font-medium mb-2 text-balance">
+                    Payment confirmed
+                  </h1>
+                  {cardReturnOrderNumber && (
+                    <p className="text-muted-foreground text-sm sm:text-base">
+                      Order{' '}
+                      <span className="font-mono font-medium text-foreground break-all">
+                        {cardReturnOrderNumber}
+                      </span>
+                    </p>
+                  )}
+                  <p className="text-muted-foreground text-sm sm:text-base mt-2 px-2">
+                    Thank you. A confirmation email is on its way.
+                  </p>
+                  <Link
+                    href="/"
+                    className="inline-flex items-center justify-center mt-6 rounded-lg bg-accent text-accent-foreground px-5 py-2.5 text-sm font-medium hover:opacity-90 transition-opacity"
+                  >
+                    Continue shopping
+                  </Link>
+                </>
+              )}
+
+              {cardReturnState === 'pending' && (
+                <>
+                  <div className="inline-flex items-center justify-center h-14 w-14 sm:h-16 sm:w-16 rounded-full bg-amber-100 mb-4">
+                    <div className="h-8 w-8 rounded-full border-4 border-amber-200 border-t-amber-600 animate-spin" aria-hidden="true" />
+                  </div>
+                  <h1 className="font-serif text-2xl sm:text-3xl font-medium mb-2 text-balance">
+                    Payment is processing
+                  </h1>
+                  {cardReturnOrderNumber && (
+                    <p className="text-muted-foreground text-sm sm:text-base">
+                      Order{' '}
+                      <span className="font-mono font-medium text-foreground break-all">
+                        {cardReturnOrderNumber}
+                      </span>
+                    </p>
+                  )}
+                  <p className="text-muted-foreground text-sm sm:text-base mt-3 px-2 leading-relaxed">
+                    We haven&apos;t received a final confirmation yet. This can
+                    take up to a couple of minutes. You&apos;ll get an email the
+                    moment it clears.
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (!cardReturnOrderNumber) return
+                      setCardReturnState('verifying')
+                      void (async () => {
+                        const result = await verifyCardPaymentAction({
+                          orderNumber: cardReturnOrderNumber,
+                        })
+                        if (!result.ok) {
+                          setCardReturnState('failed')
+                          return
+                        }
+                        if (result.status === 'paid') {
+                          clearCart()
+                          setCardReturnState('paid')
+                        } else if (result.status === 'failed') {
+                          setCardReturnState('failed')
+                        } else {
+                          setCardReturnState('pending')
+                        }
+                      })()
+                    }}
+                    className="inline-flex items-center justify-center mt-6 rounded-lg border border-border bg-background px-5 py-2.5 text-sm font-medium hover:bg-secondary transition-colors"
+                  >
+                    Check again
+                  </button>
+                </>
+              )}
+
+              {cardReturnState === 'failed' && (
+                <>
+                  <div className="inline-flex items-center justify-center h-14 w-14 sm:h-16 sm:w-16 rounded-full bg-red-100 mb-4">
+                    <AlertCircle className="h-8 w-8 sm:h-9 sm:w-9 text-red-700" />
+                  </div>
+                  <h1 className="font-serif text-2xl sm:text-3xl font-medium mb-2 text-balance">
+                    Payment not completed
+                  </h1>
+                  {cardReturnOrderNumber && (
+                    <p className="text-muted-foreground text-sm sm:text-base">
+                      Order{' '}
+                      <span className="font-mono font-medium text-foreground break-all">
+                        {cardReturnOrderNumber}
+                      </span>{' '}
+                      is still pending.
+                    </p>
+                  )}
+                  <p className="text-muted-foreground text-sm sm:text-base mt-3 px-2 leading-relaxed">
+                    Your card wasn&apos;t charged. You can try again with a different
+                    card, or finish your order with Zelle or USDT.
+                  </p>
+                  <div className="flex flex-wrap items-center justify-center gap-3 mt-6">
+                    <Link
+                      href="/checkout"
+                      className="inline-flex items-center justify-center rounded-lg bg-accent text-accent-foreground px-5 py-2.5 text-sm font-medium hover:opacity-90 transition-opacity"
+                    >
+                      Try again
+                    </Link>
+                    <Link
+                      href="/contact"
+                      className="inline-flex items-center justify-center rounded-lg border border-border bg-background px-5 py-2.5 text-sm font-medium hover:bg-secondary transition-colors"
+                    >
+                      Contact support
+                    </Link>
+                  </div>
+                </>
+              )}
+            </div>
+          </div>
+        ) : step === 'success' && (
           <div className="py-8 sm:py-12">
             <div className="text-center mb-8">
               <div className="inline-flex items-center justify-center h-14 w-14 sm:h-16 sm:w-16 rounded-full bg-green-100 mb-4">
