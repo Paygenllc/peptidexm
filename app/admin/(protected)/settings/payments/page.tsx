@@ -1,5 +1,5 @@
 import type { Metadata } from "next"
-import { getPaymentMethodToggles } from "@/lib/payment-methods"
+import { getPaymentMethodToggles } from "@/lib/payment-methods.server"
 import { PaymentToggles } from "./payment-toggles"
 
 export const metadata: Metadata = {
