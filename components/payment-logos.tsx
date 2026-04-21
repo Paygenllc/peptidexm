@@ -12,9 +12,12 @@
 import type { SVGProps } from "react"
 
 /**
- * Zelle wordmark-style "Z" inside a rounded square tile. Recreated from
- * the public brand (not copied bit-for-bit) so we stay inside fair-use
- * for third-party payment method identification.
+ * Zelle wordmark — lowercase "zelle" in white on the signature purple
+ * rounded tile. Using the wordmark (rather than a custom "Z" glyph)
+ * makes the mark instantly recognizable alongside the other payment
+ * logos and sidesteps the "is that a Z or an N?" ambiguity that
+ * stylized single-letter renders tend to suffer from at small sizes.
+ * Recreated from the public brand for third-party method ID (fair use).
  */
 export function ZelleLogo(props: SVGProps<SVGSVGElement>) {
   return (
@@ -26,15 +29,18 @@ export function ZelleLogo(props: SVGProps<SVGSVGElement>) {
       {...props}
     >
       <rect width="40" height="40" rx="9" fill="#6D1ED4" />
-      <path
-        d="M20 6.5v3.2h-5.9l9.7 13.6H14v3.2h16v-3.2h-6.2l-9.7-13.6h9v-3.2z"
+      <text
+        x="20"
+        y="26"
+        textAnchor="middle"
+        fontFamily="Helvetica, Arial, sans-serif"
+        fontWeight="800"
+        fontSize="13"
         fill="#FFFFFF"
-        transform="translate(-2 0)"
-      />
-      <path
-        d="M18.6 4.5h2.8v5h-2.8zM18.6 30.5h2.8v5h-2.8z"
-        fill="#FFFFFF"
-      />
+        letterSpacing="-0.4"
+      >
+        zelle
+      </text>
     </svg>
   )
 }
