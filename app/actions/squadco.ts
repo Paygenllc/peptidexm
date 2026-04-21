@@ -1,145 +1,222 @@
-'use server'
-
-import { createAdminClient } from '@/lib/supabase/admin'
+"use server"
 
 /**
- * Generate a Squadco payment link for card payments.
+ * Squadco One-Time Payment Link generator.
  *
- * Squadco handles all PCI compliance — we never touch card data. The link
- * is pre-filled with the order amount and a reference ID, and the customer
- * completes payment on Squadco's hosted page. The webhook verifies completion
- * and marks the order as paid before we fulfill it.
+ * We deliberately use the *Payment Links* API (`POST /payment_link/otp`) and
+ * not the direct-charge `/transaction/initiate` endpoint. Direct charge is
+ * NGN-only on most merchant plans and fails USD transactions with a generic
+ * "Minimum amount is 100 Naira" / "Transaction Failed" message. Payment
+ * Links, by contrast, accept a `currencies` array with USD and render
+ * Squadco's hosted page that already supports card rails.
  *
- * Per Squadco API docs, payment links require:
- *  - amount: in smallest currency unit (cents for USD, kobo for NGN)
- *  - currency: 'USD', 'NGN', etc.
- *  - customer_email: used for receipts and lookup
- *  - customer_name: optional but improves UX
- *  - reference: unique order identifier for idempotency
- *  - redirect_url: where to send the customer after payment
- *  - metadata: arbitrary JSON for your records
+ * Flow:
+ *   1. POST /payment_link/otp with {name, hash, amounts:[{amount,currency_id:"USD"}], ...}
+ *   2. Squadco stores the link keyed by our `hash`
+ *   3. Customer is redirected to `https://{env}pay.squadco.com/{hash}`
+ *   4. On successful payment, Squadco pings our webhook and redirects the
+ *      customer back to `redirect_link` (our checkout success page).
+ *
+ * Sandbox vs live is auto-detected from the key prefix:
+ *   - `sandbox_sk_*` / `sk_test_*`  → https://sandbox-api-d.squadco.com + sandbox-pay.squadco.com
+ *   - everything else (live)        → https://api-d.squadco.com        + pay.squadco.com
+ *
+ * Amounts for USD are in **cents** (integer). Squadco's Payment Links API
+ * expects the same smallest-unit convention as direct charge.
  */
-export async function generateSquadcoPaymentLinkAction(input: {
+
+type SquadcoResult = { url: string; reference: string } | { error: string }
+
+interface Input {
   orderNumber: string
   amountCents: number
   email: string
   firstName: string
   lastName: string
   redirectUrl: string
-}): Promise<{ url: string } | { error: string }> {
-  const apiKey = process.env.SQUADCO_API_KEY
-  if (!apiKey) {
-    console.error('[v0] SQUADCO_API_KEY not set')
-    return { error: 'Payment service not configured. Contact support.' }
+  /**
+   * Currency code. Defaults to USD because Payment Links support card-USD
+   * without the NGN minimums that block the direct-charge path.
+   */
+  currency?: "USD" | "NGN"
+}
+
+interface SquadcoPaymentLinkResponse {
+  status?: number
+  success?: boolean
+  message?: string
+  data?: {
+    // Squadco returns the hash we sent, which is what we append to the
+    // pay.squadco.com base URL to build the checkout URL.
+    hash?: string
+    // Some responses also include a ready-made URL — we prefer it when
+    // present so we don't have to guess the public host.
+    link?: string
+    url?: string
+  }
+}
+
+/**
+ * Resolve API + public host pair based on key prefix. Both halves are needed:
+ * the API host to create the link, the public host to send the customer to.
+ */
+function resolveHosts(secretKey: string): { api: string; pay: string } {
+  const isSandbox =
+    secretKey.startsWith("sandbox_") || secretKey.startsWith("sk_test_")
+  return isSandbox
+    ? {
+        api: "https://sandbox-api-d.squadco.com",
+        pay: "https://sandbox-pay.squadco.com",
+      }
+    : {
+        api: "https://api-d.squadco.com",
+        pay: "https://pay.squadco.com",
+      }
+}
+
+/**
+ * Build a URL-safe, globally-unique "hash" (Squadco's term for the link
+ * slug). Squadco rejects hashes that collide with previous links, so we
+ * derive it from our order number + a short timestamp suffix.
+ *
+ * Must match `[a-z0-9]+`, length ~16-32. We keep it short enough to look
+ * clean in the pay.squadco.com URL but long enough to be effectively unique.
+ */
+function buildHash(orderNumber: string): string {
+  const cleaned = orderNumber.toLowerCase().replace(/[^a-z0-9]/g, "")
+  const suffix = Date.now().toString(36)
+  return `${cleaned}${suffix}`.slice(0, 32)
+}
+
+export async function generateSquadcoPaymentLinkAction(
+  input: Input,
+): Promise<SquadcoResult> {
+  const secretKey = process.env.SQUADCO_SECRET_KEY
+  if (!secretKey) {
+    console.error("[v0] SQUADCO_SECRET_KEY is not set")
+    return { error: "Card payments are not configured. Contact support." }
   }
 
-  const {
-    orderNumber,
-    amountCents,
-    email,
-    firstName,
-    lastName,
-    redirectUrl,
-  } = input
+  // Squadco's Payment Links OTP endpoint is strict about allowed fields —
+  // it ignores/rejects anything beyond the documented set — so we only
+  // destructure what we actually send. Customer email/name are kept on the
+  // order row in our DB and reconciled via the `hash` reference.
+  const { orderNumber, amountCents, redirectUrl } = input
+
+  // USD is the sensible default for Payment Links — it's why we're on this
+  // endpoint rather than direct charge. Operators can still pin NGN via env
+  // if their Squadco account is NGN-only.
+  const currency: "USD" | "NGN" =
+    input.currency ??
+    (process.env.SQUADCO_CURRENCY === "NGN" ? "NGN" : "USD")
+
+  const amount = Math.round(amountCents)
+  if (!Number.isFinite(amount) || amount <= 0) {
+    console.error("[v0] Squadco: invalid amount", { amountCents })
+    return { error: "Invalid order amount. Please refresh and try again." }
+  }
+
+  const hash = buildHash(orderNumber)
+  const { api, pay } = resolveHosts(secretKey)
+  const endpoint = `${api}/payment_link/otp`
+
+  // Squadco requires an expiry timestamp for one-time links. 24h is plenty
+  // for an online checkout — short enough that stale links don't linger,
+  // long enough that a customer who opens the page overnight can still pay.
+  const expireBy = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString()
 
   try {
-    // Squadco payment link creation endpoint.
-    // Docs: https://docs.squadco.com/Payments/Payment-Links
-    // Try auth format: some APIs use Authorization: Bearer, others use a
-    // custom header. We'll try Bearer first (standard), but this can be
-    // adjusted if needed.
-    const response = await fetch('https://api.squadco.com/v1/payment_links/', {
-      method: 'POST',
+    const response = await fetch(endpoint, {
+      method: "POST",
       headers: {
-        'Content-Type': 'application/json',
-        // Standard Bearer token format for REST APIs
-        'Authorization': `Bearer ${apiKey}`,
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${secretKey}`,
       },
       body: JSON.stringify({
-        // Squadco expects amounts in the smallest unit: cents for USD,
-        // kobo for NGN, etc. Pass as integer.
-        amount: amountCents,
-        currency: 'USD', // Adjust if supporting other currencies
-        // Customer identifiers — used for receipts and lookup
-        customer_email: email,
-        customer_name: `${firstName} ${lastName}`,
-        // Unique reference tied to this order; prevents duplicates if
-        // the request is retried. Must be idempotent.
-        reference: `order-${orderNumber}`,
-        // Where to send the customer after payment completion
-        redirect_url: redirectUrl,
-        // Metadata for our records — order context that doesn't affect
-        // the payment but helps with lookups and reconciliation
-        metadata: {
-          order_number: orderNumber,
-          customer_email: email,
-          created_at: new Date().toISOString(),
-        },
+        // Human-readable label shown in the Squadco dashboard and on the
+        // hosted payment page. Keep it specific so reconciliation is easy.
+        name: `PeptideXM Order ${orderNumber}`,
+        hash,
+        // 1 = active, 0 = inactive. Must be 1 for customers to pay.
+        link_status: 1,
+        expire_by: expireBy,
+        // Amounts is an array so a single link can offer multiple
+        // currencies. We only ever offer one at a time.
+        amounts: [
+          {
+            amount,
+            currency_id: currency,
+          },
+        ],
+        description: `PeptideXM research peptides — order ${orderNumber}`,
+        redirect_link: redirectUrl,
+        // Squadco's Payment Links API rejects any extra fields (including
+        // `metadata`) with "not allowed", so we keep the payload minimal.
+        // Customer context (email, name) lives on our order row — the link
+        // is reconciled back via the `hash`, which we persist as the order's
+        // payment reference.
+        return_msg: "Thank you for your order. Your payment is being processed.",
       }),
     })
 
-    const responseText = await response.text()
-    console.log('[v0] Squadco API request to: https://api.squadco.com/v1/payment_links/')
-    console.log('[v0] Response status:', response.status, response.statusText)
-    console.log('[v0] API key present:', !!apiKey, 'length:', apiKey?.length)
-    
-    if (!response.ok) {
-      let errorMessage = ''
-      try {
-        const errorData = JSON.parse(responseText)
-        errorMessage = JSON.stringify(errorData, null, 2)
-        console.error('[v0] Squadco error response:', errorMessage)
-      } catch {
-        errorMessage = responseText
-        console.error('[v0] Squadco error (non-JSON):', responseText)
-      }
-      
-      // 403 typically means auth issue or insufficient permissions
-      if (response.status === 403) {
-        console.error('[v0] 403 Auth Error — Check:')
-        console.error('[v0]   1. API key is valid and active in Squadco dashboard')
-        console.error('[v0]   2. API key is the SECRET key, not public key')
-        console.error('[v0]   3. API key has permission for payment links')
+    const rawBody = await response.text()
+    let parsed: SquadcoPaymentLinkResponse | null = null
+    try {
+      parsed = rawBody
+        ? (JSON.parse(rawBody) as SquadcoPaymentLinkResponse)
+        : null
+    } catch {
+      // Fall through to error logging below.
+    }
+
+    // Like `/transaction/initiate`, the Payment Links endpoint often returns
+    // HTTP 200 with `success: false` for business-logic failures, so we have
+    // to check both the HTTP status and the body.
+    if (!response.ok || !parsed?.success) {
+      console.error("[v0] Squadco payment_link/otp failed", {
+        status: response.status,
+        statusText: response.statusText,
+        endpoint,
+        environment: api.includes("sandbox") ? "sandbox" : "live",
+        currency,
+        amount,
+        hash,
+        responseBody: parsed ?? rawBody.slice(0, 1000),
+      })
+
+      if (response.status === 401 || response.status === 403) {
         return {
-          error: 'Authentication failed. Verify API key in Squadco dashboard is active and is the SECRET key (not public).',
+          error:
+            "Card payments are temporarily unavailable (authentication failed). Please use Zelle or USDT for now.",
         }
       }
-      
+
+      const providerMessage =
+        parsed?.message && typeof parsed.message === "string"
+          ? parsed.message
+          : null
+
       return {
-        error: `Payment service error (${response.status}). Please try again or contact support.`,
+        error: providerMessage
+          ? `Payment provider: ${providerMessage}`
+          : `Payment service error (${response.status}). Please try again or contact support.`,
       }
     }
 
-    let data: unknown
-    try {
-      data = JSON.parse(responseText)
-    } catch {
-      console.error('[v0] Failed to parse Squadco response as JSON')
-      return { error: 'Invalid response from payment service. Please try again.' }
-    }
+    // Prefer a URL explicitly returned by Squadco. Fall back to building one
+    // from the hash + public host — this is documented behavior for OTP
+    // links, so the deterministic form is safe.
+    const checkoutUrl =
+      parsed.data?.link ||
+      parsed.data?.url ||
+      (parsed.data?.hash ? `${pay}/${parsed.data.hash}` : `${pay}/${hash}`)
 
-    console.log('[v0] Squadco response:', JSON.stringify(data).slice(0, 300))
-
-    // Squadco response structure can vary; try multiple possible paths
-    const paymentUrl =
-      (data as any)?.data?.payment_link ||
-      (data as any)?.data?.link ||
-      (data as any)?.payment_link ||
-      (data as any)?.link ||
-      (data as any)?.url ||
-      null
-
-    if (!paymentUrl) {
-      console.error('[v0] Squadco response missing payment link:', data)
-      return { error: 'Payment link generation failed. Please try again.' }
-    }
-
-    console.log('[v0] Payment link generated successfully')
-    return { url: paymentUrl }
+    return { url: checkoutUrl, reference: hash }
   } catch (err) {
-    console.error('[v0] generateSquadcoPaymentLink exception:', err)
+    console.error("[v0] Squadco payment_link/otp threw", err)
     return {
-      error: 'Network error creating payment link. Please check your connection and try again.',
+      error:
+        "Could not reach the payment service. Please check your connection and try again.",
     }
   }
 }
