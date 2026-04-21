@@ -9,6 +9,7 @@ import {
   AUTOBLOG_LENGTHS,
   TONE_KEYS,
   LENGTH_KEYS,
+  NATURAL_VOICE_GUARDRAIL,
   type AutoblogTone,
   type AutoblogLength,
 } from "@/lib/autoblog-config"
@@ -103,6 +104,8 @@ export async function generateBlogDraftAction(formData: FormData): Promise<Draft
     "## Voice directive",
     toneDirective,
     "",
+    NATURAL_VOICE_GUARDRAIL,
+    "",
     "## Length directive",
     lengthDirective,
     "Do not pad to hit the word count — under-run rather than repeat yourself.",
@@ -134,6 +137,11 @@ export async function generateBlogDraftAction(formData: FormData): Promise<Draft
       model: "openai/gpt-5-mini",
       system,
       prompt: userPromptLines,
+      // Higher temperature + nucleus sampling = more varied rhythm and word
+      // choice. The structured-output schema still constrains shape, so the
+      // extra variance shows up in prose, not in malformed JSON.
+      temperature: 0.85,
+      topP: 0.92,
       experimental_output: Output.object({ schema: DraftSchema }),
     })
 
@@ -251,6 +259,8 @@ export async function remixBlogDraftAction(formData: FormData): Promise<DraftRes
     "## Voice directive",
     toneDirective,
     "",
+    NATURAL_VOICE_GUARDRAIL,
+    "",
     "## Length directive",
     lengthDirective,
     "Do not pad to hit the word count — under-run rather than repeat yourself.",
@@ -287,6 +297,9 @@ export async function remixBlogDraftAction(formData: FormData): Promise<DraftRes
       model: "openai/gpt-5-mini",
       system,
       prompt: userPromptLines,
+      // Same sampling as the topic drafter — variance in prose, not shape.
+      temperature: 0.85,
+      topP: 0.92,
       experimental_output: Output.object({ schema: DraftSchema }),
     })
 

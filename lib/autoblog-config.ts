@@ -115,3 +115,34 @@ export type AutoblogLength = keyof typeof AUTOBLOG_LENGTHS
 
 export const TONE_KEYS = Object.keys(AUTOBLOG_TONES) as AutoblogTone[]
 export const LENGTH_KEYS = Object.keys(AUTOBLOG_LENGTHS) as AutoblogLength[]
+
+/**
+ * House rules for natural-sounding prose. Injected into every drafter
+ * prompt (topic + remix) AFTER the per-tone directive — so tone still
+ * sets the register, but these guardrails kill the tell-tale "AI drone"
+ * patterns regardless of which voice is picked.
+ *
+ * Tuned against the common public-domain list of LLM tells: filler
+ * transitions, buzzword nouns, rule-of-three pile-ons, symmetric
+ * "it's not X, it's Y" framings, and uniform sentence rhythm.
+ */
+export const NATURAL_VOICE_GUARDRAIL = [
+  "## Natural-prose guardrails (always apply, regardless of tone)",
+  "Write like a thoughtful human editor, not like an AI. Concretely:",
+  "",
+  "- Vary sentence length aggressively. Mix short (5–8 word) punchy sentences with longer, more textured ones. Uniform rhythm is the #1 tell of machine prose.",
+  "- Prefer concrete nouns and specific numbers over abstract hand-waving. \"A 2022 cell-culture study saw a 38% drop in fibrosis markers\" beats \"studies have shown beneficial effects\".",
+  "- Contractions are fine when the tone allows. \"It's\", \"doesn't\", \"we'll\".",
+  "- It is acceptable — even encouraged — to use the occasional sentence fragment for emphasis. One or two per piece.",
+  "- Start sentences with varied openings. Don't begin three sentences in a row with \"The\", \"This\", or \"It\".",
+  "- Avoid the following buzzwords entirely: delve, navigate, leverage, robust, crucial, pivotal, landscape, realm, tapestry, testament, vibrant, bustling, journey, unlock, unleash, harness, embark, foster, cultivate, paramount, multifaceted, holistic, intricate.",
+  "- Avoid these transition phrases: \"In conclusion\", \"It's important to note\", \"In today's world\", \"In the ever-evolving\", \"Dive into\", \"Let's explore\", \"At its core\".",
+  "- Avoid the \"It's not just X — it's Y\" and \"not only X but also Y\" constructions. They read as mechanical.",
+  "- Avoid rule-of-three list pile-ups in prose (\"fast, efficient, and reliable\"). One adjective usually does the job; if you need more, put them in a real bulleted list.",
+  "- Avoid em-dash overuse. Max one or two em-dashes per ~500 words. A comma, period, or parenthetical usually reads more human.",
+  "- No rhetorical questions as section openers (\"But what does this actually mean?\").",
+  "- Don't signal structure in prose (\"First, we'll look at X. Next, we'll cover Y. Finally…\"). Let headings and the writing itself do that work.",
+  "- Opinions are welcome where the tone permits. A measured editorial judgment (\"this dataset is thin\", \"the mechanism is well-characterised, the clinical relevance isn't\") reads human. Blandly neutral reads AI.",
+  "- When comparing or contrasting, show the trade-off honestly instead of landing on tidy symmetries.",
+  "- End when you're done. No \"In summary, we've seen…\" recap unless the content genuinely warrants one.",
+].join("\n")
