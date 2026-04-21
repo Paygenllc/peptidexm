@@ -1,6 +1,5 @@
 'use server'
 
-import { requireAdmin } from '@/lib/auth'
 import { createAdminClient } from '@/lib/supabase/admin'
 
 /**

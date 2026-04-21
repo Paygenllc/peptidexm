@@ -155,6 +155,15 @@ export default function CheckoutPage() {
     // via webhook, we'll mark the order as paid_captured.
     if (paymentMethod === 'card') {
       try {
+        // Map CartItem to OrderItemInput for the order
+        const orderItems = items.map((item) => ({
+          productName: item.name,
+          variantName: item.variant,
+          unitPrice: item.price,
+          quantity: item.quantity,
+          imageUrl: item.image,
+        }))
+
         // Generate the Squadco payment link with the order total
         const linkResult = await generateSquadcoPaymentLinkAction({
           orderNumber: `temp-${Date.now()}`, // Temporary; will be replaced with real order number
@@ -172,11 +181,19 @@ export default function CheckoutPage() {
         }
 
         // Before redirecting to Squadco, place the order so we have a proper
-        // order_id and order_number for the webhook to reference. We'll create
-        // the actual Squadco link with the real order number in a follow-up.
+        // order_id and order_number for the webhook to reference.
         const orderResult = await placeOrderAction({
-          items,
-          customerInfo,
+          email: customerInfo.email,
+          phone: customerInfo.phone,
+          firstName: customerInfo.firstName,
+          lastName: customerInfo.lastName,
+          address: customerInfo.address,
+          address2: customerInfo.address2,
+          city: customerInfo.city,
+          state: customerInfo.state,
+          zipCode: customerInfo.zipCode,
+          country: customerInfo.country,
+          items: orderItems,
           paymentMethod: 'card',
         })
 
@@ -187,11 +204,9 @@ export default function CheckoutPage() {
         }
 
         // Now that we have the real order_number, we could regenerate the
-        // link, but for now we'll just redirect to the initial link. In
-        // production, you might want to store order_id → squadco_reference
-        // in the orders table and regenerate with the real order_number.
-        setPlacedOrderNumber(orderResult.orderNumber)
-        setPlacedOrderId(orderResult.orderId)
+        // link, but for now we'll just redirect to the initial link.
+        setPlacedOrderNumber(orderResult.orderNumber ?? '')
+        setPlacedOrderId(orderResult.orderId ?? '')
         setPlacedOrderTotal(orderTotal)
 
         // Redirect to Squadco payment link
