@@ -34,7 +34,10 @@ import { ZellePaymentPanel } from '@/components/zelle-payment-panel'
 import { CryptoPaymentPanel } from '@/components/crypto-payment-panel'
 import { ZelleLogo, TetherLogo, CardBrandRow } from '@/components/payment-logos'
 import { AbandonedCartTracker } from '@/components/abandoned-cart-tracker'
-import { generateSquadcoPaymentLinkAction } from '@/app/actions/squadco'
+// Card payment link generator. Aliased so the provider identity stays
+// abstracted at the checkout-page level — if we ever swap providers,
+// nothing else in this file has to change.
+import { generateSquadcoPaymentLinkAction as generateCardPaymentLinkAction } from '@/app/actions/squadco'
 
 interface CustomerInfo {
   email: string
@@ -154,9 +157,9 @@ export default function CheckoutPage() {
     setIsProcessing(true)
     setPlaceError(null)
 
-    // For card payments, first generate a Squadco payment link, then
-    // place the order with payment_method='card'. On Squadco callback
-    // via webhook, we'll mark the order as paid_captured.
+    // For card payments, first generate a hosted card payment link, then
+    // place the order with payment_method='card'. On the payment
+    // provider's callback via webhook, we'll mark the order as paid_captured.
     if (paymentMethod === 'card') {
       try {
         // Map CartItem to OrderItemInput for the order
@@ -168,14 +171,16 @@ export default function CheckoutPage() {
           imageUrl: item.image,
         }))
 
-        // Generate the Squadco payment link with the order total
-        const linkResult = await generateSquadcoPaymentLinkAction({
+        // Generate the hosted card payment link with the order total
+        const linkResult = await generateCardPaymentLinkAction({
           orderNumber: `temp-${Date.now()}`, // Temporary; will be replaced with real order number
           amountCents: Math.round(orderTotal * 100),
           email: customerInfo.email,
           firstName: customerInfo.firstName,
           lastName: customerInfo.lastName,
-          redirectUrl: `${typeof window !== 'undefined' ? window.location.origin : ''}/checkout?squadco_success=true`,
+          // Generic success flag. The card provider identity is not
+          // leaked into the redirect URL on purpose.
+          redirectUrl: `${typeof window !== 'undefined' ? window.location.origin : ''}/checkout?card_success=true`,
         })
 
         if ('error' in linkResult) {
@@ -184,8 +189,9 @@ export default function CheckoutPage() {
           return
         }
 
-        // Before redirecting to Squadco, place the order so we have a proper
-        // order_id and order_number for the webhook to reference.
+        // Before redirecting to the card payment page, place the order so
+        // we have a proper order_id and order_number for the webhook to
+        // reference.
         const orderResult = await placeOrderAction({
           email: customerInfo.email,
           phone: customerInfo.phone,
@@ -213,7 +219,7 @@ export default function CheckoutPage() {
         setPlacedOrderId(orderResult.orderId || null)
         setPlacedOrderTotal(orderTotal)
 
-        // Redirect to Squadco payment link
+        // Redirect to the hosted card payment page
         if (typeof window !== 'undefined') {
           window.location.href = linkResult.url
         }
@@ -796,12 +802,12 @@ export default function CheckoutPage() {
                         >
                           <legend className="sr-only">Payment method</legend>
 
-                          {/* Card payment via Squadco — listed FIRST because
-                           * it's the default selection. PCI-compliant
-                           * payment links: we generate a unique Squadco
-                           * link pre-filled with the order total and
-                           * redirect the customer. Squadco handles all
-                           * card data; we never see it. */}
+                          {/* Card payment — listed FIRST because it's the
+                           * default selection. PCI-compliant hosted
+                           * payment links: we generate a unique link
+                           * pre-filled with the order total and redirect
+                           * the customer. Our payment partner handles all
+                           * card data; we never see or store it. */}
                           <label
                             className={`flex items-start gap-3 rounded-lg border-2 p-4 cursor-pointer transition-colors ${
                               paymentMethod === 'card'
@@ -835,7 +841,7 @@ export default function CheckoutPage() {
                                   Credit / Debit card
                                 </p>
                                 <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-700 border border-emerald-500/30 uppercase tracking-wider">
-                                  Squadco Secure
+                                  Secure Checkout
                                 </span>
                               </div>
                               <div className="mt-2 flex items-center gap-1.5 flex-wrap">
@@ -843,8 +849,9 @@ export default function CheckoutPage() {
                               </div>
                               <p className="text-sm text-muted-foreground mt-2 leading-relaxed">
                                 Pay securely with Visa, Mastercard, American Express, or
-                                Discover via Squadco. Your card details are never stored on our
-                                servers — you&apos;ll be redirected to a secure payment page.
+                                Discover. Your card details are never stored on our
+                                servers — you&apos;ll be redirected to a PCI-compliant
+                                payment page.
                               </p>
                             </div>
                           </label>
