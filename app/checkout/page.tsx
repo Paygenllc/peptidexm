@@ -7,9 +7,9 @@ import { Card, CardContent } from '@/components/ui/card'
 import {
   ArrowLeft,
   CheckCircle,
-  Plus,
-  Minus,
-  Trash2,
+  // Plus / Minus / Trash2 used to power the inline cart review on
+  // this page. Those controls now live exclusively in the cart
+  // sidebar, so the icons are no longer referenced here.
   Mail,
   Phone,
   User,
@@ -79,8 +79,19 @@ interface CustomerInfo {
 type Step = 'cart' | 'checkout' | 'success'
 
 export default function CheckoutPage() {
-  const { items, total, clearCart, updateQuantity, removeItem } = useCart()
-  const [step, setStep] = useState<Step>('cart')
+  // `updateQuantity` and `removeItem` used to be pulled in for the
+  // inline cart-review step. Line-item editing is now handled from
+  // the cart sidebar, so this page only needs to read items/total
+  // and clear the cart after a successful order.
+  const { items, total, clearCart } = useCart()
+  // Default directly to the shipping & payment step. The dedicated cart
+  // review step used to live here as a separate screen; we've since
+  // folded item review into the cart sidebar (users can edit quantities
+  // or remove lines from there), so a second review step on /checkout
+  // was pure friction. Keep the `'cart'` variant in the Step union
+  // though — removing it would churn every `setStep` call site and
+  // adjacent type guards for zero runtime gain.
+  const [step, setStep] = useState<Step>('checkout')
   const [customerInfo, setCustomerInfo] = useState<CustomerInfo>({
     email: '',
     phone: '',
@@ -324,9 +335,10 @@ export default function CheckoutPage() {
     return Object.keys(newErrors).length === 0
   }
 
-  const handleContinueToCheckout = () => {
-    setStep('checkout')
-  }
+  // `handleContinueToCheckout` used to advance from the cart-review
+  // step to the shipping & payment step. With the cart-review step
+  // gone, there's nothing to advance *to* — the shopper lands on the
+  // shipping & payment step directly.
 
   const handlePlaceOrder = async () => {
     // Validate first, scroll the first error into view if any
@@ -807,134 +819,24 @@ export default function CheckoutPage() {
                 Back to Store
               </Link>
 
-              <h1 className="font-serif text-3xl sm:text-4xl font-medium mb-4">Checkout</h1>
-
-              {/* Step Indicator — two steps now */}
-              <div className="flex gap-2 sm:gap-3">
-                <div
-                  className={`flex-1 sm:flex-none flex items-center justify-center gap-2 px-3 sm:px-4 py-2 rounded-lg ${
-                    step === 'cart' || step === 'checkout'
-                      ? 'bg-accent text-accent-foreground'
-                      : 'bg-secondary text-foreground'
-                  }`}
-                >
-                  <span className="text-xs sm:text-sm font-medium whitespace-nowrap">
-                    1. Cart Review
-                  </span>
-                </div>
-                <div
-                  className={`flex-1 sm:flex-none flex items-center justify-center gap-2 px-3 sm:px-4 py-2 rounded-lg ${
-                    step === 'checkout'
-                      ? 'bg-accent text-accent-foreground'
-                      : 'bg-secondary text-foreground'
-                  }`}
-                >
-                  <span className="text-xs sm:text-sm font-medium whitespace-nowrap">
-                    2. Shipping &amp; Payment
-                  </span>
-                </div>
-              </div>
+              <h1 className="font-serif text-3xl sm:text-4xl font-medium">Checkout</h1>
+              {/* The old two-step indicator (Cart Review → Shipping &
+                  Payment) was removed along with the cart-review step.
+                  A single-step indicator is visual noise, and the page
+                  heading above already identifies the screen. */}
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 sm:gap-8">
               {/* Main Content */}
               <div className="lg:col-span-2">
-                {/* Step 1: Cart Review */}
-                {step === 'cart' && (
-                  <Card className="border-2 border-border">
-                    <CardContent className="p-4 sm:p-6 lg:p-8">
-                      <h2 className="font-serif text-xl sm:text-2xl font-medium mb-4 sm:mb-6">
-                        Cart Review
-                      </h2>
-                      <div className="space-y-3 sm:space-y-4 mb-6 sm:mb-8">
-                        {items.map((item) => (
-                          <div
-                            key={`${item.id}-${item.variant}`}
-                            className="flex gap-3 sm:gap-4 p-3 sm:p-4 bg-secondary rounded-xl border-2 border-border"
-                          >
-                            <div className="w-20 h-20 sm:w-24 sm:h-24 bg-background rounded-lg flex-shrink-0 overflow-hidden border-2 border-border">
-                              <img
-                                src={item.image || '/placeholder.svg'}
-                                alt={item.name}
-                                className="w-full h-full object-cover"
-                              />
-                            </div>
-
-                            <div className="flex-1 flex flex-col justify-between min-w-0">
-                              <div>
-                                <h3 className="font-serif font-semibold text-foreground text-base line-clamp-1">
-                                  {item.name}
-                                </h3>
-                                <p className="text-sm text-accent font-medium mt-1">
-                                  {item.variant}
-                                </p>
-                                <p className="text-xs text-muted-foreground mt-1">
-                                  ${item.price.toFixed(2)} each
-                                </p>
-                              </div>
-
-                              <div className="flex items-center justify-between gap-3 mt-3">
-                                <div className="flex items-center bg-background border-2 border-border rounded-lg p-1">
-                                  <button
-                                    type="button"
-                                    onClick={() =>
-                                      updateQuantity(
-                                        item.id,
-                                        item.variant,
-                                        Math.max(1, item.quantity - 1),
-                                      )
-                                    }
-                                    className="p-1.5 hover:bg-accent hover:text-accent-foreground rounded transition-colors"
-                                    aria-label="Decrease quantity"
-                                  >
-                                    <Minus className="h-4 w-4" />
-                                  </button>
-                                  <span className="text-sm font-bold w-8 text-center text-foreground">
-                                    {item.quantity}
-                                  </span>
-                                  <button
-                                    type="button"
-                                    onClick={() =>
-                                      updateQuantity(item.id, item.variant, item.quantity + 1)
-                                    }
-                                    className="p-1.5 hover:bg-accent hover:text-accent-foreground rounded transition-colors"
-                                    aria-label="Increase quantity"
-                                  >
-                                    <Plus className="h-4 w-4" />
-                                  </button>
-                                </div>
-
-                                <span className="font-serif font-bold text-lg text-accent">
-                                  ${(item.price * item.quantity).toFixed(2)}
-                                </span>
-
-                                <button
-                                  type="button"
-                                  onClick={() => removeItem(item.id, item.variant)}
-                                  className="p-2 hover:bg-red-100 dark:hover:bg-red-950 text-red-600 hover:text-red-700 rounded-lg transition-colors"
-                                  aria-label="Remove item"
-                                >
-                                  <Trash2 className="h-4 w-4" />
-                                </button>
-                              </div>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-
-                      <div className="flex flex-col sm:flex-row gap-3">
-                        <Button variant="outline" asChild className="h-12 sm:flex-1">
-                          <Link href="/#products">Add More Items</Link>
-                        </Button>
-                        <Button onClick={handleContinueToCheckout} className="h-12 sm:flex-1">
-                          Continue to Shipping &amp; Payment
-                        </Button>
-                      </div>
-                    </CardContent>
-                  </Card>
-                )}
-
-                {/* Step 2: Shipping + Summary + Payment (all on one page) */}
+                {/* The dedicated "Step 1: Cart Review" block used to
+                    live here. It duplicated the cart sidebar's
+                    functionality (edit quantity, remove items, add
+                    more) and forced every shopper through an extra
+                    click-through screen before they could actually
+                    check out. Gone now — shoppers land straight on
+                    shipping & payment, with full line-item editing
+                    still available in the cart sidebar. */}
                 {step === 'checkout' && (
                   <div className="space-y-6">
                     {/* Shipping Information */}
@@ -1577,14 +1479,6 @@ export default function CheckoutPage() {
                           >
                             {isProcessing ? 'Processing...' : `Place Order · $${orderTotal.toFixed(2)}`}
                           </Button>
-                          <Button
-                            variant="outline"
-                            onClick={() => setStep('cart')}
-                            className="w-full h-12 mt-3"
-                          >
-                            <ArrowLeft className="h-4 w-4 mr-2" />
-                            Back to Cart
-                          </Button>
                         </CardContent>
                       </Card>
                     </div>
@@ -1685,14 +1579,6 @@ export default function CheckoutPage() {
                           className="w-full h-12"
                         >
                           {isProcessing ? 'Processing...' : 'Place Order'}
-                        </Button>
-                        <Button
-                          variant="outline"
-                          onClick={() => setStep('cart')}
-                          className="w-full h-11 mt-3"
-                        >
-                          <ArrowLeft className="h-4 w-4 mr-2" />
-                          Back to Cart
                         </Button>
                         <p className="text-xs text-muted-foreground text-center mt-4 leading-relaxed">
                           By placing your order you agree to our terms. Payment details appear
