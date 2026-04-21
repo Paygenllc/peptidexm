@@ -97,14 +97,11 @@ export async function generateSquadcoPaymentLinkAction(
     return { error: "Card payments are not configured. Contact support." }
   }
 
-  const {
-    orderNumber,
-    amountCents,
-    email,
-    firstName,
-    lastName,
-    redirectUrl,
-  } = input
+  // Squadco's Payment Links OTP endpoint is strict about allowed fields —
+  // it ignores/rejects anything beyond the documented set — so we only
+  // destructure what we actually send. Customer email/name are kept on the
+  // order row in our DB and reconciled via the `hash` reference.
+  const { orderNumber, amountCents, redirectUrl } = input
 
   // USD is the sensible default for Payment Links — it's why we're on this
   // endpoint rather than direct charge. Operators can still pin NGN via env
@@ -153,15 +150,12 @@ export async function generateSquadcoPaymentLinkAction(
         ],
         description: `PeptideXM research peptides — order ${orderNumber}`,
         redirect_link: redirectUrl,
-        // Optional fields we fill for better dashboard data. These don't
-        // affect checkout behavior but make support tickets easier.
+        // Squadco's Payment Links API rejects any extra fields (including
+        // `metadata`) with "not allowed", so we keep the payload minimal.
+        // Customer context (email, name) lives on our order row — the link
+        // is reconciled back via the `hash`, which we persist as the order's
+        // payment reference.
         return_msg: "Thank you for your order. Your payment is being processed.",
-        metadata: {
-          order_number: orderNumber,
-          customer_email: email,
-          customer_name: `${firstName} ${lastName}`.trim() || email,
-          source: "peptidexm-checkout",
-        },
       }),
     })
 
