@@ -19,6 +19,7 @@ import {
   LogOut,
   Home,
   Menu,
+  CreditCard,
 } from "lucide-react"
 
 const navSections: Array<{
@@ -44,6 +45,12 @@ const navSections: Array<{
       { href: "/admin/inbox", icon: Inbox, label: "Inbox" },
       { href: "/admin/email", icon: Mail, label: "Broadcasts" },
       { href: "/admin/blog", icon: FileText, label: "Blog" },
+    ],
+  },
+  {
+    label: "Settings",
+    items: [
+      { href: "/admin/settings/payments", icon: CreditCard, label: "Payment methods" },
     ],
   },
 ]

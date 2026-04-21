@@ -49,6 +49,15 @@ import {
   persistSquadcoLinkToOrderAction,
   verifyCardPaymentAction,
 } from '@/app/actions/squadco'
+// Enabled payment methods are admin-controlled via /admin/settings/payments.
+// We fetch them on mount so the radio list only renders the rails that
+// are currently live — disabled ones are hidden entirely, and the
+// default selection snaps to the first enabled rail.
+import { getEnabledPaymentMethodsAction } from '@/app/actions/site-settings'
+import {
+  DEFAULT_PAYMENT_TOGGLES,
+  type PaymentMethodToggles,
+} from '@/lib/payment-methods'
 
 interface CustomerInfo {
   email: string
@@ -176,6 +185,49 @@ export default function CheckoutPage() {
   // app or a crypto wallet). Zelle and USDT remain one click away for
   // shoppers who prefer them.
   const [paymentMethod, setPaymentMethod] = useState<'zelle' | 'crypto' | 'card'>('card')
+
+  // Admin-controlled payment method toggles. Default to all-enabled
+  // while the fetch is in flight so the UI doesn't flash an empty
+  // payment list for a frame. Once the real values arrive, we hide
+  // disabled tiles and auto-switch off any method the shopper had
+  // selected if it's been disabled between sessions.
+  const [enabledMethods, setEnabledMethods] = useState<PaymentMethodToggles>(
+    DEFAULT_PAYMENT_TOGGLES,
+  )
+  const [methodsLoaded, setMethodsLoaded] = useState(false)
+
+  useEffect(() => {
+    let cancelled = false
+    void (async () => {
+      try {
+        const toggles = await getEnabledPaymentMethodsAction()
+        if (cancelled) return
+        setEnabledMethods(toggles)
+        setMethodsLoaded(true)
+        // If the currently-selected method got turned off (admin change,
+        // stale component mount), snap the selection to the first
+        // enabled rail — preference order: card → zelle → crypto.
+        setPaymentMethod((current) => {
+          if (toggles[current]) return current
+          if (toggles.card) return 'card'
+          if (toggles.zelle) return 'zelle'
+          if (toggles.crypto) return 'crypto'
+          return current
+        })
+      } catch (err) {
+        console.error('[v0] Failed to load enabled payment methods:', err)
+        // Fall back to all-enabled so we don't block checkout on a
+        // transient server hiccup.
+        setMethodsLoaded(true)
+      }
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
+  const anyMethodEnabled =
+    enabledMethods.card || enabledMethods.zelle || enabledMethods.crypto
 
   // Subtotal decides free-shipping eligibility for US orders; pass it along
   // so the displayed fee matches what `placeOrderAction` will charge server-side.
@@ -1046,9 +1098,28 @@ export default function CheckoutPage() {
                           on the next screen.
                         </p>
 
+                        {methodsLoaded && !anyMethodEnabled && (
+                          /* All payment methods have been disabled from the
+                           * admin panel. Show a neutral "come back later"
+                           * message rather than a broken empty fieldset. */
+                          <div
+                            role="status"
+                            className="rounded-lg border-2 border-dashed border-border bg-muted/30 p-6 text-center"
+                          >
+                            <p className="font-medium text-foreground">
+                              Online payments are temporarily unavailable
+                            </p>
+                            <p className="text-sm text-muted-foreground mt-2 leading-relaxed">
+                              We&apos;re briefly pausing online payments. Please check
+                              back shortly, or email support to place your order manually.
+                            </p>
+                          </div>
+                        )}
+
                         <fieldset
                           className="space-y-3"
                           aria-label="Payment method"
+                          hidden={methodsLoaded && !anyMethodEnabled}
                         >
                           <legend className="sr-only">Payment method</legend>
 
@@ -1058,6 +1129,7 @@ export default function CheckoutPage() {
                            * pre-filled with the order total and redirect
                            * the customer. Our payment partner handles all
                            * card data; we never see or store it. */}
+                          {enabledMethods.card && (
                           <label
                             className={`flex items-start gap-3 rounded-lg border-2 p-4 cursor-pointer transition-colors ${
                               paymentMethod === 'card'
@@ -1105,7 +1177,9 @@ export default function CheckoutPage() {
                               </p>
                             </div>
                           </label>
+                          )}
 
+                          {enabledMethods.zelle && (
                           <label
                             className={`flex items-start gap-3 rounded-lg border-2 p-4 cursor-pointer transition-colors ${
                               paymentMethod === 'zelle'
@@ -1148,7 +1222,9 @@ export default function CheckoutPage() {
                               </p>
                             </div>
                           </label>
+                          )}
 
+                          {enabledMethods.crypto && (
                           <label
                             className={`flex items-start gap-3 rounded-lg border-2 p-4 cursor-pointer transition-colors ${
                               paymentMethod === 'crypto'
@@ -1194,6 +1270,7 @@ export default function CheckoutPage() {
                               </p>
                             </div>
                           </label>
+                          )}
                         </fieldset>
                       </CardContent>
                     </Card>
