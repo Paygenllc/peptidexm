@@ -151,9 +151,11 @@ export function Hero() {
               friction right at the decision point. */}
           <div className="mt-8 sm:mt-12 w-full sm:w-auto opacity-0 animate-[hero-fade-up_0.8s_ease-out_450ms_both]">
             <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 w-full sm:w-auto">
-              {/* Primary: commercial-intent copy ("Shop Peptides" beats the
-                  previous "View Products"), plus a soft accent-colored
-                  shadow that lifts on hover for a tactile feel. */}
+              {/* Primary: transactional copy ("Buy Now") — even stronger
+                  purchase intent than "Shop Peptides", and matches the
+                  CTA language shoppers are used to seeing on product
+                  tiles. Soft accent-colored shadow lifts on hover for
+                  a tactile feel. */}
               <Button
                 size="lg"
                 className="group relative gap-2 px-8 h-12 w-full sm:w-auto font-medium shadow-sm shadow-accent/20 transition-all hover:-translate-y-0.5 hover:shadow-md hover:shadow-accent/30 focus-visible:-translate-y-0.5"
@@ -164,7 +166,7 @@ export function Hero() {
                     className="h-4 w-4 text-current/80 transition-transform group-hover:scale-110"
                     aria-hidden="true"
                   />
-                  Shop Peptides
+                  Buy Now
                   <ArrowRight
                     className="h-4 w-4 transition-transform group-hover:translate-x-1"
                     aria-hidden="true"
