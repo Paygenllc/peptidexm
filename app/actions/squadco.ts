@@ -45,8 +45,6 @@ export async function generateSquadcoPaymentLinkAction(input: {
   try {
     // Squadco payment link creation endpoint.
     // Docs: https://docs.squadco.com/Payments/Payment-Links
-    // Note: Squadco may return the link under different field names depending
-    // on the API version. We check multiple possible locations.
     const response = await fetch('https://api.squadco.com/v1/payment_links/', {
       method: 'POST',
       headers: {
@@ -77,20 +75,33 @@ export async function generateSquadcoPaymentLinkAction(input: {
     })
 
     const responseText = await response.text()
-    console.log('[v0] Squadco response status:', response.status)
-    console.log('[v0] Squadco response body:', responseText.slice(0, 500))
+    console.log('[v0] Squadco API request:')
+    console.log('[v0]   Endpoint: https://api.squadco.com/v1/payment_links/')
+    console.log('[v0]   Method: POST')
+    console.log('[v0]   Auth: Bearer token present =', !!apiKey)
+    console.log('[v0]   API Key length:', apiKey?.length || 0)
+    console.log('[v0]   Response status:', response.status, response.statusText)
+    console.log('[v0]   Response headers:', {
+      'content-type': response.headers.get('content-type'),
+      'x-request-id': response.headers.get('x-request-id'),
+    })
+    console.log('[v0]   Response body (first 1000 chars):', responseText.slice(0, 1000))
 
     if (!response.ok) {
       try {
         const errorData = JSON.parse(responseText)
-        console.error('[v0] Squadco API error:', {
-          status: response.status,
-          statusText: response.statusText,
-          error: errorData,
-        })
+        console.error('[v0] Squadco error response:', JSON.stringify(errorData, null, 2))
       } catch {
-        console.error('[v0] Squadco API error (non-JSON):', response.status, responseText)
+        console.error('[v0] Squadco error (non-JSON):', responseText)
       }
+      
+      // 403 typically means auth issue or insufficient permissions
+      if (response.status === 403) {
+        return {
+          error: 'Authentication failed with payment provider. Please verify your API key and try again.',
+        }
+      }
+      
       return {
         error: `Payment service error (${response.status}). Please try again or contact support.`,
       }
