@@ -247,16 +247,21 @@ export function Products({ products }: { products: Product[] }) {
                 className="group overflow-hidden border-border/50 hover:border-border hover:shadow-lg transition-all duration-300"
               >
                 <CardContent className="p-0">
-                  {/* Product Image Area — now links through to the detail page. */}
+                  {/* Product Image Area — now links through to the detail page.
+                   * The baseline `scale-110` crops ~5% off each side of the
+                   * studio-shot product photos so the extra gray "framing"
+                   * around the vial doesn't read as dead whitespace inside
+                   * the card. Hover bumps to `scale-[1.15]` for the usual
+                   * zoom-on-hover effect. */}
                   <Link
                     href={href}
                     aria-label={`View ${product.name} details`}
-                    className="relative block aspect-square bg-secondary/50 overflow-hidden"
+                    className="relative block aspect-square overflow-hidden"
                   >
                     <img
                       src={product.image || "/placeholder.svg"}
                       alt={product.name}
-                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                      className="w-full h-full object-cover scale-110 group-hover:scale-[1.15] transition-transform duration-500"
                     />
 
                     {/* Top-left stack: bestseller + limited-stock urgency.
@@ -307,10 +312,6 @@ export function Products({ products }: { products: Product[] }) {
                         {product.purity}
                       </Badge>
                     </div>
-
-                    <p className="hidden sm:block text-xs sm:text-sm text-muted-foreground mb-4 line-clamp-2 leading-relaxed">
-                      {product.description}
-                    </p>
 
                     {/* Strength picker */}
                     {showStrengthPicker && (
