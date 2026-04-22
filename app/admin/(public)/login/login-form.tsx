@@ -10,7 +10,20 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { AlertCircle, Loader2 } from "lucide-react"
 
-export function LoginForm() {
+/**
+ * Auth URL set. We expose this as a prop so the same form can power
+ * both the admin entry point (`/admin/login`) and the customer
+ * entry point (`/signin`) without duplicating markup. Defaults to
+ * the admin paths so any existing callers keep working.
+ */
+export interface LoginFormPaths {
+  signupHref?: string
+  forgotPasswordHref?: string
+}
+
+export function LoginForm({
+  paths = { signupHref: "/admin/signup", forgotPasswordHref: "/admin/forgot-password" },
+}: { paths?: LoginFormPaths } = {}) {
   const searchParams = useSearchParams()
   const initialError =
     searchParams.get("error") === "auth_required"
@@ -58,7 +71,7 @@ export function LoginForm() {
             <div className="flex items-baseline justify-between gap-2">
               <Label htmlFor="password">Password</Label>
               <Link
-                href="/admin/forgot-password"
+                href={paths.forgotPasswordHref ?? "/admin/forgot-password"}
                 className="text-xs font-medium text-muted-foreground hover:text-foreground underline underline-offset-4"
                 tabIndex={-1}
               >
@@ -80,7 +93,10 @@ export function LoginForm() {
 
         <p className="text-sm text-muted-foreground mt-6 text-center">
           New to PeptideXM?{" "}
-          <Link href="/admin/signup" className="font-medium text-foreground underline underline-offset-4 hover:text-accent">
+          <Link
+            href={paths.signupHref ?? "/admin/signup"}
+            className="font-medium text-foreground underline underline-offset-4 hover:text-accent"
+          >
             Create an account
           </Link>
         </p>

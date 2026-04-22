@@ -133,7 +133,11 @@ export async function updatePasswordAction(formData: FormData) {
 export async function logoutAction() {
   const supabase = await createClient()
   await supabase.auth.signOut()
-  redirect("/admin/login")
+  // Customer-friendly sign-in URL. Works for both admins (they can
+  // sign back in here and get routed to /admin by signInAction) and
+  // shoppers. Avoids showing "admin" in the URL after a customer
+  // signs out of their account.
+  redirect("/signin")
 }
 
 /**
