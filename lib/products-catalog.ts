@@ -109,7 +109,7 @@ export const products: Product[] = [
     inStock: true,
     popular: true,
     limitedStock: true,
-    image: "/products/tirzepatide.jpg",
+    image: "/products/xm-t.jpg",
     variants: [
       ...sv("2mg", 60),
       ...sv("5mg", 80),
@@ -128,7 +128,7 @@ export const products: Product[] = [
     purity: "99.3%",
     inStock: true,
     popular: true,
-    image: "/products/semaglutide.jpg",
+    image: "/products/xm-s.jpg",
     variants: [...sv("2mg", 50), ...sv("5mg", 76), ...sv("10mg", 140)],
   },
   {
@@ -141,7 +141,7 @@ export const products: Product[] = [
     inStock: true,
     popular: true,
     limitedStock: true,
-    image: "/products/retatrutide.jpg",
+    image: "/products/xm-r.jpg",
     variants: [...sv("10mg", 180), ...sv("20mg", 260)],
   },
   {
@@ -153,7 +153,7 @@ export const products: Product[] = [
     purity: "99.0%",
     inStock: true,
     popular: false,
-    image: "/products/cagrilintide.jpg",
+    image: "/products/xm-c.jpg",
     variants: [...sv("5mg", 80), ...sv("10mg", 160)],
   },
   {
