@@ -247,12 +247,11 @@ export function Products({ products }: { products: Product[] }) {
                 className="group overflow-hidden border-border/50 hover:border-border hover:shadow-lg transition-all duration-300"
               >
                 <CardContent className="p-0">
-                  {/* Product Image Area — now links through to the detail page.
-                   * The baseline `scale-110` crops ~5% off each side of the
-                   * studio-shot product photos so the extra gray "framing"
-                   * around the vial doesn't read as dead whitespace inside
-                   * the card. Hover bumps to `scale-[1.15]` for the usual
-                   * zoom-on-hover effect. */}
+                  {/* Product Image Area — links through to the detail page.
+                   * Product photos are tightly framed already (the vial
+                   * fills ~90%+ of the image height), so the only
+                   * transform is a subtle scale-on-hover for interactive
+                   * feedback — no baseline crop needed. */}
                   <Link
                     href={href}
                     aria-label={`View ${product.name} details`}
@@ -261,7 +260,7 @@ export function Products({ products }: { products: Product[] }) {
                     <img
                       src={product.image || "/placeholder.svg"}
                       alt={product.name}
-                      className="w-full h-full object-cover scale-110 group-hover:scale-[1.15] transition-transform duration-500"
+                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
                     />
 
                     {/* Top-left stack: bestseller + limited-stock urgency.
