@@ -13,9 +13,14 @@ interface SubmitPaymentInput {
 
 // Very defensive: reject anything that looks like a product/peptide reference
 // so customers don't accidentally leak research terms into the Zelle memo.
+// The scientific names (tirzepatide/semaglutide/retatrutide/cagrilintide) stay
+// in the list because customers often still refer to the molecules that way
+// even after the XM-* rebrand, and we need the bank memo to stay clean
+// regardless of which label the customer uses.
 const FORBIDDEN_PATTERNS = [
   /peptide/i,
   /tirzepatide|semaglutide|retatrutide|cagrilintide/i,
+  /\bxm[- ]?[tsrc]\b/i,
   /bpc[- ]?157|tb[- ]?500|ghk[- ]?cu|mk[- ]?677/i,
   /research|compound|vial|kit/i,
 ]

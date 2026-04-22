@@ -39,8 +39,10 @@ const STATS: Stat[] = [
 
 // Featured compounds — shown as pill-shaped "quick jump" chips under the
 // CTAs so first-time visitors immediately see what we carry without
-// having to scroll. All link into the on-page products grid.
-const FEATURED = ["Tirzepatide", "Semaglutide", "Retatrutide", "BPC-157", "GHK-Cu"] as const
+// having to scroll. All link into the on-page products grid. The four
+// metabolic-pathway peptides are listed under their XM-* codes (see
+// lib/products-catalog.ts for the rebrand rationale).
+const FEATURED = ["XM-T", "XM-S", "XM-R", "BPC-157", "GHK-Cu"] as const
 
 export function Hero() {
   // Intersection observer drives the stat count-up so it only fires when
@@ -141,8 +143,8 @@ export function Hero() {
           </h1>
 
           <p className="mt-6 sm:mt-8 text-base sm:text-lg md:text-xl text-muted-foreground max-w-2xl text-pretty leading-relaxed opacity-0 animate-[hero-fade-up_0.8s_ease-out_300ms_both]">
-            Laboratory-tested compounds with verified purity. 47+ premium peptides including
-            Tirzepatide, Semaglutide, Retatrutide, and more. Trusted by researchers worldwide.
+            Laboratory-tested compounds with verified purity. 47+ premium peptides spanning
+            metabolic, healing, longevity, and cognitive research. Trusted by researchers worldwide.
           </p>
 
           {/* CTAs */}

@@ -37,12 +37,12 @@ export default function ShippingPage() {
 
       <h2>Cold chain</h2>
       <p>
-        Temperature-sensitive peptides — GLP-1 analogs (semaglutide,
-        tirzepatide, retatrutide, cagrilintide), IGF-1 LR3, GHK-Cu, and blends —
-        ship in insulated mailers with reusable gel ice packs sized for
-        2–3 day transit. We recommend refrigerating on arrival. If you
-        anticipate being away at delivery, reply to your order confirmation and
-        we&apos;ll hold the shipment up to seven days at no charge.
+        Temperature-sensitive peptides — our XM-series metabolic line, IGF-1
+        LR3, GHK-Cu, and blends — ship in insulated mailers with reusable gel
+        ice packs sized for 2–3 day transit. We recommend refrigerating on
+        arrival. If you anticipate being away at delivery, reply to your order
+        confirmation and we&apos;ll hold the shipment up to seven days at no
+        charge.
       </p>
 
       <h2>Discreet packaging</h2>

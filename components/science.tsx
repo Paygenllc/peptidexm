@@ -3,14 +3,14 @@ import { ArrowRight, FileText } from "lucide-react"
 
 const peptides = [
   {
-    name: "Tirzepatide",
+    name: "XM-T (Dual Pathway)",
     mechanism: "Dual GIP/GLP-1 Receptor Agonist",
     description:
       "A once-weekly dual glucose-dependent insulinotropic polypeptide (GIP) and glucagon-like peptide-1 (GLP-1) receptor agonist. Research indicates significant effects on glucose metabolism and body composition.",
     keyPoints: ["Dual receptor targeting", "Extended half-life", "Metabolic research applications"],
   },
   {
-    name: "Semaglutide",
+    name: "XM-S (GLP-1 Pathway)",
     mechanism: "GLP-1 Receptor Agonist",
     description:
       "A glucagon-like peptide-1 receptor agonist with 94% structural similarity to native GLP-1. Widely studied for its effects on glycemic control and appetite regulation in research settings.",
