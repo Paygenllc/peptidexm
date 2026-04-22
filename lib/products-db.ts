@@ -116,6 +116,47 @@ function parseVariantName(raw: string): { strength: string; form: string } {
 }
 
 /**
+ * Storefront-only filter that drops legacy seed-data variants.
+ *
+ * The DB historically had unstructured rows like `Single Vial` or
+ * `Kit of 10 Vials` at stale prices (Tirzepatide $65, Semaglutide
+ * $159.99, etc.) seeded before variants had strength prefixes. We
+ * can't delete them — `order_items.variant_id` has a foreign key
+ * to `product_variants.id`, so past orders would orphan — but we
+ * also don't want them rendered on the storefront at stale prices.
+ *
+ * A variant is considered canonical and shown if it either:
+ *   1. parses into a `{strength, form}` pair whose strength has a
+ *      digit (e.g. "15mg — Single Vial", "5000 IU — Single Vial"), or
+ *   2. is one of the handful of strength-less catalog forms that
+ *      genuinely ship without a dose — oral tablets and accessories
+ *      (e.g. "Tablets — Bottle", "100 ct — Single Pack", "30ml —
+ *      Single Bottle", "3ml × 10 — Single Box").
+ *
+ * Everything else ("Single Vial", "Kit of 10 Vials" with no strength
+ * on its left side) is a legacy row — filtered here. The filter is
+ * applied after parsing so it matches on the *structure* of the
+ * label, not on specific strings, which keeps it robust as the
+ * catalog grows.
+ */
+function isCanonicalVariant(raw: string): boolean {
+  const { strength, form } = parseVariantName(raw)
+  if (strength && /\d/.test(strength)) return true
+  // Strength-less canonical forms. These all share the "<qualifier>
+  // — <form>" shape with a non-numeric left side that's a meaningful
+  // product qualifier (tablet form, pack count, fill volume).
+  const canonicalNoStrengthForms = new Set([
+    "tablets",
+    "100 ct",
+    "30ml",
+    "3ml × 10",
+    "3ml x 10",
+    "standard",
+  ])
+  return canonicalNoStrengthForms.has(strength.toLowerCase().trim())
+}
+
+/**
  * Merge a DB variant into a storefront Variant, using any matching catalog
  * variant as the strength source. `form` matching is exact-then-case-
  * insensitive; if nothing matches, we fall back to parsing `variant_name`.
@@ -153,7 +194,26 @@ function mergeProduct(row: DbProductRow): Product {
   const slug = row.slug.trim().toLowerCase()
   const catalog = CATALOG_BY_SLUG.get(slug)
 
-  const variants = (row.product_variants ?? [])
+  // Drop legacy seed rows (e.g. unstructured "Single Vial" at stale
+  // $65 prices) before sorting/mapping. See `isCanonicalVariant` for
+  // the full rationale — short version: we can't DELETE the rows
+  // because past `order_items` FK to them, so we filter at read time.
+  const rawVariants = row.product_variants ?? []
+  const canonicalDbVariants = rawVariants.filter((v) =>
+    isCanonicalVariant(v.variant_name),
+  )
+
+  // Safety net: if a product has *no* canonical variants in the DB
+  // (e.g. bac-water still on legacy "Single Vial"/"Pack of 10 Vials"
+  // names, or tb-500 which the admin hasn't restructured yet), fall
+  // back to showing every DB row so the product still has buyable
+  // options on the storefront. This trades slightly stale labels for
+  // a broken product page; an admin can clean up the names in the
+  // admin UI to promote the product back to the canonical shape.
+  const dbVariants =
+    canonicalDbVariants.length > 0 ? canonicalDbVariants : rawVariants
+
+  const variants = dbVariants
     .slice()
     .sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0))
     .map((v, i) => mergeVariant(v, catalog?.variants, catalog?.variants?.[i]))
