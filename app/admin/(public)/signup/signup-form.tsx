@@ -10,8 +10,21 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { AlertCircle, CheckCircle2, Loader2 } from "lucide-react"
 
-export function SignupForm() {
+/**
+ * Auth URL set. Exposed as a prop so the same form powers both the
+ * admin entry point (`/admin/signup`) and the customer entry point
+ * (`/signup`) without duplicating markup. Defaults to admin paths
+ * for back-compat.
+ */
+export interface SignupFormPaths {
+  signinHref?: string
+}
+
+export function SignupForm({
+  paths = { signinHref: "/admin/login" },
+}: { paths?: SignupFormPaths } = {}) {
   const router = useRouter()
+  const signinHref = paths.signinHref ?? "/admin/login"
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState(false)
   const [submittedEmail, setSubmittedEmail] = useState<string>("")
@@ -42,7 +55,7 @@ export function SignupForm() {
             <span className="font-medium text-foreground break-all">{submittedEmail}</span>. Click
             the link to verify your account. After that, you can sign in and view your orders.
           </p>
-          <Button onClick={() => router.push("/admin/login")} className="w-full h-11">
+          <Button onClick={() => router.push(signinHref)} className="w-full h-11">
             Go to Sign In
           </Button>
         </CardContent>
@@ -98,7 +111,7 @@ export function SignupForm() {
         <p className="text-sm text-muted-foreground mt-6 text-center">
           Already have an account?{" "}
           <Link
-            href="/admin/login"
+            href={signinHref}
             className="font-medium text-foreground underline underline-offset-4 hover:text-accent"
           >
             Sign in

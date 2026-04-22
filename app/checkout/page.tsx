@@ -44,6 +44,12 @@ import { FreeShippingUpsell } from '@/components/free-shipping-upsell'
 // the primary storefront hostname.
 import { getPaymentReturnOrigin } from '@/lib/payment-return-origin'
 import { AbandonedCartTracker } from '@/components/abandoned-cart-tracker'
+// Post-purchase CTA. Renders a "Create account to track" panel for
+// guest buyers and a "View order" link for signed-in buyers. Given
+// the DB trigger that auto-links guest orders on signup by email,
+// this turns the confirmation screen into the highest-intent
+// signup moment in the funnel.
+import { PostPurchaseAccountCta } from '@/components/post-purchase-account-cta'
 // Card payment link generator. Aliased so the provider identity stays
 // abstracted at the checkout-page level — if we ever swap providers,
 // nothing else in this file has to change.
@@ -682,9 +688,13 @@ export default function CheckoutPage() {
                   <p className="text-muted-foreground text-sm sm:text-base mt-2 px-2">
                     Thank you. A confirmation email is on its way.
                   </p>
+                  {/* Account CTA — guest buyers are prompted to
+                      create an account; signed-in buyers get a
+                      direct link to the new dashboard order page. */}
+                  <PostPurchaseAccountCta orderNumber={cardReturnOrderNumber} />
                   <Link
                     href="/"
-                    className="inline-flex items-center justify-center mt-6 rounded-lg bg-accent text-accent-foreground px-5 py-2.5 text-sm font-medium hover:opacity-90 transition-opacity"
+                    className="inline-flex items-center justify-center mt-4 rounded-lg border border-border bg-background px-5 py-2.5 text-sm font-medium text-foreground hover:bg-secondary transition-colors"
                   >
                     Continue shopping
                   </Link>
@@ -739,6 +749,10 @@ export default function CheckoutPage() {
                   >
                     Check again
                   </button>
+                  {/* Same CTA as the paid state — the order is
+                      created in our DB either way, so the account
+                      will show it once it flips to paid. */}
+                  <PostPurchaseAccountCta orderNumber={cardReturnOrderNumber} />
                 </>
               )}
 
