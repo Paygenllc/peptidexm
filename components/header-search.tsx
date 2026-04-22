@@ -3,8 +3,19 @@
 import Image from "next/image"
 import { forwardRef, useCallback, useEffect, useImperativeHandle, useMemo, useRef, useState } from "react"
 import { Search, X, ArrowRight } from "lucide-react"
+import useSWR from "swr"
 import { Input } from "@/components/ui/input"
-import { products, type Product } from "@/components/products"
+import type { Product } from "@/lib/products-catalog"
+
+// Fetcher shared by every client-side product consumer so SWR dedupes
+// the request — header search + free-shipping upsell on the same
+// page will fire one network call, not two.
+const productsFetcher = async (url: string): Promise<Product[]> => {
+  const res = await fetch(url, { cache: "no-store" })
+  if (!res.ok) throw new Error(`products_fetch_failed_${res.status}`)
+  const json = (await res.json()) as { products?: Product[] }
+  return json.products ?? []
+}
 
 const MAX_RESULTS = 6
 
@@ -56,6 +67,17 @@ export const HeaderSearch = forwardRef<HeaderSearchHandle, HeaderSearchProps>(fu
   const containerRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
 
+  // Pull the live storefront product list from the JSON route. SWR
+  // dedupes across components on the same page and revalidates on
+  // focus, so admin edits show up without a page reload. We tolerate
+  // the loading state gracefully — the results array is just empty
+  // until the first fetch lands, which feels identical to "no match".
+  const { data: products } = useSWR<Product[]>("/api/products", productsFetcher, {
+    revalidateOnFocus: true,
+    dedupingInterval: 10_000,
+    fallbackData: [],
+  })
+
   useImperativeHandle(ref, () => ({
     focus: () => {
       inputRef.current?.focus()
@@ -71,14 +93,15 @@ export const HeaderSearch = forwardRef<HeaderSearchHandle, HeaderSearchProps>(fu
   const results = useMemo<ScoredProduct[]>(() => {
     const q = query.trim().toLowerCase()
     if (q.length < 1) return []
+    const list = products ?? []
     const scored: ScoredProduct[] = []
-    for (const p of products) {
+    for (const p of list) {
       const score = scoreProduct(p, q)
       if (score > 0) scored.push({ product: p, score, minPrice: minPrice(p) })
     }
     scored.sort((a, b) => b.score - a.score || a.product.name.localeCompare(b.product.name))
     return scored.slice(0, MAX_RESULTS)
-  }, [query])
+  }, [query, products])
 
   useEffect(() => {
     setActiveIdx(0)
