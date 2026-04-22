@@ -10,7 +10,6 @@ import { Input } from "@/components/ui/input"
 import { useCart } from "@/context/cart-context"
 import {
   categories,
-  products,
   productSlug,
   getUniqueStrengths,
   getFormsForStrength,
@@ -18,17 +17,18 @@ import {
   type Variant,
 } from "@/lib/products-catalog"
 
-// Re-export for backward compatibility: older modules (checkout, cart, email
-// builders, embed helpers) import `products` / `Variant` / `Product` from
-// this file. Re-exporting keeps those imports working without a site-wide
-// rewrite — the canonical source of truth is now `lib/products-catalog`.
-export { products }
+// Type re-exports stay for back-compat — downstream modules still
+// import `Product`/`Variant` from this component to keep their
+// imports shallow. The `products` data export was removed: the grid
+// now receives products as a prop (loaded server-side in app/page.tsx
+// from Supabase via lib/products-db.ts), so there's no longer a
+// compile-time product array to re-export.
 export type { Product, Variant }
 
 // Selection shape stored per product: { strength, form }
 type Selection = { strength: string; form: string }
 
-export function Products() {
+export function Products({ products }: { products: Product[] }) {
   const [selectedCategory, setSelectedCategory] = useState("All")
   const [searchQuery, setSearchQuery] = useState("")
   const [addedToCart, setAddedToCart] = useState<number[]>([])

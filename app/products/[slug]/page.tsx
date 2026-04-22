@@ -7,23 +7,19 @@ import { Header } from "@/components/header"
 import { Footer } from "@/components/footer"
 import { ProductDetail } from "@/components/product-detail"
 import { TrustStrip } from "@/components/trust-strip"
-import {
-  getAllProductSlugs,
-  getProductBySlug,
-  productSlug,
-} from "@/lib/products-catalog"
+import { productSlug } from "@/lib/products-catalog"
+// Live DB-backed product resolution. Replaces the old static catalog
+// lookup so admin edits to prices, descriptions, or availability
+// show up on the detail page without a redeploy.
+import { getStorefrontProductBySlug } from "@/lib/products-db"
 
-export const dynamic = "force-static"
-export const dynamicParams = false
-
-/**
- * Pre-render every catalog product as a static page. We control the full
- * product list at build time via `lib/products-catalog.ts`, so there's no
- * reason to hit the network on request for this route.
- */
-export function generateStaticParams() {
-  return getAllProductSlugs().map((slug) => ({ slug }))
-}
+// Detail pages are now rendered on-demand (per request) so live
+// price/stock from Supabase flows through on every navigation.
+// The old `force-static` + `generateStaticParams` combo froze the
+// page at build time, which was the second half of the "edits don't
+// save" bug — even a DB read would have been masked by the cached
+// static HTML.
+export const dynamic = "force-dynamic"
 
 /**
  * Product-level metadata improves how individual vials render when shared
@@ -34,7 +30,7 @@ export async function generateMetadata(
   { params }: { params: Promise<{ slug: string }> },
 ): Promise<Metadata> {
   const { slug } = await params
-  const product = getProductBySlug(slug)
+  const product = await getStorefrontProductBySlug(slug)
   if (!product) {
     return {
       title: "Product not found — PeptideXM",
@@ -68,7 +64,7 @@ export default async function ProductPage(
   { params }: { params: Promise<{ slug: string }> },
 ) {
   const { slug } = await params
-  const product = getProductBySlug(slug)
+  const product = await getStorefrontProductBySlug(slug)
   if (!product) notFound()
 
   return (

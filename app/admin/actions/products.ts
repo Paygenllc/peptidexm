@@ -101,10 +101,16 @@ export async function saveProductAction(input: ProductInput) {
     }
   }
 
+  // Invalidate every storefront surface that reads product data so
+  // admin edits show up instantly. The product detail route is a
+  // dynamic segment, so we revalidate the specific slug and the
+  // layout root to cover the grid, detail pages, and the public
+  // JSON endpoint (which client components pull via SWR).
   revalidatePath("/admin/products")
   revalidatePath(`/admin/products/${productId}`)
-  revalidatePath("/")
-  revalidatePath("/products")
+  revalidatePath("/", "layout")
+  revalidatePath(`/products/${input.slug}`, "page")
+  revalidatePath("/api/products")
 
   return { success: true, id: productId }
 }
@@ -113,6 +119,14 @@ export async function deleteProductAction(productId: string) {
   await requireAdmin()
 
   const supabase = await createClient()
+  // Fetch the slug first so we can narrow the detail-page revalidate
+  // after the row is gone — if we read it after delete we'd get null.
+  const { data: existing } = await supabase
+    .from("products")
+    .select("slug")
+    .eq("id", productId)
+    .maybeSingle()
+
   const { error } = await supabase.from("products").delete().eq("id", productId)
 
   if (error) {
@@ -120,7 +134,9 @@ export async function deleteProductAction(productId: string) {
   }
 
   revalidatePath("/admin/products")
-  revalidatePath("/")
+  revalidatePath("/", "layout")
+  if (existing?.slug) revalidatePath(`/products/${existing.slug}`, "page")
+  revalidatePath("/api/products")
   return { success: true }
 }
 
@@ -132,6 +148,7 @@ export async function toggleProductActiveAction(productId: string, active: boole
   if (error) return { error: error.message }
 
   revalidatePath("/admin/products")
-  revalidatePath("/")
+  revalidatePath("/", "layout")
+  revalidatePath("/api/products")
   return { success: true }
 }

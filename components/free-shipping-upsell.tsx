@@ -34,10 +34,21 @@
  */
 
 import { useMemo } from "react"
+import useSWR from "swr"
 import { useCart, type CartItem } from "@/context/cart-context"
-import { products } from "@/lib/products-catalog"
+import type { Product } from "@/lib/products-catalog"
 import { US_FREE_SHIPPING_THRESHOLD } from "@/lib/shipping"
 import { Truck, TrendingUp, Plus } from "lucide-react"
+
+// Live storefront product list. SWR dedupes across components on
+// the same page — the header search uses the same endpoint — so
+// this doesn't add a second network round-trip.
+const productsFetcher = async (url: string): Promise<Product[]> => {
+  const res = await fetch(url, { cache: "no-store" })
+  if (!res.ok) throw new Error(`products_fetch_failed_${res.status}`)
+  const json = (await res.json()) as { products?: Product[] }
+  return json.products ?? []
+}
 
 // "Single X" form labels used by the catalog. The matching bulk form
 // is always "Kit of 10 Xes", so we don't need a separate map — we
@@ -51,11 +62,26 @@ const SINGLE_FORMS = new Set([
   "Single Kit",
 ])
 
-// Preferred accessory product ids, in priority order. Bac water 30ml
-// is first because it's the single most-added accessory for any
-// lyophilised peptide; syringes second; the starter kit is third
-// because it's a larger upsell that bundles the first two.
-const PREFERRED_ADDON_IDS = [46, 48, 45, 47]
+// Preferred accessory product slugs, in priority order. Bac water
+// 30ml is first because it's the single most-added accessory for
+// any lyophilised peptide; syringes second; the starter kit third;
+// 3ml bac water last. Slug-keyed rather than id-keyed so the match
+// survives the DB-derived hashed IDs that `lib/products-db.ts`
+// emits (they don't line up with the legacy catalog's numeric ids).
+const PREFERRED_ADDON_SLUGS = [
+  "bac-water",
+  "insulin-syringes",
+  "starter-kit",
+  "bacteriostatic-water-3ml",
+]
+
+/** Matches a cart item to its product regardless of id format. */
+function findProductForCartItem(
+  item: CartItem,
+  list: Product[],
+): Product | undefined {
+  return list.find((p) => p.id === item.id || p.name === item.name)
+}
 
 type Suggestion =
   | {
@@ -96,14 +122,18 @@ function parseVariant(variant: string): { strength: string; form: string } | nul
 /**
  * If the cart item is a Single X of a product that also sells a
  * Kit of 10 at the same strength, return the kit variant + the
- * dollar delta of upgrading a single unit. Otherwise null.
+ * dollar delta of upgrading a single unit. Otherwise null. Takes
+ * the live product list as an argument because this component
+ * pulls the list via SWR — the function can't close over a
+ * module-level constant any more.
  */
 function findKitUpgrade(
   item: CartItem,
+  list: Product[],
 ): { form: string; strength: string; price: number; delta: number } | null {
   const parsed = parseVariant(item.variant)
   if (!parsed || !SINGLE_FORMS.has(parsed.form)) return null
-  const product = products.find((p) => p.id === item.id)
+  const product = findProductForCartItem(item, list)
   if (!product) return null
   const kit = product.variants.find(
     (v) => v.strength === parsed.strength && v.form.startsWith("Kit of 10"),
@@ -152,6 +182,15 @@ export function FreeShippingUpsell({
 }: FreeShippingUpsellProps) {
   const { items, total, addItem, updateQuantity } = useCart()
 
+  // Live DB product list. Empty array while loading — the suggestion
+  // memo gracefully produces nothing in that state, which is
+  // indistinguishable from a cart that simply has no good upsell.
+  const { data: productsList } = useSWR<Product[]>("/api/products", productsFetcher, {
+    revalidateOnFocus: true,
+    dedupingInterval: 10_000,
+    fallbackData: [],
+  })
+
   const remaining = US_FREE_SHIPPING_THRESHOLD - total
   const progressPct = Math.min(
     100,
@@ -160,6 +199,7 @@ export function FreeShippingUpsell({
 
   const suggestions = useMemo<Suggestion[]>(() => {
     if (remaining <= 0 || items.length === 0) return []
+    const list = productsList ?? []
 
     const candidates: Array<Suggestion & { score: number; key: string }> = []
 
@@ -167,7 +207,7 @@ export function FreeShippingUpsell({
     //    seed one candidate per eligible cart line; the scorer picks
     //    whichever one best closes the gap.
     for (const item of items) {
-      const upgrade = findKitUpgrade(item)
+      const upgrade = findKitUpgrade(item, list)
       if (!upgrade) continue
       const kitLabel = `${upgrade.strength} — ${upgrade.form}`
       candidates.push({
@@ -217,29 +257,39 @@ export function FreeShippingUpsell({
 
     // 3. Complementary accessories. Skip any product already in the
     //    cart (in any variant) so we don't suggest adding what the
-    //    shopper has already decided on.
-    const idsInCart = new Set(items.map((i) => i.id))
-    for (const id of PREFERRED_ADDON_IDS) {
-      if (idsInCart.has(id)) continue
-      const product = products.find((p) => p.id === id)
+    //    shopper has already decided on. We match on slug now (not
+    //    numeric id) so the suggestion list survives the DB-backed
+    //    id hashing.
+    const slugsInCart = new Set(
+      items
+        .map((i) => findProductForCartItem(i, list)?.slug)
+        .filter((s): s is string => !!s),
+    )
+    for (const slug of PREFERRED_ADDON_SLUGS) {
+      if (slugsInCart.has(slug)) continue
+      const product = list.find((p) => p.slug === slug)
       if (!product) continue
       const v = product.variants[0]
       if (!v) continue
       const variantLabel = `${v.strength} — ${v.form}`
+      // Product-specific descriptive copy. Keyed on slug now so
+      // the admin can't accidentally break the helper strings by
+      // renaming a product — renaming doesn't touch the slug.
+      const addonBlurb =
+        slug === "bac-water"
+          ? "For reconstituting peptides"
+          : slug === "insulin-syringes"
+            ? "1/2ml · 31G · 100 count"
+            : slug === "starter-kit"
+              ? "Syringes + bac water bundle"
+              : `${v.strength} · ${v.form}`
       candidates.push({
         kind: "addon",
         label: `Add ${product.name}`,
-        description:
-          product.id === 46
-            ? "For reconstituting peptides"
-            : product.id === 48
-              ? "1/2ml · 31G · 100 count"
-              : product.id === 45
-                ? "Syringes + bac water bundle"
-                : `${v.strength} · ${v.form}`,
+        description: addonBlurb,
         priceDelta: v.price,
         score: scoreFit(v.price, remaining),
-        key: `addon-${product.id}`,
+        key: `addon-${slug}`,
         apply: () => {
           addItem({
             id: product.id,
@@ -267,7 +317,7 @@ export function FreeShippingUpsell({
       if (deduped.length >= (compact ? 2 : 3)) break
     }
     return deduped
-  }, [items, remaining, addItem, updateQuantity, compact])
+  }, [items, remaining, addItem, updateQuantity, compact, productsList])
 
   // Qualified carts hide the whole block — nothing to upsell.
   if (remaining <= 0) return null
