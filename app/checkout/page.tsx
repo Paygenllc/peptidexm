@@ -29,7 +29,6 @@ import {
   getShippingFee,
   isUSCountry,
   amountToFreeShipping,
-  US_FREE_SHIPPING_THRESHOLD,
 } from '@/lib/shipping'
 import { ZellePaymentPanel } from '@/components/zelle-payment-panel'
 import { CryptoPaymentPanel } from '@/components/crypto-payment-panel'
@@ -1558,26 +1557,17 @@ export default function CheckoutPage() {
                           <span className="tabular-nums">${shippingFee.toFixed(2)}</span>
                         )}
                       </div>
+                      {/* Interactive upsell: progress bar + 1-click
+                          suggestions (upgrade to Kit of 10, bump
+                          quantity, or add an accessory). Matches the
+                          mobile summary below. Kept in `compact` mode
+                          because the desktop sidebar column is
+                          narrower than the mobile card and three
+                          full-width suggestion rows would overflow
+                          the sticky card. */}
                       {isUS && freeShipRemaining !== null && freeShipRemaining > 0 && (
-                        <div className="rounded-md border border-accent/20 bg-accent/5 px-3 py-2 mt-1">
-                          <p className="text-xs text-muted-foreground">
-                            You&apos;re{' '}
-                            <span className="font-semibold text-foreground tabular-nums">
-                              ${freeShipRemaining.toFixed(2)}
-                            </span>{' '}
-                            away from free US shipping.
-                          </p>
-                          <div className="mt-1.5 h-1 w-full rounded-full bg-accent/10 overflow-hidden">
-                            <div
-                              className="h-full bg-accent transition-[width] duration-300"
-                              style={{
-                                width: `${Math.min(
-                                  100,
-                                  (total / US_FREE_SHIPPING_THRESHOLD) * 100,
-                                ).toFixed(1)}%`,
-                              }}
-                            />
-                          </div>
+                        <div className="mt-1">
+                          <FreeShippingUpsell compact />
                         </div>
                       )}
                       {qualifiesForFreeShip && (
