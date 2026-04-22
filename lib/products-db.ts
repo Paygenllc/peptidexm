@@ -198,11 +198,22 @@ function mergeProduct(row: DbProductRow): Product {
   // $65 prices) before sorting/mapping. See `isCanonicalVariant` for
   // the full rationale — short version: we can't DELETE the rows
   // because past `order_items` FK to them, so we filter at read time.
-  const canonicalDbVariants = (row.product_variants ?? []).filter((v) =>
+  const rawVariants = row.product_variants ?? []
+  const canonicalDbVariants = rawVariants.filter((v) =>
     isCanonicalVariant(v.variant_name),
   )
 
-  const variants = canonicalDbVariants
+  // Safety net: if a product has *no* canonical variants in the DB
+  // (e.g. bac-water still on legacy "Single Vial"/"Pack of 10 Vials"
+  // names, or tb-500 which the admin hasn't restructured yet), fall
+  // back to showing every DB row so the product still has buyable
+  // options on the storefront. This trades slightly stale labels for
+  // a broken product page; an admin can clean up the names in the
+  // admin UI to promote the product back to the canonical shape.
+  const dbVariants =
+    canonicalDbVariants.length > 0 ? canonicalDbVariants : rawVariants
+
+  const variants = dbVariants
     .slice()
     .sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0))
     .map((v, i) => mergeVariant(v, catalog?.variants, catalog?.variants?.[i]))
