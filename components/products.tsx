@@ -247,11 +247,15 @@ export function Products({ products }: { products: Product[] }) {
                 className="group overflow-hidden border-border/50 hover:border-border hover:shadow-lg transition-all duration-300"
               >
                 <CardContent className="p-0">
-                  {/* Product Image Area — now links through to the detail page. */}
+                  {/* Product Image Area — links through to the detail page.
+                   * Product photos are tightly framed already (the vial
+                   * fills ~90%+ of the image height), so the only
+                   * transform is a subtle scale-on-hover for interactive
+                   * feedback — no baseline crop needed. */}
                   <Link
                     href={href}
                     aria-label={`View ${product.name} details`}
-                    className="relative block aspect-square bg-secondary/50 overflow-hidden"
+                    className="relative block aspect-square overflow-hidden"
                   >
                     <img
                       src={product.image || "/placeholder.svg"}
@@ -307,10 +311,6 @@ export function Products({ products }: { products: Product[] }) {
                         {product.purity}
                       </Badge>
                     </div>
-
-                    <p className="hidden sm:block text-xs sm:text-sm text-muted-foreground mb-4 line-clamp-2 leading-relaxed">
-                      {product.description}
-                    </p>
 
                     {/* Strength picker */}
                     {showStrengthPicker && (
