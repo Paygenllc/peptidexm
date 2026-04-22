@@ -181,7 +181,7 @@ export function AutoblogPanel({
                 onChange={(e) => setTopic(e.target.value)}
                 rows={3}
                 placeholder={
-                  "e.g. 'The research rationale for BPC-157 in tendon repair models' or 'How GLP-1 agonists compare: semaglutide vs tirzepatide'"
+                  "e.g. 'The research rationale for BPC-157 in tendon repair models' or 'Comparing single- vs dual-pathway GLP-1 research peptides (XM-S vs XM-T)'"
                 }
                 maxLength={500}
                 disabled={isPending}

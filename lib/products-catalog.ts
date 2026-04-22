@@ -85,12 +85,26 @@ function sv(strength: string, vialPrice: number): Variant[] {
 }
 
 export const products: Product[] = [
-  // ===== GLP-1 =====
+  // ===== Metabolic research line =====
+  //
+  // The four entries below are the rebranded GLP-1 / metabolic-pathway
+  // compounds (previously listed under the Tirzepatide / Semaglutide /
+  // Retatrutide / Cagrilintide scientific names). We moved to neutral
+  // XM-* codes in response to the FDA enforcement action on branded
+  // research-peptide marketing — the molecules themselves are
+  // unchanged. Each entry sets an explicit `slug` so URLs match the
+  // DB (`xm-t`, `xm-s`, `xm-r`, `xm-c`) rather than the slugify
+  // fallback "xm-t-dual-pathway", and the name-derived slug is
+  // auto-aliased by `PRODUCTS_BY_SLUG` for graceful fallbacks. Old
+  // slugs (tirzepatide/semaglutide/retatrutide/cagrilintide) are 301'd
+  // to the new ones at the HTTP layer in next.config.mjs so historical
+  // inbound links keep working.
   {
     id: 1,
-    name: "Tirzepatide",
+    name: "XM-T (Dual Pathway)",
+    slug: "xm-t",
     category: "GLP-1",
-    description: "Dual GIP and GLP-1 receptor agonist for metabolic research applications.",
+    description: "Dual-pathway metabolic research peptide for laboratory applications.",
     purity: "99.1%",
     inStock: true,
     popular: true,
@@ -107,9 +121,10 @@ export const products: Product[] = [
   },
   {
     id: 2,
-    name: "Semaglutide",
+    name: "XM-S (GLP-1 Pathway)",
+    slug: "xm-s",
     category: "GLP-1",
-    description: "GLP-1 receptor agonist peptide for metabolic and appetite research.",
+    description: "GLP-1 pathway research peptide for metabolic and appetite studies.",
     purity: "99.3%",
     inStock: true,
     popular: true,
@@ -118,9 +133,10 @@ export const products: Product[] = [
   },
   {
     id: 3,
-    name: "Retatrutide",
+    name: "XM-R (Triple Pathway)",
+    slug: "xm-r",
     category: "GLP-1",
-    description: "Triple agonist targeting GLP-1, GIP, and glucagon receptors.",
+    description: "Triple-pathway metabolic research peptide for laboratory applications.",
     purity: "99.2%",
     inStock: true,
     popular: true,
@@ -130,9 +146,10 @@ export const products: Product[] = [
   },
   {
     id: 4,
-    name: "Cagrilintide",
+    name: "XM-C (Amylin Support)",
+    slug: "xm-c",
     category: "GLP-1",
-    description: "Amylin analogue for appetite and metabolic research.",
+    description: "Amylin pathway research peptide for appetite and metabolic studies.",
     purity: "99.0%",
     inStock: true,
     popular: false,

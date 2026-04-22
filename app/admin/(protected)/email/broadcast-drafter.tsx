@@ -122,7 +122,7 @@ export function BroadcastDrafter({
               onChange={(e) => setTopic(e.target.value)}
               rows={3}
               placeholder={
-                "e.g. 'Announce 15% off GLP-1 peptides through Friday, include semaglutide and tirzepatide' or 'Monthly newsletter — new arrivals, restock of BPC-157, and a link to the latest research post'"
+                "e.g. 'Announce 15% off the XM-series metabolic line through Friday, include XM-S and XM-T' or 'Monthly newsletter — new arrivals, restock of BPC-157, and a link to the latest research post'"
               }
               maxLength={500}
               disabled={disabled || isPending}

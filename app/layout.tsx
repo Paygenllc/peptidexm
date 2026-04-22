@@ -20,7 +20,7 @@ const inter = Inter({
 const siteUrl = process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/$/, "") || "https://www.peptidexm.com"
 const siteName = "PeptideXM"
 const siteDescription =
-  "Premium research peptides from PeptideXM. Lab-tested Tirzepatide, Semaglutide, Retatrutide, BPC-157, Sermorelin and 45+ more compounds with 98%+ purity and fast domestic shipping."
+  "Premium research peptides from PeptideXM. Lab-tested metabolic, healing, and longevity compounds including BPC-157, Sermorelin, GHK-Cu, and our XM-series — 47+ products with 98%+ purity and fast domestic shipping."
 
 export const metadata: Metadata = {
   metadataBase: new URL(siteUrl),
@@ -33,22 +33,25 @@ export const metadata: Metadata = {
   // NOTE: We intentionally do NOT set `generator` here. Leaving it
   // unset (or non-"v0") prevents Chrome's PWA / app-shortcut detection
   // from surfacing the build-tool brand instead of our own site name.
+  // Keywords intentionally drop the branded-molecule names
+  // (Tirzepatide/Semaglutide/Retatrutide/Cagrilintide) in response
+  // to the FDA enforcement action on research-peptide marketing. SEO
+  // terms shift to pathway-based and generic-compound descriptors.
   keywords: [
     "research peptides",
-    "buy peptides",
-    "Tirzepatide",
-    "Semaglutide",
-    "Retatrutide",
-    "Cagrilintide",
+    "buy research peptides",
     "BPC-157",
     "TB-500",
     "Sermorelin",
     "Ipamorelin",
-    "GLP-1 research",
     "GHK-Cu",
     "Epithalon",
     "NAD+",
     "MK-677",
+    "metabolic research peptides",
+    "dual pathway peptide",
+    "GLP-1 pathway research",
+    "amylin pathway research",
     "PeptideXM",
   ],
   authors: [{ name: "PeptideXM" }],

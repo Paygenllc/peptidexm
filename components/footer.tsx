@@ -14,9 +14,9 @@ import {
 
 const navigation = {
   products: [
-    { name: "Tirzepatide", href: "/products/tirzepatide" },
-    { name: "Semaglutide", href: "/products/semaglutide" },
-    { name: "Retatrutide", href: "/products/retatrutide" },
+    { name: "XM-T (Dual Pathway)", href: "/products/xm-t" },
+    { name: "XM-S (GLP-1 Pathway)", href: "/products/xm-s" },
+    { name: "XM-R (Triple Pathway)", href: "/products/xm-r" },
     { name: "BPC-157", href: "/products/bpc-157" },
     { name: "All 47+ Products", href: "/#products" },
   ],
