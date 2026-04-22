@@ -38,6 +38,11 @@ import { ZelleLogo, TetherLogo, PaypalLogo, CardBrandRow } from '@/components/pa
 // Replaces the passive "Add $X more" text that used to live in the
 // order summary card with something shoppers can actually act on.
 import { FreeShippingUpsell } from '@/components/free-shipping-upsell'
+// Resolves the public origin we hand to Squadco/PayPal as the return
+// URL. Reads NEXT_PUBLIC_PAYMENT_RETURN_ORIGIN when set so the
+// merchant dashboard can display a neutral alias domain instead of
+// the primary storefront hostname.
+import { getPaymentReturnOrigin } from '@/lib/payment-return-origin'
 import { AbandonedCartTracker } from '@/components/abandoned-cart-tracker'
 // Card payment link generator. Aliased so the provider identity stays
 // abstracted at the checkout-page level — if we ever swap providers,
@@ -408,7 +413,13 @@ export default function CheckoutPage() {
         // Step 2 — generate the payment link. The redirect URL carries
         // the real order_number so the return-trip verify has something
         // to key off of.
-        const redirectBase = typeof window !== 'undefined' ? window.location.origin : ''
+        //
+        // We route through getPaymentReturnOrigin() rather than raw
+        // window.location.origin so merchants can point redirects at
+        // a neutral alias domain — Squadco's merchant dashboard shows
+        // this exact URL on every order, so hiding the primary store
+        // domain here is a common privacy preference.
+        const redirectBase = getPaymentReturnOrigin()
         const linkResult = await generateCardPaymentLinkAction({
           orderNumber: realOrderNumber,
           amountCents: Math.round(orderTotal * 100),
@@ -504,8 +515,10 @@ export default function CheckoutPage() {
         const realOrderNumber = orderResult.orderNumber || ''
         const realOrderId = orderResult.orderId || ''
 
-        const redirectBase =
-          typeof window !== 'undefined' ? window.location.origin : ''
+        // Use the configured public return origin (env override or
+        // window.location.origin fallback) so PayPal's dashboard
+        // displays the same neutral domain the Squadco path uses.
+        const redirectBase = getPaymentReturnOrigin()
 
         const paypalResult = await startPaypalCheckoutAction({
           orderId: realOrderId,
