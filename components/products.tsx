@@ -244,7 +244,14 @@ export function Products({ products }: { products: Product[] }) {
             return (
               <Card
                 key={product.id}
-                className="group overflow-hidden border-border/50 hover:border-border hover:shadow-lg transition-all duration-300"
+                // `py-0 gap-0` neutralizes the shadcn Card defaults
+                // (py-6, gap-6) that were reserving vertical padding
+                // above the image and between the image and the text
+                // block. The image now sits flush with the top of the
+                // rounded card, and our own CardContent padding
+                // (px-5 sm:px-6 py-4 sm:py-5) handles the breathing
+                // room around the name/price/pickers.
+                className="group overflow-hidden border-border/50 hover:border-border hover:shadow-lg transition-all duration-300 py-0 gap-0"
               >
                 <CardContent className="p-0">
                   {/* Product Image Area — links through to the detail page.
