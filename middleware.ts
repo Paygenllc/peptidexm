@@ -62,7 +62,17 @@ function getPrimaryOrigin(request: NextRequest): string {
  * stealth host so the capture succeeds, then its internal redirect
  * bounces the shopper to the primary origin via this same middleware.
  */
-const STEALTH_ALLOWLIST = new Set<string>(['/api/paypal/return'])
+const STEALTH_ALLOWLIST = new Set<string>([
+  '/api/paypal/return',
+  // Squadco POSTs charge-confirmation webhooks to whatever URL is
+  // configured in their merchant dashboard. That URL tends to match
+  // the redirect URL (same "keep the primary storefront out of the
+  // dashboard" motivation), so we allow the webhook to execute on
+  // the stealth host too. The handler doesn't issue any redirects,
+  // it just updates the DB and 200s, so there's no interaction with
+  // the /checkout redirect rule above.
+  '/api/squadco/webhook',
+])
 
 export async function middleware(request: NextRequest) {
   const stealthHost = getStealthHost()
