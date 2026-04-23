@@ -1,11 +1,12 @@
 'use client'
 
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { useCart } from '@/context/cart-context'
 import { Button } from '@/components/ui/button'
 import { X, Trash2, Plus, Minus, ShoppingBag, Truck, Check } from 'lucide-react'
 import Link from 'next/link'
 import { US_FREE_SHIPPING_THRESHOLD } from '@/lib/shipping'
+import { getFreeShippingEnabledAction } from '@/app/actions/site-settings'
 
 interface CartSidebarProps {
   isOpen: boolean
@@ -14,6 +15,37 @@ interface CartSidebarProps {
 
 export function CartSidebar({ isOpen, onClose }: CartSidebarProps) {
   const { items, removeItem, updateQuantity, total, itemCount } = useCart()
+
+  // Mirror of the site-wide free-shipping override flag stored in
+  // site_settings. When on, we replace the "you're $X away from free
+  // shipping" progress bar with a flat "Free shipping on all orders"
+  // confirmation, since the progress bar would be meaningless. We
+  // fetch it the first time the sidebar opens so we don't issue the
+  // read on every page load for shoppers who never open their cart.
+  const [freeShippingOverride, setFreeShippingOverride] = useState(false)
+  const [overrideLoaded, setOverrideLoaded] = useState(false)
+  useEffect(() => {
+    if (!isOpen || overrideLoaded) return
+    let cancelled = false
+    void (async () => {
+      try {
+        const enabled = await getFreeShippingEnabledAction()
+        if (!cancelled) {
+          setFreeShippingOverride(enabled)
+          setOverrideLoaded(true)
+        }
+      } catch (err) {
+        console.error('[v0] cart-sidebar free-shipping read error:', err)
+        // Fail closed — same as the server reader. A missed $0
+        // promotion confirmation is a better failure mode than
+        // promising free shipping that the server then charges for.
+        setOverrideLoaded(true)
+      }
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [isOpen, overrideLoaded])
 
   // Lock body scroll when sidebar is open
   useEffect(() => {
@@ -179,8 +211,20 @@ export function CartSidebar({ isOpen, onClose }: CartSidebarProps) {
               {/* Free US shipping progress — shown before the checkout step
                 * picks a country, so we assume US (our default). International
                 * shoppers still see a reasonable hint and the real rate at
-                * checkout once they select their country. */}
-              {total < US_FREE_SHIPPING_THRESHOLD ? (
+                * checkout once they select their country.
+                *
+                * If the admin has flipped on the site-wide free-shipping
+                * override, we skip the progress UI entirely and render a
+                * flat confirmation so shoppers aren't teased with a bar
+                * they already filled. */}
+              {freeShippingOverride ? (
+                <div className="rounded-lg border border-accent/30 bg-accent/10 px-3 py-2.5 flex items-center gap-2">
+                  <Truck className="h-4 w-4 text-accent shrink-0" aria-hidden="true" />
+                  <p className="text-xs font-medium text-foreground">
+                    Free shipping on all orders.
+                  </p>
+                </div>
+              ) : total < US_FREE_SHIPPING_THRESHOLD ? (
                 <div className="rounded-lg border border-accent/20 bg-accent/5 px-3 py-2.5">
                   <div className="flex items-start gap-2">
                     <Truck className="h-4 w-4 text-accent shrink-0 mt-0.5" aria-hidden="true" />

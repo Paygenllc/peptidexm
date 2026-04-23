@@ -71,7 +71,10 @@ import { startPaypalCheckoutAction } from '@/app/actions/paypal'
 // We fetch them on mount so the radio list only renders the rails that
 // are currently live — disabled ones are hidden entirely, and the
 // default selection snaps to the first enabled rail.
-import { getEnabledPaymentMethodsAction } from '@/app/actions/site-settings'
+  import {
+    getEnabledPaymentMethodsAction,
+    getFreeShippingEnabledAction,
+  } from '@/app/actions/site-settings'
 import {
   DEFAULT_PAYMENT_TOGGLES,
   type PaymentMethodToggles,
@@ -278,13 +281,29 @@ export default function CheckoutPage() {
   )
   const [methodsLoaded, setMethodsLoaded] = useState(false)
 
+  // Site-wide free-shipping override, controlled from
+  // /admin/settings/shipping. When true, getShippingFee returns 0 for
+  // every destination regardless of cart subtotal. We default to
+  // `false` during the initial fetch so the displayed fee matches the
+  // server-authoritative value once the call completes — overshooting
+  // (showing $0 that later becomes $X) would be a worse UX bug than
+  // the brief fee flash in the other direction.
+  const [freeShippingOverride, setFreeShippingOverride] = useState(false)
+
   useEffect(() => {
     let cancelled = false
+    // Parallel-fetch both site settings. They're independent reads
+    // against the same `site_settings` table so issuing them together
+    // shaves a network round-trip off the checkout load.
     void (async () => {
       try {
-        const toggles = await getEnabledPaymentMethodsAction()
+        const [toggles, freeShip] = await Promise.all([
+          getEnabledPaymentMethodsAction(),
+          getFreeShippingEnabledAction(),
+        ])
         if (cancelled) return
         setEnabledMethods(toggles)
+        setFreeShippingOverride(freeShip)
         setMethodsLoaded(true)
         // If the currently-selected method got turned off (admin change,
         // stale component mount), snap the selection to the first
@@ -423,10 +442,22 @@ export default function CheckoutPage() {
 
   // Subtotal decides free-shipping eligibility for US orders; pass it along
   // so the displayed fee matches what `placeOrderAction` will charge server-side.
-  const shippingFee = getShippingFee(customerInfo.country, total)
+  // The `freeShippingOverride` flag wins over everything else — when the
+  // admin has flipped the site-wide toggle on, shipping is $0 regardless
+  // of destination or cart value.
+  const shippingFee = getShippingFee(
+    customerInfo.country,
+    total,
+    freeShippingOverride,
+  )
   const isUS = isUSCountry(customerInfo.country)
-  const freeShipRemaining = amountToFreeShipping(customerInfo.country, total)
-  const qualifiesForFreeShip = isUS && shippingFee === 0
+  // When the override is on, nobody is "$X away from free shipping" —
+  // they already have it. Short-circuit so the upsell banner doesn't
+  // render a nagging progress bar the shopper can never interact with.
+  const freeShipRemaining = freeShippingOverride
+    ? 0
+    : amountToFreeShipping(customerInfo.country, total)
+  const qualifiesForFreeShip = freeShippingOverride || (isUS && shippingFee === 0)
   const orderTotal = total + shippingFee
 
   const validateInfo = (): boolean => {
