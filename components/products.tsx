@@ -367,19 +367,43 @@ export function Products({ products }: { products: Product[] }) {
                         <div className="flex flex-wrap gap-1 sm:gap-1.5">
                           {forms.map((f) => {
                             const active = f === sel?.form
+                            // "Kit of 10 Vials" is now priced at exactly
+                            // 9× the single-vial price, a deliberate
+                            // "buy 9, get 1 free" structure (10% off
+                            // vs. 10 singles). We surface that savings
+                            // directly on the option pill so customers
+                            // see the deal before selecting — most
+                            // e-commerce instincts tell users a bulk
+                            // pack saves money, but they don't know HOW
+                            // much unless we say it. Keeping the badge
+                            // compact (inline, bullet-separated) so
+                            // the pill doesn't bloat on mobile.
+                            const isKit = /kit of 10/i.test(f)
                             return (
                               <button
                                 key={f}
                                 type="button"
                                 onClick={() => setForm(product.id, f)}
                                 aria-pressed={active}
-                                className={`h-7 sm:h-8 px-2 sm:px-3 rounded-full text-[11px] sm:text-xs font-medium border transition-colors ${
+                                className={`h-7 sm:h-8 px-2 sm:px-3 rounded-full text-[11px] sm:text-xs font-medium border transition-colors inline-flex items-center gap-1 sm:gap-1.5 ${
                                   active
                                     ? "bg-primary text-primary-foreground border-primary"
                                     : "bg-background text-foreground border-border hover:border-foreground/40"
                                 }`}
                               >
-                                {f}
+                                <span>{f}</span>
+                                {isKit && (
+                                  <span
+                                    className={`text-[9px] sm:text-[10px] font-semibold uppercase tracking-wide px-1 sm:px-1.5 py-0.5 rounded-full leading-none ${
+                                      active
+                                        ? "bg-primary-foreground/20 text-primary-foreground"
+                                        : "bg-accent/10 text-accent"
+                                    }`}
+                                    aria-label="10 percent off compared to buying 10 single vials"
+                                  >
+                                    10% off
+                                  </span>
+                                )}
                               </button>
                             )
                           })}
