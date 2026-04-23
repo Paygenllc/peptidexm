@@ -3,6 +3,7 @@
 import { createAdminClient } from "@/lib/supabase/admin"
 import { createClient } from "@/lib/supabase/server"
 import { getShippingFee } from "@/lib/shipping"
+import { getFreeShippingEnabled } from "@/lib/shipping.server"
 import {
   sendOrderPlacedAdminEmail,
   sendOrderPlacedCustomerEmail,
@@ -94,9 +95,15 @@ export async function placeOrderAction(input: PlaceOrderInput) {
   }
 
   const subtotal = input.items.reduce((sum, i) => sum + i.unitPrice * i.quantity, 0)
+  // Resolve the site-wide free-shipping override from site_settings.
+  // This is the authoritative pricing path — client values are never
+  // trusted, and the admin's toggle in /admin/settings/shipping is the
+  // single source of truth for whether this order gets comped shipping.
+  const freeShippingOverride = await getFreeShippingEnabled()
   // Pass subtotal so US orders at/over the free-shipping threshold get $0
-  // shipping server-side — client values are never trusted for pricing.
-  const shipping = getShippingFee(input.country, subtotal)
+  // shipping server-side, and pass the override so every destination
+  // (US + international) respects the admin flip when it's on.
+  const shipping = getShippingFee(input.country, subtotal, freeShippingOverride)
   const tax = 0
   const total = subtotal + shipping + tax
 

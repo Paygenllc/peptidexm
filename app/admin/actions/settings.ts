@@ -14,6 +14,7 @@ import {
   PAYMENT_METHOD_SETTING_KEYS,
   type PaymentMethodKey,
 } from "@/lib/payment-methods"
+import { FREE_SHIPPING_SETTING_KEY } from "@/lib/shipping.server"
 
 /**
  * Admin-only: flip a payment method on or off.
@@ -78,5 +79,65 @@ export async function setPaymentMethodEnabledAction(input: {
   } catch (err) {
     console.error("[v0] setPaymentMethodEnabledAction threw:", err)
     return { ok: false, error: "Could not update payment setting." }
+  }
+}
+
+/**
+ * Admin-only: flip the global free-shipping override on or off.
+ *
+ * When ON, every order ships at $0 regardless of destination or cart
+ * subtotal. The server-side `getShippingFee(..., forceFree)` call sites
+ * in `place-order.ts` and the checkout page read this flag from
+ * site_settings, so toggling it here takes effect immediately for
+ * every new order — there's no per-order "mark as free shipping"
+ * checkbox to forget to tick.
+ *
+ * This is a blunt instrument: use it for site-wide promos, not for
+ * targeted coupon codes. For a per-cart-threshold experience, the
+ * US_FREE_SHIPPING_THRESHOLD in lib/shipping.ts already handles it.
+ */
+export async function setFreeShippingEnabledAction(input: {
+  enabled: boolean
+}): Promise<{ ok: true } | { ok: false; error: string }> {
+  await requireAdmin()
+
+  try {
+    const sessionClient = await createClient()
+    const { data: authUser } = await sessionClient.auth.getUser()
+
+    const admin = createAdminClient()
+
+    const { error } = await admin.from("site_settings").upsert(
+      {
+        key: FREE_SHIPPING_SETTING_KEY,
+        value: input.enabled,
+        updated_at: new Date().toISOString(),
+        updated_by: authUser?.user?.id ?? null,
+      },
+      { onConflict: "key" },
+    )
+
+    if (error) {
+      console.error(
+        "[v0] setFreeShippingEnabledAction error:",
+        error.message,
+      )
+      return { ok: false, error: error.message }
+    }
+
+    // Revalidate every surface that prices shipping. The checkout and
+    // cart surfaces re-read on render; the admin page renders the
+    // toggle itself, so it needs to reflect the new state too.
+    revalidatePath("/admin/settings/shipping")
+    revalidatePath("/checkout")
+    // The cart sidebar is rendered inside the site header, which lives
+    // in the root layout — revalidate "/" to bust the prerendered
+    // storefront shell that includes it.
+    revalidatePath("/", "layout")
+
+    return { ok: true }
+  } catch (err) {
+    console.error("[v0] setFreeShippingEnabledAction threw:", err)
+    return { ok: false, error: "Could not update shipping setting." }
   }
 }

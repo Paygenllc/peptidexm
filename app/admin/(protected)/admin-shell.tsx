@@ -20,6 +20,7 @@ import {
   Home,
   Menu,
   CreditCard,
+  Truck,
 } from "lucide-react"
 
 const navSections: Array<{
@@ -51,6 +52,7 @@ const navSections: Array<{
     label: "Settings",
     items: [
       { href: "/admin/settings/payments", icon: CreditCard, label: "Payment methods" },
+      { href: "/admin/settings/shipping", icon: Truck, label: "Shipping" },
     ],
   },
 ]
