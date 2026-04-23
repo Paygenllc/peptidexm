@@ -74,13 +74,20 @@ export const categories = [
 
 /**
  * Helper for building standard peptide variant pairs: a single vial at
- * `vialPrice` plus a kit-of-ten at 4.5× the vial price (a 55% bulk discount
- * vs. buying 10 single vials).
+ * `vialPrice` plus a kit-of-ten at 9× the vial price — effectively a
+ * "buy 9, get 1 free" bulk offer (10% off vs. 10 single vials).
+ *
+ * Kept as a helper so the peptide vials stay in sync: any future price
+ * adjustment flows through one multiplier. Accessories and non-vial
+ * bulk packs (bac-water 30ml, bac-water 3ml, starter-kit, syringes)
+ * are intentionally priced by hand in the DB and do not use this
+ * helper — their bulk discounts are tuned separately based on retail
+ * realities for those SKUs.
  */
 function sv(strength: string, vialPrice: number): Variant[] {
   return [
     { strength, form: "Single Vial", price: vialPrice },
-    { strength, form: "Kit of 10 Vials", price: Math.round(vialPrice * 4.5) },
+    { strength, form: "Kit of 10 Vials", price: Math.round(vialPrice * 9) },
   ]
 }
 
