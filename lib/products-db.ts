@@ -236,6 +236,14 @@ function mergeProduct(row: DbProductRow): Product {
     limitedStock: catalog?.limitedStock,
     image: row.image_url || catalog?.image || "/placeholder.svg",
     variants,
+    // Hidden search aliases (e.g. "tirzepatide" → XM-T) are a
+    // storefront-only concern that lives in the static catalog —
+    // the admin UI doesn't expose them and the DB has no column
+    // for them. Without this line the DB bridge would strip them
+    // out on every request, which is why the header search and
+    // the products-grid filter were silently ignoring molecule
+    // names even though the catalog had them defined.
+    searchAliases: catalog?.searchAliases,
   }
 }
 
