@@ -35,11 +35,20 @@ export function isUSCountry(country: string | null | undefined): boolean {
  * `subtotal` is optional so older call sites that don't know the cart value
  * keep working — they simply won't get the US free-shipping discount. New
  * call sites (checkout, place-order, cart) always pass it.
+ *
+ * `forceFree` is the global free-shipping override, driven by the
+ * `shipping_free_all_enabled` flag in `public.site_settings`. When the
+ * admin flips this on from the Shipping settings page, every destination
+ * (US and international) and every subtotal ships at $0. This is a
+ * blunt-instrument promo — use for site-wide campaigns, not granular
+ * coupon codes.
  */
 export function getShippingFee(
   country: string | null | undefined,
   subtotal?: number,
+  forceFree?: boolean,
 ): number {
+  if (forceFree) return 0
   if (isUSCountry(country)) {
     if (typeof subtotal === "number" && subtotal >= US_FREE_SHIPPING_THRESHOLD) {
       return 0
