@@ -153,6 +153,12 @@ export default function CheckoutPage() {
   const [cardReturnState, setCardReturnState] =
     useState<'idle' | 'verifying' | 'paid' | 'pending' | 'failed'>('idle')
   const [cardReturnOrderNumber, setCardReturnOrderNumber] = useState<string | null>(null)
+  // Squad iframe state. When the user chooses card payment, we generate
+  // the link and render it inside an iframe on this page instead of
+  // redirecting away. This keeps the shopper on the site throughout
+  // the entire checkout flow and hides the Squad branding.
+  const [squadIframeUrl, setSquadIframeUrl] = useState<string | null>(null)
+  const [showSquadIframe, setShowSquadIframe] = useState(false)
 
   // When the customer comes back from Squadco, the URL carries
   //   ?card_success=true&order=<order_number>
@@ -309,6 +315,112 @@ export default function CheckoutPage() {
   const anyMethodEnabled =
     enabledMethods.card || enabledMethods.zelle || enabledMethods.crypto || enabledMethods.paypal
 
+  // While the Squad payment iframe is open, poll the verify endpoint
+  // every few seconds. Squad's iframe can navigate through several
+  // cross-origin screens (card entry, 3DS challenge, success page),
+  // which means we can't reliably observe its URL from JS. Polling
+  // the verify endpoint is the most robust way to react to the actual
+  // payment outcome — as soon as Squad reports success/failure on
+  // their side, we flip this page to the corresponding state panel.
+  //
+  // We stop polling the moment we see a terminal status (paid | failed)
+  // or when the iframe is closed by the shopper. A 3-second cadence is
+  // a good balance between "feels instant" and "not hammering the API".
+  useEffect(() => {
+    if (!showSquadIframe || !cardReturnOrderNumber) return
+
+    let cancelled = false
+    const orderNumber = cardReturnOrderNumber
+
+    const poll = async () => {
+      if (cancelled) return
+      try {
+        const result = await verifyCardPaymentAction({ orderNumber })
+        if (cancelled) return
+        if (!result.ok) {
+          // Non-fatal: server will keep reporting until Squad has a
+          // definitive answer. Try again on the next tick.
+          return
+        }
+        if (result.status === 'paid') {
+          // Payment settled. Close the iframe, clear the cart, and
+          // flip into the success panel. This is the happy path that
+          // makes the whole iframe flow worthwhile — no redirect, no
+          // wait, just an inline confirmation.
+          clearCart()
+          setShowSquadIframe(false)
+          setSquadIframeUrl(null)
+          setStep('success')
+          setCardReturnState('paid')
+          cancelled = true
+        } else if (result.status === 'failed') {
+          // Explicit fail — close the iframe and show the retry panel.
+          setShowSquadIframe(false)
+          setSquadIframeUrl(null)
+          setStep('success')
+          setCardReturnState('failed')
+          cancelled = true
+        }
+        // pending | partial — keep polling. The shopper may still be
+        // entering their card details, going through 3DS, etc.
+      } catch (err) {
+        console.error('[v0] Squad iframe poll error:', err)
+      }
+    }
+
+    // Fire one immediately so we don't wait 3s for the first check,
+    // then settle into an interval.
+    void poll()
+    const interval = setInterval(() => {
+      void poll()
+    }, 3000)
+
+    return () => {
+      cancelled = true
+      clearInterval(interval)
+    }
+  }, [showSquadIframe, cardReturnOrderNumber, clearCart])
+
+  // If the Squad iframe happens to be same-origin when it lands on our
+  // return URL (it redirects to `${redirectBase}/checkout?card_success=...`,
+  // which IS our origin on the primary storefront), we can short-circuit
+  // the polling by reading its pathname on load. Cross-origin accesses
+  // throw, so we swallow and let the polling handle it.
+  const handleIframeLoad = (e: React.SyntheticEvent<HTMLIFrameElement>) => {
+    try {
+      const iframe = e.currentTarget
+      const href = iframe.contentWindow?.location.href
+      if (!href) return
+      if (href.includes('card_success=true') && cardReturnOrderNumber) {
+        // Iframe reached our return URL. Trigger an immediate verify
+        // instead of waiting for the next poll tick.
+        void (async () => {
+          try {
+            const result = await verifyCardPaymentAction({
+              orderNumber: cardReturnOrderNumber,
+            })
+            if (result.ok && result.status === 'paid') {
+              clearCart()
+              setShowSquadIframe(false)
+              setSquadIframeUrl(null)
+              setStep('success')
+              setCardReturnState('paid')
+            } else if (result.ok && result.status === 'failed') {
+              setShowSquadIframe(false)
+              setSquadIframeUrl(null)
+              setStep('success')
+              setCardReturnState('failed')
+            }
+          } catch (err) {
+            console.error('[v0] Iframe-return verify error:', err)
+          }
+        })()
+      }
+    } catch {
+      // Cross-origin — can't read the iframe. Polling will catch it.
+    }
+  }
+
   // Subtotal decides free-shipping eligibility for US orders; pass it along
   // so the displayed fee matches what `placeOrderAction` will charge server-side.
   const shippingFee = getShippingFee(customerInfo.country, total)
@@ -464,11 +576,20 @@ export default function CheckoutPage() {
         setPlacedOrderNumber(realOrderNumber || null)
         setPlacedOrderId(realOrderId || null)
         setPlacedOrderTotal(orderTotal)
+        setCardReturnOrderNumber(realOrderNumber)
 
-        // Step 4 — off to the hosted payment page.
-        if (typeof window !== 'undefined') {
-          window.location.href = linkResult.url
-        }
+        // Step 4 — open the Squad payment page inside an iframe on this
+        // very checkout page instead of redirecting the customer away.
+        // Keeping the shopper on peptidexm throughout the entire flow
+        // is a big conversion win (no "what site am I on?" anxiety)
+        // and also means the Squad branding in the browser URL bar
+        // never flashes in front of them. We then poll the verify
+        // endpoint while the iframe is open so we react to the charge
+        // the instant Squad settles it, regardless of whether the
+        // iframe itself redirects anywhere we can observe.
+        setSquadIframeUrl(linkResult.url)
+        setShowSquadIframe(true)
+        setIsProcessing(false)
         return
       } catch (err) {
         console.error('[v0] Card payment flow error:', err)
@@ -629,6 +750,62 @@ export default function CheckoutPage() {
 
   return (
   <div className="min-h-screen bg-secondary/30 py-6 sm:py-12">
+  {/* Squad payment iframe overlay. Rendered as a full-screen modal
+   * sized to comfortably accommodate Squad's checkout dialog (which
+   * is tall because of card entry + 3DS flows). We do NOT expose the
+   * Squad URL anywhere in the UI — no "powered by Squad" text, no
+   * "continue to squad" button, no open-in-new-tab link. The iframe
+   * sandbox is intentionally permissive (`allow-forms allow-scripts
+   * allow-same-origin allow-top-navigation-by-user-activation`) so
+   * Squad's 3DS redirects work, but we trust the URL because we
+   * generated it ourselves server-side via our own secret key. */}
+  {showSquadIframe && squadIframeUrl && (
+    <div
+      className="fixed inset-0 z-[100] flex items-center justify-center bg-background/95 backdrop-blur-sm p-2 sm:p-4"
+      role="dialog"
+      aria-modal="true"
+      aria-label="Complete your payment"
+    >
+      <div className="relative w-full max-w-md h-[92vh] sm:h-[88vh] sm:max-h-[720px] rounded-2xl overflow-hidden border-2 border-border bg-card shadow-2xl flex flex-col">
+        {/* Header bar inside the modal. A subtle lock icon +
+         * "Secure Payment" label communicates trust without
+         * surfacing the Squad brand. The close button lets the
+         * shopper bail out and return to the checkout form
+         * (their cart and form data are preserved). */}
+        <div className="flex items-center justify-between px-4 py-3 border-b border-border bg-background shrink-0">
+          <div className="flex items-center gap-2 text-sm font-medium">
+            <Lock className="h-4 w-4 text-accent" aria-hidden="true" />
+            <span>Secure Payment</span>
+          </div>
+          <button
+            type="button"
+            onClick={() => {
+              setShowSquadIframe(false)
+              setSquadIframeUrl(null)
+            }}
+            className="text-xs text-muted-foreground hover:text-foreground transition-colors px-2 py-1 rounded-md hover:bg-secondary"
+            aria-label="Cancel payment and return to checkout"
+          >
+            Cancel
+          </button>
+        </div>
+        {/* The iframe itself. `flex-1` makes it fill all remaining
+         * modal height, which is what keeps Squad's dialog from
+         * scrolling awkwardly inside a too-short frame. The light
+         * background matches Squad's own page so the seams are
+         * invisible during the brief load flash. */}
+        <iframe
+          src={squadIframeUrl}
+          title="Payment"
+          onLoad={handleIframeLoad}
+          className="w-full flex-1 border-0 bg-background"
+          sandbox="allow-forms allow-scripts allow-same-origin allow-top-navigation-by-user-activation allow-popups"
+          referrerPolicy="no-referrer"
+          allow="payment"
+        />
+      </div>
+    </div>
+  )}
   {/* Persist the in-progress cart so we can nudge the shopper by email
    * if they don't complete checkout. Only active before the order is
    * placed — afterwards the row is marked recovered server-side. */}
