@@ -253,7 +253,15 @@ export function Products({ products }: { products: Product[] }) {
                 // room around the name/price/pickers.
                 className="group overflow-hidden border-border/50 hover:border-border hover:shadow-lg transition-all duration-300 py-0 gap-0"
               >
-                <CardContent className="p-0">
+                {/* `flex flex-col flex-1` lets the CardContent claim all
+                 * remaining vertical space in the Card, so the inner
+                 * text block (below) can flex-grow and pin its last row
+                 * (price + Add button) to the bottom of the card via
+                 * `mt-auto`. Without this, cards in the same row share
+                 * the same height (grid stretches them) but their price
+                 * rows land at different y-positions because the pickers
+                 * above vary per product. */}
+                <CardContent className="p-0 flex flex-col flex-1">
                   {/* Product Image Area — links through to the detail page.
                    * Product photos are tightly framed already (the vial
                    * fills ~90%+ of the image height), so the only
@@ -303,8 +311,10 @@ export function Products({ products }: { products: Product[] }) {
                     )}
                   </Link>
 
-                  {/* Product Details */}
-                  <div className="p-3 sm:p-5">
+                  {/* Product Details — `flex flex-col flex-1` pairs with
+                   * the `mt-auto` on the price/button row below to align
+                   * that last row across all cards in a grid row. */}
+                  <div className="p-3 sm:p-5 flex flex-col flex-1">
                     <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-1 sm:gap-2 mb-2">
                       <div className="min-w-0">
                         <h3 className="font-medium text-sm sm:text-lg text-foreground group-hover:text-accent transition-colors truncate">
@@ -388,7 +398,11 @@ export function Products({ products }: { products: Product[] }) {
                       </p>
                     )}
 
-                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 sm:gap-3">
+                    {/* `mt-auto` pushes the price+Add row to the bottom
+                     * of the flex column so it aligns horizontally with
+                     * the same row in neighboring cards, regardless of
+                     * how many pickers sit above it. */}
+                    <div className="mt-auto flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 sm:gap-3">
                       <span className="font-serif text-lg sm:text-2xl text-foreground tabular-nums">
                         ${price.toFixed(2)}
                       </span>
