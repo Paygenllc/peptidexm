@@ -71,7 +71,17 @@ export default async function ProductPage(
     <div className="flex min-h-screen flex-col bg-background text-foreground">
       <Header />
       <main className="flex-1">
-        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 pt-24 sm:pt-28 pb-10">
+        {/*
+         * Header is `fixed top-0` and stacks the AnnouncementBar
+         * (~32-36px) above the nav row (nav py-3 + h-11 mobile button
+         * ≈ 68px). That puts the total header at ~100-108px on mobile,
+         * which is MORE than the previous `pt-24` (96px) allowed —
+         * so the breadcrumb's "All products" link was getting clipped
+         * under the header. `pt-32` (128px) gives a consistent ~20px
+         * of breathing room on every viewport whether or not the
+         * announcement bar has been dismissed.
+         */}
+        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 pt-32 pb-10">
           <nav aria-label="Breadcrumb" className="mb-4 sm:mb-6">
             <Link
               href="/#products"
