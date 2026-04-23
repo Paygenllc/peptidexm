@@ -379,29 +379,52 @@ export function Products({ products }: { products: Product[] }) {
                             // compact (inline, bullet-separated) so
                             // the pill doesn't bloat on mobile.
                             const isKit = /kit of 10/i.test(f)
+                            // Display-only label shortening. The
+                            // underlying variant.form in the DB is
+                            // still "Single Vial" / "Kit of 10 Vials"
+                            // (unchanged — cart line-items, invoices,
+                            // and admin views keep the descriptive
+                            // name). We just trim the button face so
+                            // two pills + a savings badge fit on one
+                            // line inside narrow cards (2-up on mobile
+                            // and 4-up on desktop both get tight).
+                            const label = isKit
+                              ? 'Kit of 10'
+                              : f.replace(/^Single /, '')
                             return (
                               <button
                                 key={f}
                                 type="button"
                                 onClick={() => setForm(product.id, f)}
                                 aria-pressed={active}
-                                className={`h-7 sm:h-8 px-2 sm:px-3 rounded-full text-[11px] sm:text-xs font-medium border transition-colors inline-flex items-center gap-1 sm:gap-1.5 ${
+                                aria-label={f}
+                                // `whitespace-nowrap` keeps the label
+                                // and its inline "-10%" chip from
+                                // breaking across two lines inside the
+                                // pill if the card momentarily narrows
+                                // (e.g. during a resize animation).
+                                className={`h-7 sm:h-8 px-2 sm:px-2.5 rounded-full text-[11px] sm:text-xs font-medium border transition-colors inline-flex items-center gap-1 whitespace-nowrap ${
                                   active
                                     ? "bg-primary text-primary-foreground border-primary"
                                     : "bg-background text-foreground border-border hover:border-foreground/40"
                                 }`}
                               >
-                                <span>{f}</span>
+                                <span>{label}</span>
                                 {isKit && (
+                                  // Shorter "-10%" chip (was
+                                  // "10% OFF") saves ~30px per pill
+                                  // and still communicates the deal.
+                                  // `text-[10px]` + `leading-none` +
+                                  // tight padding keeps it compact.
                                   <span
-                                    className={`text-[9px] sm:text-[10px] font-semibold uppercase tracking-wide px-1 sm:px-1.5 py-0.5 rounded-full leading-none ${
+                                    className={`text-[10px] font-semibold tabular-nums px-1 py-0.5 rounded leading-none ${
                                       active
                                         ? "bg-primary-foreground/20 text-primary-foreground"
                                         : "bg-accent/10 text-accent"
                                     }`}
                                     aria-label="10 percent off compared to buying 10 single vials"
                                   >
-                                    10% off
+                                    -10%
                                   </span>
                                 )}
                               </button>
