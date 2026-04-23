@@ -46,6 +46,23 @@ export interface Product {
   slug?: string
   image: string
   variants: Variant[]
+  /**
+   * Hidden search-only aliases. These terms match in the header
+   * autocomplete and the products grid filter, but are never
+   * rendered in the UI — no card, no detail page, no meta tag
+   * shows them. They exist purely to keep search useful for
+   * customers who know a compound by a different name than our
+   * catalog uses.
+   *
+   * Primary use case: the four XM-* metabolic products were
+   * rebranded from scientific names (tirzepatide, semaglutide,
+   * retatrutide, cagrilintide) to neutral codes to comply with
+   * FDA enforcement on branded research-peptide marketing. The
+   * molecules didn't change, so customers still search by the
+   * old molecule name — we match on that silently and surface
+   * the correct XM-* product.
+   */
+  searchAliases?: string[]
 }
 
 // Top-level category filter used by the homepage grid. Ordered by commercial
@@ -117,6 +134,7 @@ export const products: Product[] = [
     popular: true,
     limitedStock: true,
     image: "/products/xm-t.jpg",
+    searchAliases: ["tirzepatide"],
     variants: [
       ...sv("2mg", 60),
       ...sv("5mg", 80),
@@ -137,6 +155,7 @@ export const products: Product[] = [
     popular: true,
     image: "/products/xm-s.jpg",
     variants: [...sv("2mg", 50), ...sv("5mg", 76), ...sv("10mg", 140)],
+    searchAliases: ["semaglutide"],
   },
   {
     id: 3,
@@ -150,6 +169,7 @@ export const products: Product[] = [
     limitedStock: true,
     image: "/products/xm-r.jpg",
     variants: [...sv("10mg", 180), ...sv("20mg", 260)],
+    searchAliases: ["retatrutide"],
   },
   {
     id: 4,
@@ -162,6 +182,7 @@ export const products: Product[] = [
     popular: false,
     image: "/products/xm-c.jpg",
     variants: [...sv("5mg", 80), ...sv("10mg", 160)],
+    searchAliases: ["cagrilintide"],
   },
   {
     id: 5,
