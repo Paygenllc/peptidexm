@@ -30,14 +30,21 @@ function scoreProduct(p: Product, q: string): number {
   const cat = p.category.toLowerCase()
   const desc = p.description.toLowerCase()
   const strengths = p.variants.map((v) => v.strength.toLowerCase()).join(" ")
+  // Hidden aliases (e.g. "tirzepatide" → XM-T). Scored almost as
+  // highly as a direct name match so that typing the molecule name
+  // surfaces the rebranded product at the top of the dropdown.
+  const aliases = (p.searchAliases ?? []).map((a) => a.toLowerCase())
 
   if (name === q) return 100
+  if (aliases.some((a) => a === q)) return 95
   if (name.startsWith(q)) return 80
+  if (aliases.some((a) => a.startsWith(q))) return 75
   if (name.split(/[\s\-]+/).some((w) => w.startsWith(q))) return 70
   if (cat === q) return 60
   if (cat.startsWith(q)) return 50
   if (strengths.includes(q)) return 40
   if (name.includes(q)) return 30
+  if (aliases.some((a) => a.includes(q))) return 25
   if (desc.includes(q)) return 15
   if (cat.includes(q)) return 10
   return 0

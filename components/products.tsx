@@ -100,7 +100,12 @@ export function Products({ products }: { products: Product[] }) {
         return (
           p.name.toLowerCase().includes(normalizedQuery) ||
           p.description.toLowerCase().includes(normalizedQuery) ||
-          p.category.toLowerCase().includes(normalizedQuery)
+          p.category.toLowerCase().includes(normalizedQuery) ||
+          // Hidden aliases (e.g. "tirzepatide" → XM-T) so customers
+          // who search by the old scientific name still land on the
+          // rebranded product. Aliases live on the Product type and
+          // are never rendered in the UI.
+          (p.searchAliases?.some((a) => a.toLowerCase().includes(normalizedQuery)) ?? false)
         )
       }),
     [selectedCategory, normalizedQuery],
