@@ -1,14 +1,21 @@
 /**
  * Squadco shared utilities.
  *
- * We don't ship webhook signature verification anymore — the Squadco
- * merchant dashboard for this account exposes a Redirect URL but no
- * webhook URL, so payment confirmation is pulled on redirect via the
- * transaction-verify endpoint instead of pushed via HMAC-signed POSTs.
+ * Payment confirmation flows through three converging channels, all
+ * of which funnel into the same canonical `payment_status` value
+ * produced by `squadcoStatusToPaymentStatus` below:
  *
- * What remains here is the one piece used by both the redirect-verify
- * action and any future status-polling cron: a mapping from Squadco's
- * transaction_status vocabulary to our canonical payment_status enum.
+ *   1. The `/api/squadco/webhook` route — signed POSTs Squad sends
+ *      when a charge settles. This is the authoritative path.
+ *   2. The `verifyCardPaymentAction` server action — pulled by the
+ *      checkout page's iframe handler the moment Squad's redirect
+ *      URL lands (`?transaction_ref=...` in the query string).
+ *   3. The same action's polling loop — a fallback for the narrow
+ *      window where the webhook is still in flight and the iframe
+ *      hasn't redirected yet.
+ *
+ * All three use this single mapping so the UI, the webhook, and the
+ * admin dashboard can never disagree about what "success" means.
  */
 
 /**

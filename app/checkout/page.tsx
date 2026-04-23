@@ -405,18 +405,37 @@ export default function CheckoutPage() {
   // which IS our origin on the primary storefront), we can short-circuit
   // the polling by reading its pathname on load. Cross-origin accesses
   // throw, so we swallow and let the polling handle it.
+  //
+  // Critically, this is also where we harvest Squad's real
+  // `transaction_ref` query param. Without it, verify falls back to
+  // the link hash, which Squad's /transaction/verify endpoint doesn't
+  // resolve for Payment Link charges — which was the exact bug that
+  // left PX-20260423-54DE8A spinning on "Payment is processing".
   const handleIframeLoad = (e: React.SyntheticEvent<HTMLIFrameElement>) => {
     try {
       const iframe = e.currentTarget
       const href = iframe.contentWindow?.location.href
       if (!href) return
       if (href.includes('card_success=true') && cardReturnOrderNumber) {
+        // Parse the real transaction_ref Squad appends to the redirect.
+        // Using URL avoids brittle regex and tolerates extra params
+        // Squad may add (or reorder) in the future.
+        let transactionRef: string | undefined
+        try {
+          const parsed = new URL(href)
+          transactionRef =
+            parsed.searchParams.get('transaction_ref') ?? undefined
+        } catch {
+          // Malformed href — fall through to verify-by-hash fallback.
+        }
+
         // Iframe reached our return URL. Trigger an immediate verify
         // instead of waiting for the next poll tick.
         void (async () => {
           try {
             const result = await verifyCardPaymentAction({
               orderNumber: cardReturnOrderNumber,
+              transactionRef,
             })
             if (result.ok && result.status === 'paid') {
               clearCart()

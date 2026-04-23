@@ -300,11 +300,25 @@ export async function persistSquadcoLinkToOrderAction(input: {
  */
 export async function verifyCardPaymentAction(input: {
   orderNumber: string
+  /**
+   * Squad's own transaction_ref (e.g. `SQCHIZ3634573076082`). Payment
+   * Link orders do NOT share the link hash with the charge ref — the
+   * hash only identifies the checkout URL, and a fresh transaction_ref
+   * is minted when the customer actually pays. Squad appends this ref
+   * to our redirect URL as `?transaction_ref=...`, and the webhook
+   * payload includes it in `Body.transaction_ref`.
+   *
+   * When we have it, we query `/transaction/verify/{transaction_ref}`
+   * directly, which is the only way to get a meaningful response for
+   * Payment Link charges. When absent (old clients, retry polls before
+   * Squad redirects), we fall back to the hash lookup.
+   */
+  transactionRef?: string
 }): Promise<
   | { ok: true; status: "paid" | "failed" | "partial" | "pending"; alreadyPaid: boolean }
   | { ok: false; error: string }
 > {
-  const { orderNumber } = input
+  const { orderNumber, transactionRef } = input
   if (!orderNumber) return { ok: false, error: "Missing order number." }
 
   const secretKey = process.env.SQUADCO_SECRET_KEY
@@ -316,12 +330,12 @@ export async function verifyCardPaymentAction(input: {
     const supabase = createAdminClient()
 
     // Look up the order by its user-facing order_number. We need both
-    // the squadco_hash (to ask Squadco) and the current payment_status
-    // (so we can avoid regressing it).
+    // the squadco_hash + stored transaction_ref (to ask Squadco) and
+    // the current payment_status (so we can avoid regressing it).
     const { data: order, error: orderErr } = await supabase
       .from("orders")
       .select(
-        "id, payment_status, squadco_hash, squadco_status, total",
+        "id, payment_status, squadco_hash, squadco_status, squadco_transaction_ref, total",
       )
       .eq("order_number", orderNumber)
       .maybeSingle()
@@ -338,24 +352,36 @@ export async function verifyCardPaymentAction(input: {
       return { ok: true, status: "paid", alreadyPaid: true }
     }
 
-    if (!order.squadco_hash) {
+    // Decide which reference to query Squadco with. Priority:
+    //   1. The caller-provided transactionRef (freshest — comes from
+    //      Squad's own redirect URL the instant the charge settles).
+    //   2. Whatever transaction_ref we've already persisted (from an
+    //      earlier verify pass or the webhook handler).
+    //   3. The payment-link hash, as a best-effort fallback. For pure
+    //      Payment Link checkouts the hash will NOT resolve against
+    //      `/transaction/verify` — that endpoint only speaks charge
+    //      refs — so this path generally returns `pending` until we
+    //      get a real ref from the redirect or webhook.
+    const verifyRef =
+      transactionRef ||
+      order.squadco_transaction_ref ||
+      order.squadco_hash
+
+    if (!verifyRef) {
       console.warn(
-        "[v0] verifyCardPaymentAction: order has no squadco_hash",
+        "[v0] verifyCardPaymentAction: order has no squadco_hash or transaction_ref",
         { orderNumber, orderId: order.id },
       )
       return { ok: false, error: "Payment not linked to this order." }
     }
 
-    // Ask Squadco. We use the hash as the reference because we set
-    // hash = reference when creating the link; Squadco echoes the same
-    // value as the transaction_ref on the resulting charge.
     const isSandbox =
       secretKey.startsWith("sandbox_") || secretKey.startsWith("sk_test_")
     const apiHost = isSandbox
       ? "https://sandbox-api-d.squadco.com"
       : "https://api-d.squadco.com"
 
-    const verifyUrl = `${apiHost}/transaction/verify/${encodeURIComponent(order.squadco_hash)}`
+    const verifyUrl = `${apiHost}/transaction/verify/${encodeURIComponent(verifyRef)}`
 
     const response = await fetch(verifyUrl, {
       method: "GET",
@@ -390,6 +416,7 @@ export async function verifyCardPaymentAction(input: {
       console.error("[v0] Squadco verify failed", {
         status: response.status,
         statusText: response.statusText,
+        verifyRef,
         hash: order.squadco_hash,
         body: parsed ?? rawBody.slice(0, 500),
       })
