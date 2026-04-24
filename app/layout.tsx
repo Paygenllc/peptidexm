@@ -1,9 +1,11 @@
 import type { Metadata, Viewport } from "next"
 import { DM_Serif_Display, Inter } from "next/font/google"
-import { Analytics } from "@vercel/analytics/next"
 import { CartProvider } from "@/context/cart-context"
 import { AuthErrorBridge } from "@/components/auth-error-bridge"
 import { AttributionBeacon } from "@/components/attribution-beacon"
+import { AgeGateDialog } from "@/components/age-gate-dialog"
+import { CookieConsentBanner } from "@/components/cookie-consent-banner"
+import { AnalyticsGate } from "@/components/analytics-gate"
 import "./globals.css"
 
 const dmSerif = DM_Serif_Display({
@@ -135,7 +137,19 @@ export default function RootLayout({
         <AuthErrorBridge />
         <AttributionBeacon />
         <CartProvider>{children}</CartProvider>
-        {process.env.NODE_ENV === "production" && <Analytics />}
+        {/* First-run compliance surfaces. AgeGateDialog renders a
+         * blocking AlertDialog until the shopper acknowledges 21+
+         * and research-use-only terms. CookieConsentBanner then
+         * slides in from the bottom and gates analytics opt-in.
+         * Both are client components that self-suppress once the
+         * corresponding cookie is present. */}
+        <AgeGateDialog />
+        <CookieConsentBanner />
+        {/* AnalyticsGate has replaced the unconditional <Analytics/>.
+         * It only mounts Vercel Analytics when pxm_cookie_consent
+         * is set to "accepted" AND we're in production — so local
+         * dev still skips telemetry entirely. */}
+        <AnalyticsGate />
       </body>
     </html>
   )
