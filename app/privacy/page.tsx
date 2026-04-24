@@ -11,7 +11,7 @@ export default function PrivacyPage() {
   return (
     <LegalPage
       title="Privacy Policy"
-      updated="April 20, 2026"
+      updated="April 24, 2026"
       lead="This policy explains what information we collect, how we use it, who we share it with, and the choices you have."
     >
       <h2>Summary</h2>
@@ -19,8 +19,12 @@ export default function PrivacyPage() {
         <li>We collect only what we need to ship orders and run the site.</li>
         <li>We never sell your information.</li>
         <li>
-          We use a small number of trusted subprocessors (Stripe, Resend,
-          Supabase, Vercel) to operate the service.
+          We use a small number of trusted subprocessors (Squadco, PayPal,
+          Resend, Supabase, Vercel) to operate the service.
+        </li>
+        <li>
+          Analytics and non-essential cookies are strictly opt-in — you choose
+          in the consent banner the first time you visit.
         </li>
         <li>
           You can request a copy of your data or have it deleted at any time.
@@ -54,11 +58,63 @@ export default function PrivacyPage() {
           derived from IP (city-level, not precise).
         </li>
         <li>
-          <strong>Cookies</strong> — a session cookie to keep you signed in and
-          a cart cookie so items persist between visits. We don&apos;t run
-          third-party ad trackers.
+          <strong>Cookies</strong> — see the dedicated section below. We
+          don&apos;t run third-party ad trackers or build cross-site ad
+          profiles.
         </li>
       </ul>
+
+      <h2>Cookies</h2>
+      <p>
+        We use a small, named set of cookies. Nothing is set for advertising
+        purposes. The consent banner on your first visit is where you control
+        the optional ones.
+      </p>
+      <h3>Strictly necessary (always on)</h3>
+      <ul>
+        <li>
+          <strong>pxm_age_gate_accepted</strong> — records that you confirmed
+          you are 21+ and accepted the research-use-only terms. Stored for one
+          year so you aren&apos;t prompted on every visit. Without it the site
+          is unusable, so this one cannot be declined.
+        </li>
+        <li>
+          <strong>Session / authentication cookies</strong> — set by Supabase
+          to keep you signed in. Expire when you log out or after a period of
+          inactivity.
+        </li>
+        <li>
+          <strong>Cart cookie</strong> — so the items in your cart persist
+          between visits. Holds product IDs and quantities only, no personal
+          data.
+        </li>
+        <li>
+          <strong>Attribution cookie</strong> — a first-party record of the
+          referral source (e.g. the campaign link you clicked to arrive) so we
+          can credit partners and diagnose broken funnels. First-party only,
+          never shared with ad networks.
+        </li>
+      </ul>
+      <h3>Optional (opt-in via the consent banner)</h3>
+      <ul>
+        <li>
+          <strong>pxm_cookie_consent</strong> — remembers your Accept / Reject
+          choice from the banner so we don&apos;t ask again for a year. Set
+          regardless of which option you pick (even &ldquo;Reject&rdquo;), so
+          it counts as strictly necessary once a choice exists.
+        </li>
+        <li>
+          <strong>Vercel Analytics</strong> — aggregated, cookieless page-view
+          analytics provided by Vercel. Loaded <em>only</em> if you click
+          &ldquo;Accept&rdquo; and only in production. Reports are anonymized
+          and never tied to your account or order history.
+        </li>
+      </ul>
+      <p>
+        You can change your mind any time by clearing the{" "}
+        <code>pxm_cookie_consent</code> cookie in your browser — the banner
+        will reappear on your next visit.
+      </p>
 
       <h2>How we use it</h2>
       <ul>
@@ -81,8 +137,14 @@ export default function PrivacyPage() {
       </p>
       <ul>
         <li>
-          <strong>Stripe</strong> — card processing. We never see or store your
-          full card number.
+          <strong>Squadco</strong> — card processing. Card details are entered
+          directly on Squadco&apos;s PCI-compliant payment page; we never see
+          or store your full card number.
+        </li>
+        <li>
+          <strong>PayPal</strong> — alternate checkout. Only your order number,
+          total, and shipping address are shared with PayPal when you choose
+          that rail.
         </li>
         <li>
           <strong>Resend</strong> — transactional and newsletter email delivery.
@@ -91,7 +153,8 @@ export default function PrivacyPage() {
           <strong>Supabase</strong> — database and authentication.
         </li>
         <li>
-          <strong>Vercel</strong> — hosting and logs.
+          <strong>Vercel</strong> — hosting, logs, and (if you opt in) the
+          anonymized analytics described above.
         </li>
         <li>
           <strong>Shipping carriers</strong> (USPS, UPS, DHL) — to deliver your
