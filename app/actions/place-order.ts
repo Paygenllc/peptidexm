@@ -212,7 +212,11 @@ export async function placeOrderAction(input: PlaceOrderInput) {
   }
   revalidatePath("/admin/abandoned-carts")
 
-  // Fire-and-forget confirmation emails (do not block the checkout response)
+  // Fire-and-forget confirmation emails (do not block the checkout response).
+  // `paymentMethod` is the rail we just validated and wrote to the DB row,
+  // not the raw `input.paymentMethod` — guarantees the customer and admin
+  // templates always describe the rail that was actually stored, even if
+  // a hand-crafted request had tried to pass an unsupported value.
   const emailPayload: OrderEmailInput = {
     orderNumber: order.order_number,
     total,
@@ -232,6 +236,7 @@ export async function placeOrderAction(input: PlaceOrderInput) {
       quantity: i.quantity,
       price: i.unitPrice,
     })),
+    paymentMethod,
   }
   void Promise.allSettled([
     sendOrderPlacedCustomerEmail(emailPayload),
