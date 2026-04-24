@@ -1,6 +1,7 @@
 import "server-only"
 import { Resend } from "resend"
 import { CONTACT_EMAIL } from "@/lib/contact"
+import type { PaymentMethodKey } from "@/lib/payment-methods"
 
 const FROM_EMAIL = process.env.EMAIL_FROM ?? "PeptideXM <noreply@peptidexm.com>"
 // Broadcasts should come from a human-looking support address so replies land
@@ -91,10 +92,95 @@ export type OrderEmailInput = {
   customerEmail: string
   shippingAddress: string
   items: Array<{ name: string; variant: string; quantity: number; price: number }>
+  /**
+   * Which rail the shopper chose. Drives the entire subject line, the
+   * "next step" block, the plain-text alternative, and the admin
+   * notification — so card orders don't get "pending Zelle" copy,
+   * PayPal orders don't get Zelle memo instructions, etc. Defaults
+   * to `"zelle"` when undefined (the original pre-multi-rail behavior)
+   * so existing callers that haven't been updated keep working.
+   */
+  paymentMethod?: PaymentMethodKey
+}
+
+/**
+ * Human-readable labels for each payment rail. Kept here next to the
+ * email templates because their phrasing is tuned for transactional
+ * copy ("awaiting crypto" reads better than "awaiting cryptocurrency
+ * payment"). Used for both subject lines and inline body references.
+ */
+const METHOD_LABEL: Record<PaymentMethodKey, string> = {
+  card: "card",
+  zelle: "Zelle",
+  crypto: "crypto",
+  paypal: "PayPal",
 }
 
 export async function sendOrderPlacedCustomerEmail(order: OrderEmailInput) {
-  const subject = `Order ${order.orderNumber} received — complete your Zelle payment`
+  // Resolve the rail once so the whole template branches cleanly. Default
+  // to Zelle for backward compatibility with older callers that may not
+  // yet be passing `paymentMethod`.
+  const method: PaymentMethodKey = order.paymentMethod ?? "zelle"
+
+  // Subject line is the single most visible differentiator in the
+  // inbox list — getting it wrong (e.g. "complete your Zelle payment"
+  // on a card order) immediately destroys trust. Match it tightly
+  // to the rail the shopper actually chose.
+  const subjectByMethod: Record<PaymentMethodKey, string> = {
+    zelle: `Order ${order.orderNumber} received — complete your Zelle payment`,
+    card: `Order ${order.orderNumber} received — payment processing`,
+    crypto: `Order ${order.orderNumber} received — complete your crypto payment`,
+    paypal: `Order ${order.orderNumber} received — complete your PayPal payment`,
+  }
+  const subject = subjectByMethod[method]
+
+  // One-line lead that sits directly under the greeting and sets
+  // expectations for the next step.
+  const leadByMethod: Record<PaymentMethodKey, string> = {
+    zelle: `Your order <strong>${order.orderNumber}</strong> is confirmed. To finalize it, send payment via <strong>Zelle</strong> using the instructions below.`,
+    card: `Your order <strong>${order.orderNumber}</strong> is confirmed. We're processing your card payment right now — we'll email you the moment it clears.`,
+    crypto: `Your order <strong>${order.orderNumber}</strong> is confirmed. Finish sending your crypto transfer at the payment page — we'll email you as soon as the network confirms it.`,
+    paypal: `Your order <strong>${order.orderNumber}</strong> is confirmed. Finish approving payment in PayPal — we'll email you as soon as it clears.`,
+  }
+  const leadHtml = leadByMethod[method]
+
+  const leadTextByMethod: Record<PaymentMethodKey, string> = {
+    zelle: `Your order is confirmed. To finalize it, send payment via Zelle using the instructions below.`,
+    card: `Your order is confirmed. We're processing your card payment right now — we'll email you the moment it clears.`,
+    crypto: `Your order is confirmed. Finish sending your crypto transfer at the payment page — we'll email you as soon as the network confirms it.`,
+    paypal: `Your order is confirmed. Finish approving payment in PayPal — we'll email you as soon as it clears.`,
+  }
+  const leadTextOnly = leadTextByMethod[method]
+
+  // The Zelle-details card and the "don't put product names in the
+  // memo" warning are Zelle-specific — only render them on that rail.
+  const zellePaymentBlockHtml =
+    method === "zelle"
+      ? `
+    <div style="background:#fdf6ee;border:1px solid #ecd8c0;border-radius:10px;padding:20px;margin-bottom:24px;">
+      <div style="font-size:12px;color:${mutedText};text-transform:uppercase;letter-spacing:0.08em;margin-bottom:8px;">Zelle payment details</div>
+      <div style="font-size:15px;margin-bottom:12px;"><strong>Send to:</strong> <a href="mailto:${CONTACT_EMAIL}" style="color:${brandColor};text-decoration:none;">${CONTACT_EMAIL}</a></div>
+      <div style="font-size:15px;margin-bottom:12px;"><strong>Amount:</strong> $${order.total.toFixed(2)}</div>
+      <div style="font-size:15px;margin-bottom:4px;"><strong>Memo / Note:</strong> <span style="font-family:monospace;background:#fff;padding:2px 8px;border-radius:6px;border:1px solid ${borderColor};">${order.orderNumber}</span></div>
+    </div>
+
+    <div style="background:#fef2f2;border:1px solid #fecaca;border-radius:10px;padding:16px 20px;margin-bottom:24px;">
+      <div style="font-weight:600;color:#991b1b;margin-bottom:6px;">Important</div>
+      <p style="margin:0;font-size:14px;color:#7f1d1d;line-height:1.5;">Use <strong>only</strong> your order number <strong>${order.orderNumber}</strong> in the Zelle memo. <strong>Do not</strong> include product names, "peptide", or any research terms — your order will be cancelled automatically and the payment refunded.</p>
+    </div>
+    `
+      : ""
+
+  // Closing line mirrors the lead's tone per rail. Zelle needs a
+  // concrete follow-up action; automated rails just reassure the
+  // shopper there's nothing more for them to do on the PeptideXM side.
+  const closingByMethod: Record<PaymentMethodKey, string> = {
+    zelle: `After sending payment, reply to this email with your Zelle confirmation number or submit it on your account page.`,
+    card: `No further action needed — we'll ship as soon as your card payment clears.`,
+    crypto: `No further action needed on our side. The crypto network typically confirms within a few minutes to an hour depending on the coin.`,
+    paypal: `No further action needed — we'll ship as soon as PayPal finishes processing.`,
+  }
+  const closingCopy = closingByMethod[method]
 
   const itemsHtml = order.items
     .map(
@@ -116,19 +202,9 @@ export async function sendOrderPlacedCustomerEmail(order: OrderEmailInput) {
   const html = shell(`
     <p style="margin:0 0 8px 0;font-size:14px;color:${mutedText};text-transform:uppercase;letter-spacing:0.08em;">Order received</p>
     <h1 style="margin:0 0 16px 0;font-family:Georgia,serif;font-size:26px;font-weight:500;">Thanks, ${escapeHtml(order.customerName)}.</h1>
-    <p style="margin:0 0 24px 0;font-size:15px;line-height:1.6;">Your order <strong>${order.orderNumber}</strong> is confirmed. To finalize it, send payment via <strong>Zelle</strong> using the instructions below.</p>
+    <p style="margin:0 0 24px 0;font-size:15px;line-height:1.6;">${leadHtml}</p>
 
-    <div style="background:#fdf6ee;border:1px solid #ecd8c0;border-radius:10px;padding:20px;margin-bottom:24px;">
-      <div style="font-size:12px;color:${mutedText};text-transform:uppercase;letter-spacing:0.08em;margin-bottom:8px;">Zelle payment details</div>
-      <div style="font-size:15px;margin-bottom:12px;"><strong>Send to:</strong> <a href="mailto:${CONTACT_EMAIL}" style="color:${brandColor};text-decoration:none;">${CONTACT_EMAIL}</a></div>
-      <div style="font-size:15px;margin-bottom:12px;"><strong>Amount:</strong> $${order.total.toFixed(2)}</div>
-      <div style="font-size:15px;margin-bottom:4px;"><strong>Memo / Note:</strong> <span style="font-family:monospace;background:#fff;padding:2px 8px;border-radius:6px;border:1px solid ${borderColor};">${order.orderNumber}</span></div>
-    </div>
-
-    <div style="background:#fef2f2;border:1px solid #fecaca;border-radius:10px;padding:16px 20px;margin-bottom:24px;">
-      <div style="font-weight:600;color:#991b1b;margin-bottom:6px;">Important</div>
-      <p style="margin:0;font-size:14px;color:#7f1d1d;line-height:1.5;">Use <strong>only</strong> your order number <strong>${order.orderNumber}</strong> in the Zelle memo. <strong>Do not</strong> include product names, "peptide", or any research terms — your order will be cancelled automatically and the payment refunded.</p>
-    </div>
+    ${zellePaymentBlockHtml}
 
     <h2 style="margin:0 0 12px 0;font-size:16px;">Order summary</h2>
     <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="font-size:14px;margin-bottom:16px;">
@@ -139,20 +215,28 @@ export async function sendOrderPlacedCustomerEmail(order: OrderEmailInput) {
     <p style="margin:0 0 8px 0;font-size:14px;color:${mutedText};">Shipping to</p>
     <p style="margin:0 0 24px 0;font-size:14px;white-space:pre-line;">${escapeHtml(order.shippingAddress)}</p>
 
-    <p style="margin:0;font-size:14px;line-height:1.6;color:${mutedText};">After sending payment, reply to this email with your Zelle confirmation number or submit it on your account page.</p>
+    <p style="margin:0;font-size:14px;line-height:1.6;color:${mutedText};">${closingCopy}</p>
   `)
 
-  const text = `PeptideXM — Order ${order.orderNumber} received
-
-Thanks, ${order.customerName}. Your order is confirmed.
-
+  // Plain-text alternative follows the same rail-gated structure as
+  // the HTML. Only the Zelle branch embeds a payment-details block +
+  // memo warning — other rails stay clean and reassuring.
+  const zellePaymentBlockText =
+    method === "zelle"
+      ? `
 To finalize it, send payment via Zelle:
   Send to: ${CONTACT_EMAIL}
   Amount: $${order.total.toFixed(2)}
   Memo / Note: ${order.orderNumber}
 
 IMPORTANT: Use ONLY your order number (${order.orderNumber}) in the Zelle memo. Do NOT mention product names or any research terms — orders that include them will be cancelled automatically and the payment refunded.
+`
+      : ""
 
+  const text = `PeptideXM — Order ${order.orderNumber} received
+
+Thanks, ${order.customerName}. ${leadTextOnly}
+${zellePaymentBlockText}
 Order summary:
 ${itemsText}
   Total: $${order.total.toFixed(2)}
@@ -160,7 +244,7 @@ ${itemsText}
 Shipping to:
 ${order.shippingAddress}
 
-After sending payment, reply to this email with your Zelle confirmation number.
+${closingCopy}
 
 Questions? ${CONTACT_EMAIL}`
 
@@ -269,7 +353,35 @@ Questions? ${CONTACT_EMAIL}`
 }
 
 export async function sendOrderPlacedAdminEmail(order: OrderEmailInput) {
-  const subject = `New order ${order.orderNumber} — $${order.total.toFixed(2)} (pending Zelle)`
+  const method: PaymentMethodKey = order.paymentMethod ?? "zelle"
+  const methodLabel = METHOD_LABEL[method]
+
+  // Admin inbox-glance phrase: the subject tag has to instantly signal
+  // both the rail AND what action (if any) the admin still owes the
+  // shopper. Zelle → "pending Zelle" (admin verifies the transfer).
+  // Card/PayPal → "processing <rail>" (admin watches for the webhook).
+  // Crypto → "awaiting crypto" (admin waits on on-chain confirmation).
+  const subjectTagByMethod: Record<PaymentMethodKey, string> = {
+    zelle: "pending Zelle",
+    card: "processing card",
+    crypto: "awaiting crypto",
+    paypal: "processing PayPal",
+  }
+  const subject = `New order ${order.orderNumber} — $${order.total.toFixed(2)} (${subjectTagByMethod[method]})`
+
+  // One-line summary below the order number, mirroring the subject.
+  const statusLineByMethod: Record<PaymentMethodKey, string> = {
+    zelle: `$${order.total.toFixed(2)} — awaiting Zelle from ${escapeHtml(order.customerName)}.`,
+    card: `$${order.total.toFixed(2)} — card payment processing from ${escapeHtml(order.customerName)}. Watch for the Squadco webhook to flip this to paid.`,
+    crypto: `$${order.total.toFixed(2)} — awaiting on-chain crypto confirmation from ${escapeHtml(order.customerName)}.`,
+    paypal: `$${order.total.toFixed(2)} — PayPal payment processing from ${escapeHtml(order.customerName)}. The return callback will flip this to paid.`,
+  }
+  const statusLineText: Record<PaymentMethodKey, string> = {
+    zelle: `$${order.total.toFixed(2)} — awaiting Zelle from ${order.customerName}.`,
+    card: `$${order.total.toFixed(2)} — card payment processing from ${order.customerName}.`,
+    crypto: `$${order.total.toFixed(2)} — awaiting on-chain crypto confirmation from ${order.customerName}.`,
+    paypal: `$${order.total.toFixed(2)} — PayPal payment processing from ${order.customerName}.`,
+  }
 
   const itemsHtml = order.items
     .map(
@@ -288,12 +400,15 @@ export async function sendOrderPlacedAdminEmail(order: OrderEmailInput) {
   const html = shell(`
     <p style="margin:0 0 8px 0;font-size:14px;color:${mutedText};text-transform:uppercase;letter-spacing:0.08em;">New order</p>
     <h1 style="margin:0 0 16px 0;font-family:Georgia,serif;font-size:24px;font-weight:500;">${order.orderNumber}</h1>
-    <p style="margin:0 0 20px 0;font-size:15px;">$${order.total.toFixed(2)} — awaiting Zelle from ${escapeHtml(order.customerName)}.</p>
+    <p style="margin:0 0 20px 0;font-size:15px;">${statusLineByMethod[method]}</p>
 
     <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="font-size:14px;margin-bottom:16px;">
       ${itemsHtml}
       <tr><td style="padding:12px 0 0 0;font-weight:600;">Total</td><td align="right" style="padding:12px 0 0 0;font-weight:600;">$${order.total.toFixed(2)}</td></tr>
     </table>
+
+    <p style="margin:0 0 8px 0;font-size:14px;color:${mutedText};">Payment method</p>
+    <p style="margin:0 0 20px 0;font-size:14px;text-transform:capitalize;">${escapeHtml(methodLabel)}</p>
 
     <p style="margin:0 0 8px 0;font-size:14px;color:${mutedText};">Customer</p>
     <p style="margin:0 0 20px 0;font-size:14px;">${escapeHtml(order.customerName)}<br><a href="mailto:${escapeHtml(order.customerEmail)}" style="color:${brandColor};text-decoration:none;">${escapeHtml(order.customerEmail)}</a></p>
@@ -304,11 +419,13 @@ export async function sendOrderPlacedAdminEmail(order: OrderEmailInput) {
 
   const text = `PeptideXM — New order ${order.orderNumber}
 
-$${order.total.toFixed(2)} — awaiting Zelle from ${order.customerName}.
+${statusLineText[method]}
 
 Items:
 ${itemsText}
   Total: $${order.total.toFixed(2)}
+
+Payment method: ${methodLabel}
 
 Customer: ${order.customerName} <${order.customerEmail}>
 
