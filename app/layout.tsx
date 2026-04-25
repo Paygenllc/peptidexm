@@ -97,7 +97,10 @@ export const metadata: Metadata = {
       "max-snippet": -1,
     },
   },
-  // Favicon is served automatically from app/icon.svg (Next.js App Router convention).
+  // Favicon is served automatically from app/icon.png (the cropped XM
+  // wordmark mark). Apple touch icon comes from app/apple-icon.png.
+  // Both are produced by scripts/generate-favicons.mjs from the source
+  // brand artwork — re-run it whenever the wordmark changes.
   manifest: "/manifest.webmanifest",
   referrer: "origin-when-cross-origin",
   formatDetection: {
