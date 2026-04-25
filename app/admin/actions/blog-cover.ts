@@ -3,6 +3,7 @@
 import { generateText } from "ai"
 import { requireAdmin } from "@/lib/auth/require-admin"
 import { createAdminClient } from "@/lib/supabase/admin"
+import { applyBrandWatermark } from "@/lib/watermark"
 
 type CoverResult = { url: string } | { error: string }
 type SuggestResult = { prompt: string } | { error: string }
@@ -244,15 +245,35 @@ export async function generateBlogCoverAction(formData: FormData): Promise<Cover
     return { error: "The AI couldn't generate an image. Please try again." }
   }
 
+  // Brand the cover with the peptidexm.com wordmark. We do this on
+  // the server (never in the browser) so the bytes that hit Storage
+  // are already watermarked — there's no window in which an
+  // unbranded version of the image is reachable via its public URL.
+  // If watermarking fails for any reason we still upload the raw
+  // image rather than aborting the whole generation; a missing
+  // watermark is recoverable, a lost cover after a 30-second
+  // generate is not.
+  let finalBytes = imageBytes
+  let finalMediaType = mediaType
+  let finalExt = mediaType === "image/jpeg" ? "jpg" : mediaType === "image/webp" ? "webp" : "png"
+  try {
+    finalBytes = await applyBrandWatermark(imageBytes)
+    // applyBrandWatermark always re-encodes to PNG, so pin the
+    // mime/extension to match what's actually on disk.
+    finalMediaType = "image/png"
+    finalExt = "png"
+  } catch (err) {
+    console.log("[v0] blog-cover: watermark failed; uploading un-watermarked copy", err)
+  }
+
   // Upload into the existing blog-images bucket (shared with manual uploads).
   const admin = createAdminClient()
-  const ext = mediaType === "image/jpeg" ? "jpg" : mediaType === "image/webp" ? "webp" : "png"
-  const path = `covers/ai-${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`
+  const path = `covers/ai-${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${finalExt}`
 
   const { error: upErr } = await admin.storage
     .from("blog-images")
-    .upload(path, imageBytes, {
-      contentType: mediaType,
+    .upload(path, finalBytes, {
+      contentType: finalMediaType,
       upsert: false,
     })
 
