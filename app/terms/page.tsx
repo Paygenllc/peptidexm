@@ -63,11 +63,11 @@ export default function TermsPage() {
 
       <h2>Payment</h2>
       <p>
-        Payment is processed by Stripe. By placing an order you authorize
-        Stripe and PeptideXM to charge the payment method you provide for the
-        order total, including taxes and shipping. Chargebacks without first
-        contacting us are a breach of these Terms and may result in account
-        termination.
+        Payment is processed by our third-party payment providers. By placing
+        an order you authorize PeptideXM and our payment providers to charge
+        the payment method you select for the order total, including taxes
+        and shipping. Chargebacks without first contacting us are a breach of
+        these Terms and may result in account termination.
       </p>
 
       <h2>Shipping, returns, and quality</h2>

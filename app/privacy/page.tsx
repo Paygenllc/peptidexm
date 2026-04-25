@@ -19,8 +19,8 @@ export default function PrivacyPage() {
         <li>We collect only what we need to ship orders and run the site.</li>
         <li>We never sell your information.</li>
         <li>
-          We use a small number of trusted subprocessors (Squadco, PayPal,
-          Resend, Supabase, Vercel) to operate the service.
+          We use a small number of trusted service providers to operate the
+          site, all bound by data-processing agreements.
         </li>
         <li>
           Analytics and non-essential cookies are strictly opt-in — you choose
@@ -79,9 +79,8 @@ export default function PrivacyPage() {
           is unusable, so this one cannot be declined.
         </li>
         <li>
-          <strong>Session / authentication cookies</strong> — set by Supabase
-          to keep you signed in. Expire when you log out or after a period of
-          inactivity.
+          <strong>Session / authentication cookies</strong> — keep you signed
+          in. Expire when you log out or after a period of inactivity.
         </li>
         <li>
           <strong>Cart cookie</strong> — so the items in your cart persist
@@ -104,10 +103,9 @@ export default function PrivacyPage() {
           it counts as strictly necessary once a choice exists.
         </li>
         <li>
-          <strong>Vercel Analytics</strong> — aggregated, cookieless page-view
-          analytics provided by Vercel. Loaded <em>only</em> if you click
-          &ldquo;Accept&rdquo; and only in production. Reports are anonymized
-          and never tied to your account or order history.
+          <strong>Analytics</strong> — aggregated, anonymized page-view
+          metrics. Loaded <em>only</em> if you click &ldquo;Accept,&rdquo; and
+          reports are never tied to your account or order history.
         </li>
       </ul>
       <p>
@@ -137,28 +135,24 @@ export default function PrivacyPage() {
       </p>
       <ul>
         <li>
-          <strong>Squadco</strong> — card processing. Card details are entered
-          directly on Squadco&apos;s PCI-compliant payment page; we never see
-          or store your full card number.
+          <strong>Payment processors</strong> — to charge your selected
+          payment method. Card details are entered directly on the
+          processor&apos;s PCI-compliant page; we never see or store your full
+          card number. For alternative checkout methods, only your order
+          number, total, and shipping address are shared.
         </li>
         <li>
-          <strong>PayPal</strong> — alternate checkout. Only your order number,
-          total, and shipping address are shared with PayPal when you choose
-          that rail.
+          <strong>Email delivery provider</strong> — to send order
+          confirmations, shipping updates, and (if you opt in) the newsletter.
         </li>
         <li>
-          <strong>Resend</strong> — transactional and newsletter email delivery.
+          <strong>Hosting and infrastructure providers</strong> — to operate
+          the site, store the database, authenticate logins, and serve the
+          opt-in anonymized analytics described above.
         </li>
         <li>
-          <strong>Supabase</strong> — database and authentication.
-        </li>
-        <li>
-          <strong>Vercel</strong> — hosting, logs, and (if you opt in) the
-          anonymized analytics described above.
-        </li>
-        <li>
-          <strong>Shipping carriers</strong> (USPS, UPS, DHL) — to deliver your
-          order.
+          <strong>Shipping carriers</strong> (USPS, UPS, DHL) — to deliver
+          your order.
         </li>
       </ul>
       <p>
