@@ -1,7 +1,6 @@
 import "server-only"
 import sharp from "sharp"
-import { readFile } from "node:fs/promises"
-import { join } from "node:path"
+import { WATERMARK_WORDMARK_PNG_BASE64 } from "./_watermark-asset"
 
 /**
  * Stamps the PeptideXM wordmark onto a generated image so every AI-
@@ -33,20 +32,15 @@ import { join } from "node:path"
  *     mime/extension after the watermark step.
  */
 
-// Resolved once when this module is first imported in the running
-// Lambda. Vercel ships everything in `public/` to the serverless
-// runtime under `process.cwd()`, which is the project root.
-const WORDMARK_PATH = join(process.cwd(), "public", "_watermark-wordmark.png")
-
-// Cache the raw wordmark bytes per process. The file is ~24 KB, so
-// holding it in memory is free and saves a disk read per cover.
-let wordmarkBytesPromise: Promise<Buffer> | null = null
-function loadWordmarkBytes(): Promise<Buffer> {
-  if (!wordmarkBytesPromise) {
-    wordmarkBytesPromise = readFile(WORDMARK_PATH)
-  }
-  return wordmarkBytesPromise
-}
+// Decoded once at module-init time. The base64 source is bundled
+// into the function output by Next.js (see `_watermark-asset.ts`
+// for the rationale), so this resolves synchronously from memory
+// and never touches the filesystem at request time. That's the
+// fix for the "tofu boxes" / blank-watermark bug — the previous
+// readFile-from-public approach returned ENOENT in production
+// because Vercel does not include `public/` in the function
+// bundle.
+const WORDMARK_BYTES = Buffer.from(WATERMARK_WORDMARK_PNG_BASE64, "base64")
 
 // Cache the resized + shadow-prepared wordmark per target pixel
 // height. Most generations land in the same hot Lambda, so we only
@@ -61,7 +55,7 @@ async function getWordmark(targetHeightPx: number) {
   if (cached) return cached
 
   const promise = (async () => {
-    const src = await loadWordmarkBytes()
+    const src = WORDMARK_BYTES
 
     // Resize to the requested pixel height; width follows aspect
     // ratio. The asset already has a transparent background and the
