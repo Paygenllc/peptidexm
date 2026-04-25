@@ -25,7 +25,10 @@ import { RichEditor } from "@/components/admin/rich-editor"
 import { PostContent } from "@/components/post-content"
 import { createClient as createBrowserSupabase } from "@/lib/supabase/client"
 import { AutoblogPanel, type AutoblogDraft } from "./autoblog-panel"
-import { generateBlogCoverAction } from "@/app/admin/actions/blog-cover"
+import {
+  generateBlogCoverAction,
+  suggestBlogCoverPromptAction,
+} from "@/app/admin/actions/blog-cover"
 
 type EditorInitial = {
   id: string
@@ -61,6 +64,10 @@ export function BlogPostEditor({
   // admin opens the generator so the sidebar stays compact by default.
   const [coverGenOpen, setCoverGenOpen] = useState(false)
   const [coverPrompt, setCoverPrompt] = useState("")
+  // Tracks the "Suggest from post" expansion call separately from the
+  // image-generation call so each button shows the right spinner /
+  // disabled state independently.
+  const [coverSuggesting, setCoverSuggesting] = useState(false)
   const [coverGenerating, setCoverGenerating] = useState(false)
   const [coverGenError, setCoverGenError] = useState<string | null>(null)
   const coverInputRef = useRef<HTMLInputElement>(null)
@@ -162,20 +169,51 @@ export function BlogPostEditor({
   }
 
   /**
-   * Seed the prompt with a sensible starter derived from the post's own
-   * title / excerpt. The admin can edit this freely before generating.
+   * Open the cover generator dialog. We deliberately do NOT pre-fill
+   * the textarea with a canned template anymore — the old
+   * "Editorial hero image about: {title}. Abstract scientific
+   * imagery, soft lighting, muted palette." seed produced the
+   * "every cover looks the same" complaint. Admins now either type
+   * their own brief or click "Suggest from post" to have the LLM
+   * draft a topic-specific, varied prompt grounded in the actual
+   * post content.
    */
   function openCoverGenerator() {
     setCoverGenError(null)
-    if (!coverPrompt.trim()) {
-      const seed = [title.trim(), excerpt.trim()].filter(Boolean).join(" — ")
-      setCoverPrompt(
-        seed
-          ? `Editorial hero image about: ${seed}. Abstract scientific imagery, soft lighting, muted palette.`
-          : "",
-      )
-    }
     setCoverGenOpen(true)
+  }
+
+  /**
+   * Ask the server to draft a cover-art prompt from the post's own
+   * title / excerpt / tags / body. The admin sees the suggestion in
+   * the textarea and can edit it before clicking Generate.
+   */
+  async function handleCoverSuggest() {
+    setCoverGenError(null)
+    setCoverSuggesting(true)
+    try {
+      const res = await suggestBlogCoverPromptAction({
+        title: title.trim(),
+        excerpt: excerpt.trim(),
+        tags: tags.split(",").map((t) => t.trim()).filter(Boolean),
+        body: content,
+        // If the admin already typed a brief, treat it as an
+        // art-director note that biases (but doesn't constrain) the
+        // suggestion — so clicking Suggest a second time gives a
+        // genuinely different drafting, not a copy of the same text.
+        brief: coverPrompt.trim() || undefined,
+      })
+      if ("error" in res) {
+        setCoverGenError(res.error)
+        return
+      }
+      setCoverPrompt(res.prompt)
+    } catch (err) {
+      console.error("[v0] cover suggest failed", err)
+      setCoverGenError("Couldn't draft a prompt. Please try again.")
+    } finally {
+      setCoverSuggesting(false)
+    }
   }
 
   async function handleCoverGenerate() {
@@ -188,6 +226,15 @@ export function BlogPostEditor({
     try {
       const fd = new FormData()
       fd.set("prompt", coverPrompt.trim())
+      // Send the post context too. The server uses it to expand short
+      // briefs into varied, topic-specific image prompts — the fix for
+      // the "generic prompt every time" complaint. Long, detailed
+      // briefs are passed through verbatim, so power users keep
+      // full control.
+      fd.set("title", title.trim())
+      fd.set("excerpt", excerpt.trim())
+      fd.set("tags", tags.trim())
+      fd.set("body", content)
       const res = await generateBlogCoverAction(fd)
       if ("error" in res) {
         setCoverGenError(res.error)
@@ -454,9 +501,9 @@ export function BlogPostEditor({
                 <button
                   type="button"
                   onClick={() => setCoverGenOpen(false)}
-                  className="text-muted-foreground hover:text-foreground"
+                  className="text-muted-foreground hover:text-foreground disabled:opacity-50"
                   aria-label="Close generator"
-                  disabled={coverGenerating}
+                  disabled={coverGenerating || coverSuggesting}
                 >
                   <X className="w-3.5 h-3.5" />
                 </button>
@@ -464,28 +511,29 @@ export function BlogPostEditor({
               <Textarea
                 value={coverPrompt}
                 onChange={(e) => setCoverPrompt(e.target.value)}
-                placeholder="Describe the scene, mood, and style. Concrete subjects and lighting cues work best."
-                rows={3}
+                placeholder="Type a short brief (e.g. 'BPC-157 healing'), or click Suggest to draft one from the post."
+                rows={4}
                 maxLength={1000}
-                disabled={coverGenerating}
+                disabled={coverGenerating || coverSuggesting}
                 className="text-xs"
               />
               <p className="text-[11px] text-muted-foreground leading-relaxed">
-                Auto-applied: landscape 16:9, editorial/scientific look, no text or people. Edit the
-                prompt to override subject, palette, or mood.
+                Short briefs are expanded into varied, post-specific prompts. Long, detailed prompts
+                are sent verbatim. 16:9 landscape with no text, faces, or medical paraphernalia is
+                always enforced.
               </p>
               {coverGenError && (
                 <p role="alert" className="text-xs text-destructive">
                   {coverGenError}
                 </p>
               )}
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 flex-wrap">
                 <Button
                   type="button"
                   size="sm"
                   className="gap-1.5 h-8 text-xs"
                   onClick={handleCoverGenerate}
-                  disabled={coverGenerating || !coverPrompt.trim()}
+                  disabled={coverGenerating || coverSuggesting || !coverPrompt.trim()}
                 >
                   {coverGenerating ? (
                     <Loader2 className="w-3.5 h-3.5 animate-spin" />
@@ -493,6 +541,30 @@ export function BlogPostEditor({
                     <Sparkles className="w-3.5 h-3.5" />
                   )}
                   {coverGenerating ? "Generating…" : "Generate image"}
+                </Button>
+                {/* Suggest-from-post button: drafts a varied, topic-specific
+                  * prompt from the post's title/excerpt/tags/body. Re-clicking
+                  * regenerates a different suggestion, since the LLM treats
+                  * the existing prompt as a non-binding art-director note. */}
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  className="gap-1.5 h-8 text-xs bg-transparent"
+                  onClick={handleCoverSuggest}
+                  disabled={coverGenerating || coverSuggesting}
+                  title="Draft a prompt from the post's title, excerpt, tags, and body"
+                >
+                  {coverSuggesting ? (
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                  ) : (
+                    <Sparkles className="w-3.5 h-3.5" />
+                  )}
+                  {coverSuggesting
+                    ? "Drafting…"
+                    : coverPrompt.trim()
+                      ? "Re-suggest"
+                      : "Suggest from post"}
                 </Button>
                 <Button
                   type="button"
