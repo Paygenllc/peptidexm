@@ -43,11 +43,11 @@ const SHADOW_OFFSET = 4
 const SHADOW_BLUR = 6
 
 async function main() {
-  // 1. Render the wordmark in white. We deliberately use the system
-  //    font cache (which works fine in this build environment) and
-  //    only do it once, here, where we can verify the output before
-  //    committing.
-  const whiteText = await sharp({
+  // 1. Render the wordmark glyphs. Sharp's text input always
+  //    rasterizes BLACK on transparent regardless of `rgba` — the
+  //    flag just controls channel count, not text color. So we
+  //    treat this buffer as an alpha mask and recolor it in step 1b.
+  const blackText = await sharp({
     text: {
       text: "peptidexm.com",
       font: `sans bold ${Math.round(HEIGHT * 0.7)}px`,
@@ -58,19 +58,37 @@ async function main() {
     .png()
     .toBuffer({ resolveWithObject: true })
 
-  console.log(`[v0] wordmark text: ${whiteText.info.width}x${whiteText.info.height}`)
+  console.log(`[v0] wordmark text: ${blackText.info.width}x${blackText.info.height}`)
+
+  // 1b. Recolor the glyphs to brand cream (#F5F0E6) using the same
+  //     blend:"in" mask trick we use for the shadow. Without this
+  //     step the watermark ships as black-on-transparent and is
+  //     invisible on every dark cover the AI generator produces.
+  const creamText = await sharp(blackText.data)
+    .ensureAlpha()
+    .composite([
+      {
+        input: Buffer.from([245, 240, 230, 255]),
+        raw: { width: 1, height: 1, channels: 4 },
+        tile: true,
+        blend: "in",
+      },
+    ])
+    .png()
+    .toBuffer({ resolveWithObject: true })
 
   // 2. Build a soft drop shadow: take the same alpha mask, recolor it
   //    to near-black, blur it, and offset it down/right. This is what
   //    keeps the wordmark readable when the cover happens to be a
   //    bright cream studio backdrop (where pure white text vanishes).
-  const shadow = await sharp(whiteText.data)
+  const shadow = await sharp(blackText.data)
     .ensureAlpha()
     // Recolor: knock RGB to ~0 while preserving alpha, then drop alpha
-    // to ~50% so the shadow isn't too aggressive.
+    // to ~70% so the shadow can punch through bright covers without
+    // looking like a dropped block of ink on dark covers.
     .composite([
       {
-        input: Buffer.from([0, 0, 0, 128]),
+        input: Buffer.from([0, 0, 0, 180]),
         raw: { width: 1, height: 1, channels: 4 },
         tile: true,
         blend: "in",
@@ -80,12 +98,12 @@ async function main() {
     .png()
     .toBuffer({ resolveWithObject: true })
 
-  // 3. Compose: shadow underneath, offset by SHADOW_OFFSET, white
+  // 3. Compose: shadow underneath, offset by SHADOW_OFFSET, cream
   //    wordmark on top at full opacity. Pad the canvas slightly so
   //    the shadow's blur doesn't get clipped at the edges.
   const pad = SHADOW_OFFSET + SHADOW_BLUR * 2
-  const canvasW = whiteText.info.width + pad * 2
-  const canvasH = whiteText.info.height + pad * 2
+  const canvasW = blackText.info.width + pad * 2
+  const canvasH = blackText.info.height + pad * 2
 
   const final = await sharp({
     create: {
@@ -102,7 +120,7 @@ async function main() {
         top: pad + SHADOW_OFFSET,
       },
       {
-        input: whiteText.data,
+        input: creamText.data,
         left: pad,
         top: pad,
       },
