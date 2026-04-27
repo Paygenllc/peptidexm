@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button"
 import { ArrowLeft, Mail, Phone, ExternalLink } from "lucide-react"
 import { InboxTabs } from "../../inbox-tabs"
 import { ChatActions } from "./chat-actions"
+import { ReplyByEmailButton } from "./reply-by-email-button"
 
 export const dynamic = "force-dynamic"
 
@@ -43,19 +44,19 @@ export default async function ChatDetailPage({
   const unreadCount = unreadRes.count ?? 0
   const newChatsCount = newChatsRes.count ?? 0
 
-  // Build a `mailto:` reply that pre-fills the recipient and the
-  // greeting. Saves a copy-paste from the operator and keeps the
-  // visitor's name and original message in the quoted body so the
-  // reply has context.
+  // Build the pre-filled reply body once on the server. The
+  // ReplyByEmailButton client component takes these three pieces and
+  // routes them to Gmail / Outlook / Yahoo / default mail app —
+  // whichever the operator actually uses. We deliberately stopped
+  // building a `mailto:` URL here because plain mailto: links no-op
+  // for the majority of desktop users (no registered handler).
   const greeting = chat.name?.trim() ? `Hi ${chat.name.trim()},` : "Hi,"
   const quotedMessage = chat.message
     .split("\n")
     .map((l: string) => `> ${l}`)
     .join("\n")
-  const mailtoBody = `${greeting}\n\nThanks for reaching out via the chat bubble on peptidexm.com.\n\n\n\n--- Your original message ---\n${quotedMessage}`
-  const mailto = `mailto:${encodeURIComponent(chat.email)}?subject=${encodeURIComponent(
-    "Re: your message to PeptideXM",
-  )}&body=${encodeURIComponent(mailtoBody)}`
+  const replySubject = "Re: your message to PeptideXM"
+  const replyBody = `${greeting}\n\nThanks for reaching out via the chat bubble on peptidexm.com.\n\n\n\n--- Your original message ---\n${quotedMessage}`
 
   return (
     <div className="space-y-6">
@@ -133,11 +134,11 @@ export default async function ChatDetailPage({
         </div>
 
         <div className="flex flex-wrap items-center gap-3 pt-4 border-t border-border">
-          <Button asChild className="gap-2">
-            <a href={mailto}>
-              <Mail className="w-4 h-4" /> Reply by email
-            </a>
-          </Button>
+          <ReplyByEmailButton
+            to={chat.email}
+            subject={replySubject}
+            body={replyBody}
+          />
           {chat.phone && (
             <Button asChild variant="outline" className="gap-2 bg-transparent">
               <a href={`tel:${chat.phone}`}>
