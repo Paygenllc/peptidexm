@@ -38,8 +38,26 @@ export async function generateMetadata(
     }
   }
   const title = `${product.name} — ${product.purity} | PeptideXM`
-  const description = product.description
+  const description = product.description?.trim() || undefined
   const url = `/products/${productSlug(product)}`
+
+  // Same dimensions trick as the blog page: without width/height
+  // some unfurlers (Slack, LinkedIn) silently drop our product
+  // image and fall back to the root layout's generic site OG. Our
+  // product hero images are 1:1 squares, so we ship them as
+  // 1200x1200 and use Twitter's "summary_large_image" for X.
+  const productImage = product.image?.trim() || undefined
+  const ogImages = productImage
+    ? [
+        {
+          url: productImage,
+          width: 1200,
+          height: 1200,
+          alt: product.name,
+        },
+      ]
+    : undefined
+
   return {
     title,
     description,
@@ -49,13 +67,14 @@ export async function generateMetadata(
       description,
       url,
       type: "website",
-      images: product.image ? [{ url: product.image, alt: product.name }] : undefined,
+      siteName: "PeptideXM",
+      images: ogImages,
     },
     twitter: {
       card: "summary_large_image",
       title,
       description,
-      images: product.image ? [product.image] : undefined,
+      images: ogImages?.map((i) => i.url),
     },
   }
 }

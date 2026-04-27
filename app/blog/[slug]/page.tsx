@@ -19,21 +19,68 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const supabase = await createClient()
   const { data: post } = await supabase
     .from("blog_posts")
-    .select("title, excerpt, cover_image_url")
+    .select("title, excerpt, cover_image_url, published_at, updated_at, tags")
     .eq("slug", slug)
     .eq("status", "published")
     .maybeSingle()
 
-  if (!post) return { title: "Post not found — PeptideXM" }
+  if (!post) {
+    return {
+      title: "Post not found — PeptideXM",
+      robots: { index: false, follow: false },
+    }
+  }
+
+  // Build a single image entry that link-unfurlers (FB/LI/Slack/X)
+  // will accept. Two gotchas worth being defensive about:
+  //   1. Without explicit width/height, several platforms decline to
+  //      render the image and fall back to the closest *parent*
+  //      metadata — i.e. the root layout's generic /og-image.jpg.
+  //      Setting 1200x630 makes it a "large summary card" everywhere.
+  //   2. The stored URL is sometimes a Supabase storage URL (already
+  //      absolute) and sometimes a relative path. We trim whitespace
+  //      and rely on Next's `metadataBase` to resolve relative URLs.
+  //      Empty strings are normalized to undefined so we don't ship
+  //      `<og:image content="">` and confuse the crawler.
+  const cover = post.cover_image_url?.trim() || undefined
+  const ogImages = cover
+    ? [
+        {
+          url: cover,
+          width: 1200,
+          height: 630,
+          alt: post.title,
+        },
+      ]
+    : undefined
+
+  const description = post.excerpt?.trim() || undefined
+  const url = `/blog/${slug}`
 
   return {
     title: `${post.title} — PeptideXM Journal`,
-    description: post.excerpt ?? undefined,
+    description,
+    keywords: post.tags ?? undefined,
+    alternates: { canonical: url },
     openGraph: {
-      title: post.title,
-      description: post.excerpt ?? undefined,
       type: "article",
-      images: post.cover_image_url ? [{ url: post.cover_image_url }] : undefined,
+      url,
+      siteName: "PeptideXM",
+      title: post.title,
+      description,
+      images: ogImages,
+      publishedTime: post.published_at ?? undefined,
+      modifiedTime: post.updated_at ?? post.published_at ?? undefined,
+      tags: post.tags ?? undefined,
+    },
+    // Mirror the OG block for X/Twitter so link unfurls there don't
+    // fall back to the root layout's generic image. summary_large_image
+    // matches the 1200x630 ratio of our covers.
+    twitter: {
+      card: "summary_large_image",
+      title: post.title,
+      description,
+      images: ogImages?.map((i) => i.url),
     },
   }
 }
