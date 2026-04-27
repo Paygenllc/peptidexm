@@ -35,8 +35,10 @@ export default async function MessagePage({
   }
 
   // Load the thread context: if this is a reply, show the original above;
-  // if this is an original, show any replies beneath.
-  const [parentRes, childrenRes, unreadRes] = await Promise.all([
+  // if this is an original, show any replies beneath. Also fetch the
+  // tab badge counts so the Chats tab's "new" pill stays accurate
+  // when the operator is sitting on a mail detail.
+  const [parentRes, childrenRes, unreadRes, newChatsRes] = await Promise.all([
     message.reply_to_id
       ? supabase
           .from("mail_messages")
@@ -55,11 +57,16 @@ export default async function MessagePage({
       .eq("direction", "inbound")
       .is("read_at", null)
       .is("archived_at", null),
+    supabase
+      .from("chat_messages")
+      .select("id", { count: "exact", head: true })
+      .eq("status", "new"),
   ])
 
   const parent = parentRes.data
   const children = childrenRes.data ?? []
   const unreadCount = unreadRes.count ?? 0
+  const newChatsCount = newChatsRes.count ?? 0
 
   const isInbound = message.direction === "inbound"
   const headerPerson = isInbound
@@ -84,7 +91,7 @@ export default async function MessagePage({
         </h1>
       </div>
 
-      <InboxTabs unreadCount={unreadCount} />
+      <InboxTabs unreadCount={unreadCount} newChatsCount={newChatsCount} />
 
       {parent && (
         <Card className="p-4 bg-secondary/30">

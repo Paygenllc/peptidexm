@@ -2,6 +2,12 @@ import "server-only"
 import { createClient } from "@/lib/supabase/server"
 
 /**
+ * Stable key the admin write-path uses to upsert into site_settings.
+ * Exported so the action can avoid string-typo'ing it.
+ */
+export const CHAT_BUSINESS_HOURS_KEY = "chat_business_hours"
+
+/**
  * Shape of the `chat_business_hours` row in `site_settings.value`.
  * Seeded by scripts/045_chat_messages.sql. Editable via SQL today;
  * a UI editor can be layered on later without changing this shape.
@@ -169,4 +175,23 @@ export async function getChatAvailability(): Promise<ChatAvailability> {
   const hours = await readHours()
   const open = isOpenNow(hours, new Date())
   return { open, hoursLabel: formatHoursLabel(hours) }
+}
+
+/**
+ * Lightweight reader for the admin Chat Hours settings page. Returns
+ * the persisted shape (or defaults) without computing open-state, so
+ * the form can hydrate inputs without an extra round-trip.
+ */
+export async function getChatBusinessHours(): Promise<ChatBusinessHours> {
+  return readHours()
+}
+
+/**
+ * Tiny convenience used by the admin page banner ("Right now the
+ * bubble is showing as online/offline.") — same logic as
+ * getChatAvailability but throws away the formatted label.
+ */
+export async function isWithinBusinessHours(): Promise<boolean> {
+  const hours = await readHours()
+  return isOpenNow(hours, new Date())
 }

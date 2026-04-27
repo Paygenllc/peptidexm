@@ -21,8 +21,8 @@ export default async function OutboxPage({
   const supabase = await createClient()
   const from = (page - 1) * PAGE_SIZE
 
-  // Load unread inbound count so the Inbox tab badge stays accurate here.
-  const [sentRes, unreadRes] = await Promise.all([
+  // Load tab badge counts so both Inbox and Chats badges stay accurate here.
+  const [sentRes, unreadRes, newChatsRes] = await Promise.all([
     supabase
       .from("mail_messages")
       .select("id, to_email, subject, body_text, created_at, status, error_message", {
@@ -37,11 +37,16 @@ export default async function OutboxPage({
       .eq("direction", "inbound")
       .is("read_at", null)
       .is("archived_at", null),
+    supabase
+      .from("chat_messages")
+      .select("id", { count: "exact", head: true })
+      .eq("status", "new"),
   ])
 
   const rows = sentRes.data ?? []
   const total = sentRes.count ?? 0
   const unreadCount = unreadRes.count ?? 0
+  const newChatsCount = newChatsRes.count ?? 0
 
   return (
     <div className="space-y-6">
@@ -62,7 +67,7 @@ export default async function OutboxPage({
         </Button>
       </div>
 
-      <InboxTabs unreadCount={unreadCount} />
+      <InboxTabs unreadCount={unreadCount} newChatsCount={newChatsCount} />
 
       <Card className="overflow-hidden">
         <div className="overflow-x-auto">
