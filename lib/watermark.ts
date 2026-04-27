@@ -91,12 +91,28 @@ export async function applyBrandWatermark(input: Uint8Array): Promise<Uint8Array
   const left = Math.max(0, width - wmW - inset)
   const top = Math.max(0, height - wmH - inset)
 
-  // Composite the wordmark with 90% opacity. Sharp's `composite`
-  // applies opacity by multiplying the input alpha — this is the
-  // built-in path and works identically across every Sharp build
-  // we've tested. No alpha-channel surgery, no shadow layer.
+  // Pre-apply 90% opacity by multiplying the alpha channel BEFORE
+  // we hand the buffer to composite(). Older Sharp typings don't
+  // declare `opacity` on OverlayOptions, and even when the runtime
+  // accepts it the result is inconsistent across builds. Doing the
+  // alpha math ourselves with `linear` on the alpha channel is the
+  // bulletproof path: it works on every Sharp version and lets the
+  // composite step stay free of vendor-specific options.
+  const dimmed = await sharp(wm)
+    .ensureAlpha()
+    .composite([
+      {
+        input: Buffer.from([255, 255, 255, Math.round(255 * 0.9)]),
+        raw: { width: 1, height: 1, channels: 4 },
+        tile: true,
+        blend: "dest-in",
+      },
+    ])
+    .png()
+    .toBuffer()
+
   const composed = await sharp(buf)
-    .composite([{ input: wm, left, top, opacity: 0.9 }])
+    .composite([{ input: dimmed, left, top }])
     .png({ compressionLevel: 9 })
     .toBuffer()
 

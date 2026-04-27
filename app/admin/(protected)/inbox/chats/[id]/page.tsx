@@ -50,7 +50,7 @@ export default async function ChatDetailPage({
   const greeting = chat.name?.trim() ? `Hi ${chat.name.trim()},` : "Hi,"
   const quotedMessage = chat.message
     .split("\n")
-    .map((l) => `> ${l}`)
+    .map((l: string) => `> ${l}`)
     .join("\n")
   const mailtoBody = `${greeting}\n\nThanks for reaching out via the chat bubble on peptidexm.com.\n\n\n\n--- Your original message ---\n${quotedMessage}`
   const mailto = `mailto:${encodeURIComponent(chat.email)}?subject=${encodeURIComponent(
