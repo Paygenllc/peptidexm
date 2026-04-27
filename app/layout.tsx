@@ -6,6 +6,7 @@ import { AttributionBeacon } from "@/components/attribution-beacon"
 import { AgeGateDialog } from "@/components/age-gate-dialog"
 import { CookieConsentBanner } from "@/components/cookie-consent-banner"
 import { AnalyticsGate } from "@/components/analytics-gate"
+import { ChatBubble } from "@/components/chat-bubble"
 import "./globals.css"
 
 const dmSerif = DM_Serif_Display({
@@ -153,6 +154,12 @@ export default function RootLayout({
          * is set to "accepted" AND we're in production — so local
          * dev still skips telemetry entirely. */}
         <AnalyticsGate />
+        {/* Floating chat bubble. Stays out of the way until clicked,
+         * then expands into a contact form whose required fields and
+         * promised SLA shift based on whether we're inside business
+         * hours (read from site_settings.chat_business_hours via
+         * /api/chat/availability on first open). */}
+        <ChatBubble />
       </body>
     </html>
   )
