@@ -21,9 +21,10 @@ export default async function InboxPage({
   const supabase = await createClient()
   const from = (page - 1) * PAGE_SIZE
 
-  // Fetch the paginated page + an accurate unread count in parallel.
-  // Unread count must span ALL pages — it drives the InboxTabs badge.
-  const [messagesRes, unreadRes] = await Promise.all([
+  // Fetch the paginated page + tab badge counts in parallel.
+  // Unread + new-chat counts must span ALL pages — they drive the
+  // InboxTabs badges, not just the visible page.
+  const [messagesRes, unreadRes, newChatsRes] = await Promise.all([
     supabase
       .from("mail_messages")
       .select("id, from_email, from_name, subject, body_text, read_at, created_at, status", {
@@ -39,11 +40,16 @@ export default async function InboxPage({
       .eq("direction", "inbound")
       .is("read_at", null)
       .is("archived_at", null),
+    supabase
+      .from("chat_messages")
+      .select("id", { count: "exact", head: true })
+      .eq("status", "new"),
   ])
 
   const rows = messagesRes.data ?? []
   const total = messagesRes.count ?? 0
   const unreadCount = unreadRes.count ?? 0
+  const newChatsCount = newChatsRes.count ?? 0
 
   return (
     <div className="space-y-6">
@@ -64,7 +70,7 @@ export default async function InboxPage({
         </Button>
       </div>
 
-      <InboxTabs unreadCount={unreadCount} />
+      <InboxTabs unreadCount={unreadCount} newChatsCount={newChatsCount} />
 
       <Card className="overflow-hidden">
         <div className="overflow-x-auto">

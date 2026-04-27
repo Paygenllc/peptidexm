@@ -46,12 +46,23 @@ export default async function ComposePage({
     }
   }
 
-  const { count: unreadCount } = await supabase
-    .from("mail_messages")
-    .select("id", { count: "exact", head: true })
-    .eq("direction", "inbound")
-    .is("read_at", null)
-    .is("archived_at", null)
+  // Tab badges: unread inbound mail and new chat-bubble leads. We
+  // run them in parallel; both are head-only counts so the cost is
+  // negligible compared to the rest of the page.
+  const [unreadRes, newChatsRes] = await Promise.all([
+    supabase
+      .from("mail_messages")
+      .select("id", { count: "exact", head: true })
+      .eq("direction", "inbound")
+      .is("read_at", null)
+      .is("archived_at", null),
+    supabase
+      .from("chat_messages")
+      .select("id", { count: "exact", head: true })
+      .eq("status", "new"),
+  ])
+  const unreadCount = unreadRes.count ?? 0
+  const newChatsCount = newChatsRes.count ?? 0
 
   return (
     <div className="space-y-6">
@@ -66,7 +77,7 @@ export default async function ComposePage({
         </p>
       </div>
 
-      <InboxTabs unreadCount={unreadCount ?? 0} />
+      <InboxTabs unreadCount={unreadCount} newChatsCount={newChatsCount} />
 
       <ComposeForm
         defaultTo={defaultTo}

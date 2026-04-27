@@ -702,3 +702,101 @@ function escapeHtml(s: string) {
     .replace(/"/g, "&quot;")
     .replace(/'/g, "&#39;")
 }
+
+/**
+ * Notify the admin that a visitor submitted the chat bubble. Two
+ * details that justify a dedicated template instead of a generic
+ * "contact form" email:
+ *
+ *   1. The subject line tags whether the lead came in during business
+ *      hours or after-hours. After-hours leads need faster reply SLAs
+ *      because the visitor was explicitly told "we'll get back to you"
+ *      — those should rise to the top of the inbox glance.
+ *   2. `replyTo` is set to the visitor's email so the admin can hit
+ *      Reply directly from Gmail and the response goes to the right
+ *      inbox without copy-paste, despite the From: address being our
+ *      transactional sender.
+ */
+export async function sendChatLeadEmail(input: {
+  id: string
+  email: string
+  name: string | null
+  phone: string | null
+  message: string
+  submittedWhen: "online" | "offline"
+  pageUrl: string | null
+}) {
+  const tag = input.submittedWhen === "offline" ? "after-hours lead" : "new chat"
+  const subject = `[${tag}] ${input.name?.trim() || input.email}`
+
+  // Linking to the admin chat detail saves the operator one click; we
+  // build the URL from the same env var the rest of the codebase uses.
+  const siteUrl =
+    process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/$/, "") || "https://www.peptidexm.com"
+  const adminUrl = `${siteUrl}/admin/inbox/chats/${input.id}`
+
+  const rows: Array<[string, string]> = [
+    ["From", input.name ? `${input.name} <${input.email}>` : input.email],
+  ]
+  if (input.phone) rows.push(["Phone", input.phone])
+  if (input.pageUrl) rows.push(["Page", input.pageUrl])
+  rows.push(["Submitted", input.submittedWhen === "offline" ? "After-hours" : "During business hours"])
+
+  const tableRows = rows
+    .map(
+      ([label, value]) =>
+        `<tr>
+           <td style="padding:6px 12px 6px 0;color:${mutedText};font-size:13px;width:90px;vertical-align:top;">${escapeHtml(label)}</td>
+           <td style="padding:6px 0;font-size:14px;color:#111827;">${escapeHtml(value)}</td>
+         </tr>`,
+    )
+    .join("")
+
+  const html = shell(`
+    <h1 style="margin:0 0 4px 0;font-family:Georgia,serif;font-size:22px;font-weight:500;color:#111827;">
+      ${input.submittedWhen === "offline" ? "After-hours lead" : "New chat message"}
+    </h1>
+    <p style="margin:0 0 20px 0;color:${mutedText};font-size:13px;">
+      ${
+        input.submittedWhen === "offline"
+          ? "We were closed when this came in. The visitor was promised a reply within 24 hours."
+          : "Submitted while the bubble showed us as online."
+      }
+    </p>
+    <table role="presentation" cellpadding="0" cellspacing="0" style="border-collapse:collapse;margin:0 0 20px 0;">
+      ${tableRows}
+    </table>
+    <div style="border-top:1px solid ${borderColor};padding-top:16px;font-size:14px;line-height:1.6;color:#111827;white-space:pre-wrap;">${escapeHtml(
+      input.message,
+    )}</div>
+    <p style="margin:24px 0 0 0;">
+      <a href="${adminUrl}" style="display:inline-block;background:${brandColor};color:#fff;text-decoration:none;padding:10px 18px;border-radius:8px;font-size:14px;font-weight:500;">
+        Open in admin inbox
+      </a>
+    </p>
+    <p style="margin:16px 0 0 0;color:${mutedText};font-size:12px;">
+      Reply to this email and your response will go straight to ${escapeHtml(input.email)}.
+    </p>
+  `)
+
+  // Plain-text fallback. Order matters: visitor identification first
+  // so a phone-skim of the email still surfaces the right name.
+  const textLines = [
+    `${input.submittedWhen === "offline" ? "After-hours lead" : "New chat message"}`,
+    "",
+    ...rows.map(([k, v]) => `${k}: ${v}`),
+    "",
+    "Message:",
+    input.message,
+    "",
+    `Open in admin: ${adminUrl}`,
+  ]
+
+  return sendEmail({
+    to: ADMIN_EMAIL,
+    subject,
+    html,
+    text: textLines.join("\n"),
+    replyTo: input.email,
+  })
+}

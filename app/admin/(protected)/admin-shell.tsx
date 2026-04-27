@@ -21,6 +21,7 @@ import {
   Menu,
   CreditCard,
   Truck,
+  MessageSquare,
 } from "lucide-react"
 
 const navSections: Array<{
@@ -53,6 +54,7 @@ const navSections: Array<{
     items: [
       { href: "/admin/settings/payments", icon: CreditCard, label: "Payment methods" },
       { href: "/admin/settings/shipping", icon: Truck, label: "Shipping" },
+      { href: "/admin/settings/chat", icon: MessageSquare, label: "Chat hours" },
     ],
   },
 ]
