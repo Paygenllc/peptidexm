@@ -52,17 +52,17 @@ import { PostPurchaseAccountCta } from '@/components/post-purchase-account-cta'
 // Card payment link generator. Aliased so the provider identity stays
 // abstracted at the checkout-page level — if we ever swap providers,
 // nothing else in this file has to change.
-// Card payment link generator + order-link persistence. Both live in
-// app/actions/squadco.ts. We alias the link generator so the provider
-// identity stays abstracted at the checkout-page level (if we ever
-// swap providers, only the action file has to change), while the
-// persistence helper keeps its explicit Squadco name because it
-// touches provider-specific columns.
+// Card payment dispatcher. The checkout page treats card payments as
+// a single abstract rail; the dispatcher reads the active processor
+// from site_settings.card_processor at request time and routes to
+// either Squadco or Stryd Pay. This is the only place the checkout
+// imports payment-related actions — switching providers in the admin
+// UI is a runtime config change, not a code deploy.
 import {
-  generateSquadcoPaymentLinkAction as generateCardPaymentLinkAction,
-  persistSquadcoLinkToOrderAction,
+  generateCardPaymentLinkAction,
+  persistCardLinkToOrderAction,
   verifyCardPaymentAction,
-} from '@/app/actions/squadco'
+} from '@/app/actions/card-payment'
 // PayPal redirect checkout action. Creates a PayPal order server-side,
 // stores the paypal_order_id on the row, and returns the approve URL
 // for the browser to redirect to.
@@ -605,13 +605,20 @@ export default function CheckoutPage() {
           return
         }
 
-        // Step 3 — attach the hash to the order row so the verify
-        // endpoint can look it up on the return trip.
+        // Step 3 — attach the provider-specific reference to the order
+        // row so the verify endpoint can look it up on the return trip.
+        // We hand the dispatcher the same `processor` value the link
+        // generator returned so we always write to the matching
+        // provider columns (squadco_* vs stryd_*), even if the admin
+        // flips the active processor between link creation and
+        // persistence.
         if (realOrderId) {
-          const persistResult = await persistSquadcoLinkToOrderAction({
+          const persistResult = await persistCardLinkToOrderAction({
             orderId: realOrderId,
-            hash: linkResult.reference,
+            reference: linkResult.reference,
             checkoutUrl: linkResult.url,
+            redirectUrl: `${redirectBase}/checkout?card_success=true&order=${encodeURIComponent(realOrderNumber)}`,
+            processor: linkResult.processor,
           })
           if (!persistResult.ok) {
             // Non-fatal: the order is placed and the link works. We

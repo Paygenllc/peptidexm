@@ -15,6 +15,10 @@ import {
   type PaymentMethodKey,
 } from "@/lib/payment-methods"
 import { FREE_SHIPPING_SETTING_KEY } from "@/lib/shipping.server"
+import {
+  CARD_PROCESSOR_SETTING_KEY,
+  type CardProcessor,
+} from "@/lib/card-processor.server"
 
 /**
  * Admin-only: flip a payment method on or off.
@@ -79,6 +83,64 @@ export async function setPaymentMethodEnabledAction(input: {
   } catch (err) {
     console.error("[v0] setPaymentMethodEnabledAction threw:", err)
     return { ok: false, error: "Could not update payment setting." }
+  }
+}
+
+/**
+ * Admin-only: switch which card processor handles new checkouts.
+ *
+ * Only one processor can be active at a time. We persist the active
+ * processor as a JSON string ("squadco" | "stryd") in
+ * site_settings.card_processor; the runtime dispatcher in
+ * app/actions/card-payment.ts reads this value at request time.
+ *
+ * Important: this setting only governs **newly created** payment
+ * links. Orders that already have a squadco_hash or stryd_tx_ref keep
+ * verifying against the processor that issued the link, even after
+ * the toggle flips. That's enforced at the verify-action layer, not
+ * here, so the admin can switch processors confidently mid-day
+ * without orphaning in-flight checkouts.
+ */
+export async function setCardProcessorAction(input: {
+  processor: CardProcessor
+}): Promise<{ ok: true } | { ok: false; error: string }> {
+  await requireAdmin()
+
+  if (input.processor !== "squadco" && input.processor !== "stryd") {
+    return { ok: false, error: "Unknown card processor." }
+  }
+
+  try {
+    const sessionClient = await createClient()
+    const { data: authUser } = await sessionClient.auth.getUser()
+
+    const admin = createAdminClient()
+
+    // The jsonb column accepts a native JS string here; the JS client
+    // serializes it to a JSON string literal (e.g. `"stryd"`), which
+    // matches what `getActiveCardProcessor()` parses on read.
+    const { error } = await admin.from("site_settings").upsert(
+      {
+        key: CARD_PROCESSOR_SETTING_KEY,
+        value: input.processor,
+        updated_at: new Date().toISOString(),
+        updated_by: authUser?.user?.id ?? null,
+      },
+      { onConflict: "key" },
+    )
+
+    if (error) {
+      console.error("[v0] setCardProcessorAction error:", error.message)
+      return { ok: false, error: error.message }
+    }
+
+    revalidatePath("/admin/settings/payments")
+    revalidatePath("/checkout")
+
+    return { ok: true }
+  } catch (err) {
+    console.error("[v0] setCardProcessorAction threw:", err)
+    return { ok: false, error: "Could not switch card processor." }
   }
 }
 
