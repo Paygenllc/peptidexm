@@ -10,6 +10,7 @@ import { Footer } from "@/components/footer"
 import { AuthHashErrorHandler } from "@/components/auth-hash-error-handler"
 import { TrustStrip } from "@/components/trust-strip"
 import { RecentActivityStrip } from "@/components/recent-activity-strip"
+import { DiscountPopover } from "@/components/discount-popover"
 // Live product load from Supabase. See lib/products-db.ts for the merge
 // strategy (DB wins for price/stock/active, static catalog fills in
 // missing rich content). Passing the result down as a prop keeps the
@@ -57,6 +58,12 @@ export default async function Home({
       <FAQ />
       <CTA />
       <Footer />
+      {/* Floating "GET 10% OFF" pill, anchored bottom-left so it
+       * doesn't collide with the ChatBubble (mounted globally in
+       * app/layout.tsx, anchored bottom-right). The component
+       * self-hides after a successful subscribe or a dismiss for
+       * 30 days via localStorage, so repeat visitors aren't pestered. */}
+      <DiscountPopover />
     </main>
   )
 }
