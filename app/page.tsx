@@ -8,6 +8,7 @@ import { FAQ } from "@/components/faq"
 import { CTA } from "@/components/cta"
 import { Footer } from "@/components/footer"
 import { AuthHashErrorHandler } from "@/components/auth-hash-error-handler"
+import { DiscountPopup } from "@/components/discount-popup"
 
 export default async function Home({
   searchParams,
@@ -38,6 +39,7 @@ export default async function Home({
       <FAQ />
       <CTA />
       <Footer />
+      <DiscountPopup />
     </main>
   )
 }
