@@ -71,6 +71,15 @@ interface PlaceOrderInput {
    *               captured by `/api/paypal/return` on completion
    */
   paymentMethod?: "zelle" | "crypto" | "card" | "paypal"
+  /**
+   * Optional coupon code the customer applied at checkout. Re-validated
+   * server-side via `validate_coupon` — the client-computed `amountOff`
+   * is never trusted. If validation fails the order still proceeds at
+   * full price (we don't want to break checkout because a coupon
+   * expired between page-render and place-order), but the failure is
+   * surfaced via the response so the UI can flag it.
+   */
+  couponCode?: string
 }
 
 const ALLOWED_PAYMENT_METHODS = new Set<PlaceOrderInput["paymentMethod"]>(["zelle", "crypto", "card", "paypal"])
@@ -105,7 +114,48 @@ export async function placeOrderAction(input: PlaceOrderInput) {
   // (US + international) respects the admin flip when it's on.
   const shipping = getShippingFee(input.country, subtotal, freeShippingOverride)
   const tax = 0
-  const total = subtotal + shipping + tax
+
+  // Coupon validation runs against the same SECURITY DEFINER RPC the
+  // /api/coupons/validate endpoint uses, so we get exactly one source
+  // of truth for the discount math. We re-validate here (even though
+  // the UI already did) because the customer may have sat on the page
+  // long enough for the coupon to expire or hit its max_uses, and
+  // because nothing stops a tampered request from posting a bogus
+  // amount_off. A failed validation is non-fatal: the order proceeds
+  // at full price and the response carries `couponWarning` so the UI
+  // can show "Coupon could not be applied — order placed at full
+  // price" instead of silently swallowing the discount.
+  let couponId: string | null = null
+  let couponCodeStored: string | null = null
+  let couponAmountOff = 0
+  let couponWarning: string | undefined
+  const couponCodeInput = input.couponCode?.trim()
+  if (couponCodeInput) {
+    const supabaseForCoupon = await createClient()
+    const { data: validated, error: couponErr } = await supabaseForCoupon.rpc(
+      "validate_coupon",
+      {
+        p_code: couponCodeInput,
+        p_email: input.email.trim() || null,
+        p_subtotal: subtotal,
+      },
+    )
+    if (couponErr) {
+      const { couponErrorMessage } = await import("@/lib/coupons")
+      couponWarning = couponErrorMessage(couponErr.message)
+      console.log("[v0] placeOrder: coupon validation failed", couponErr.message)
+    } else {
+      const row = Array.isArray(validated) ? validated[0] : validated
+      if (row) {
+        couponId = row.coupon_id as string
+        couponCodeStored = (row.code as string) ?? couponCodeInput
+        // Postgres returns NUMERIC as string — coerce at the boundary.
+        couponAmountOff = Math.min(Number(row.amount_off), subtotal)
+      }
+    }
+  }
+
+  const total = Math.max(0, subtotal - couponAmountOff + shipping + tax)
 
   // Capture authenticated user if present (for linking orders to accounts)
   const supabase = await createClient()
@@ -153,6 +203,12 @@ export async function placeOrderAction(input: PlaceOrderInput) {
       tax,
       total,
       user_id: user?.id ?? null,
+      // Coupon snapshot — code + amount-off are stored even if the
+      // coupon row is later deleted (FK is `on delete set null`).
+      // That preserves auditability of historical orders.
+      coupon_id: couponId,
+      coupon_code: couponCodeStored,
+      coupon_amount_off: couponAmountOff,
       // Attribution — all optional; null when the cookie was missing.
       referrer: attribution.referrer || null,
       landing_path: attribution.landing_path || null,
@@ -187,6 +243,31 @@ export async function placeOrderAction(input: PlaceOrderInput) {
     // Rollback the order
     await admin.from("orders").delete().eq("id", order.id)
     return { error: itemsError.message }
+  }
+
+  // Redeem the coupon now that the order row is committed. The RPC
+  // is idempotent on (coupon_id, order_id) so a retry is safe; it
+  // increments redemption_count under a row-level lock so two
+  // simultaneous checkouts can't both push past max_uses. If
+  // redemption fails (e.g. someone else just claimed the last use),
+  // we roll back the order completely — better to surface the error
+  // than to charge the customer at the discounted total without ever
+  // recording the redemption.
+  if (couponId) {
+    const { error: redeemErr } = await admin.rpc("redeem_coupon", {
+      p_coupon_id: couponId,
+      p_order_id: order.id,
+      p_email: input.email.trim() || null,
+      p_amount_off: couponAmountOff,
+      p_subtotal: subtotal,
+    })
+    if (redeemErr) {
+      console.error("[v0] placeOrder coupon redeem error", redeemErr)
+      await admin.from("order_items").delete().eq("order_id", order.id)
+      await admin.from("orders").delete().eq("id", order.id)
+      const { couponErrorMessage } = await import("@/lib/coupons")
+      return { error: couponErrorMessage(redeemErr.message) }
+    }
   }
 
   revalidatePath("/admin/orders")
@@ -248,5 +329,11 @@ export async function placeOrderAction(input: PlaceOrderInput) {
     orderId: order.id,
     orderNumber: order.order_number,
     total,
+    // The UI shows a "Coupon could not be applied" toast when the
+    // customer entered a code that validate_coupon rejected. We still
+    // succeed — the order placed at full price — but the operator and
+    // the customer get a heads-up.
+    couponWarning,
+    couponAmountOff,
   }
 }

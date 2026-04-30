@@ -37,6 +37,8 @@ import { ZelleLogo, TetherLogo, PaypalLogo, CardBrandRow } from '@/components/pa
 // Replaces the passive "Add $X more" text that used to live in the
 // order summary card with something shoppers can actually act on.
 import { FreeShippingUpsell } from '@/components/free-shipping-upsell'
+import { CouponInput } from '@/components/coupon-input'
+import type { ValidatedCoupon } from '@/lib/coupons'
 // Resolves the public origin we hand to Squadco/PayPal as the return
 // URL. Reads NEXT_PUBLIC_PAYMENT_RETURN_ORIGIN when set so the
 // merchant dashboard can display a neutral alias domain instead of
@@ -289,6 +291,13 @@ export default function CheckoutPage() {
   // (showing $0 that later becomes $X) would be a worse UX bug than
   // the brief fee flash in the other direction.
   const [freeShippingOverride, setFreeShippingOverride] = useState(false)
+  // Coupon applied at the order-summary level. Holds the *validated*
+  // coupon shape returned by /api/coupons/validate so we can render
+  // the `−$X off` line and pass `coupon_code` into placeOrderAction.
+  // The server re-validates at place-order time, so a stale `applied`
+  // here can never reduce the customer's actual charge below the
+  // current rule set (e.g. if the coupon expired in the last minute).
+  const [appliedCoupon, setAppliedCoupon] = useState<ValidatedCoupon | null>(null)
 
   useEffect(() => {
     let cancelled = false
@@ -477,7 +486,13 @@ export default function CheckoutPage() {
     ? 0
     : amountToFreeShipping(customerInfo.country, total)
   const qualifiesForFreeShip = freeShippingOverride || (isUS && shippingFee === 0)
-  const orderTotal = total + shippingFee
+  // Coupons discount the subtotal only — never shipping. Clamp at the
+  // subtotal so a $50-off coupon on a $30 cart can't go negative. The
+  // authoritative version of this same calculation runs server-side.
+  const couponAmountOff = appliedCoupon
+    ? Math.min(appliedCoupon.amountOff, total)
+    : 0
+  const orderTotal = Math.max(0, total - couponAmountOff + shippingFee)
 
   const validateInfo = (): boolean => {
     const newErrors: { [key: string]: string } = {}
@@ -566,6 +581,7 @@ export default function CheckoutPage() {
           country: customerInfo.country,
           items: orderItems,
           paymentMethod: 'card',
+          couponCode: appliedCoupon?.code,
         })
 
         if ('error' in orderResult) {
@@ -687,6 +703,7 @@ export default function CheckoutPage() {
           country: customerInfo.country,
           items: orderItems,
           paymentMethod: 'paypal',
+          couponCode: appliedCoupon?.code,
         })
 
         if ('error' in orderResult) {
@@ -750,6 +767,7 @@ export default function CheckoutPage() {
         state: customerInfo.state,
         zipCode: customerInfo.zipCode,
         country: customerInfo.country,
+        couponCode: appliedCoupon?.code,
         items: items.map((item) => ({
           productName: item.name,
           variantName: item.variant,
@@ -1699,6 +1717,16 @@ export default function CheckoutPage() {
                               <span>Subtotal</span>
                               <span className="tabular-nums">${total.toFixed(2)}</span>
                             </div>
+                            {appliedCoupon && couponAmountOff > 0 && (
+                              <div className="flex justify-between text-accent">
+                                <span className="font-medium">
+                                  Discount ({appliedCoupon.code})
+                                </span>
+                                <span className="tabular-nums font-medium">
+                                  −${couponAmountOff.toFixed(2)}
+                                </span>
+                              </div>
+                            )}
                             <div className="flex justify-between text-muted-foreground">
                               <span>Shipping {isUS ? '(US)' : '(Intl.)'}</span>
                               {qualifiesForFreeShip ? (
@@ -1722,6 +1750,20 @@ export default function CheckoutPage() {
                                 <FreeShippingUpsell compact />
                               </div>
                             )}
+                          </div>
+
+                          {/* Coupon entry — sits above the total so the
+                              shopper sees the discount applied to the
+                              same line they're about to confirm. */}
+                          <div className="mb-4">
+                            <CouponInput
+                              compact
+                              subtotal={total}
+                              email={customerInfo.email}
+                              applied={appliedCoupon}
+                              onApplied={setAppliedCoupon}
+                              onRemoved={() => setAppliedCoupon(null)}
+                            />
                           </div>
 
                           <div className="pt-3 border-t border-border flex items-center justify-between mb-4">
@@ -1781,6 +1823,16 @@ export default function CheckoutPage() {
                         <span>Subtotal</span>
                         <span className="tabular-nums">${total.toFixed(2)}</span>
                       </div>
+                      {appliedCoupon && couponAmountOff > 0 && (
+                        <div className="flex justify-between text-sm text-accent">
+                          <span className="font-medium">
+                            Discount ({appliedCoupon.code})
+                          </span>
+                          <span className="tabular-nums font-medium">
+                            −${couponAmountOff.toFixed(2)}
+                          </span>
+                        </div>
+                      )}
                       <div className="flex justify-between text-sm text-muted-foreground">
                         <span>Shipping {isUS ? '(US)' : '(International)'}</span>
                         {qualifiesForFreeShip ? (
@@ -1813,6 +1865,19 @@ export default function CheckoutPage() {
                         <span>Tax</span>
                         <span className="tabular-nums">$0.00</span>
                       </div>
+                    </div>
+
+                    {/* Coupon entry — the pill style collapses gracefully
+                        in the narrower sidebar column. */}
+                    <div className="mb-6">
+                      <CouponInput
+                        compact
+                        subtotal={total}
+                        email={customerInfo.email}
+                        applied={appliedCoupon}
+                        onApplied={setAppliedCoupon}
+                        onRemoved={() => setAppliedCoupon(null)}
+                      />
                     </div>
 
                     <div className="pt-6 border-t border-border flex justify-between items-center mb-6">
