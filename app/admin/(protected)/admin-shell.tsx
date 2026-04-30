@@ -22,6 +22,7 @@ import {
   CreditCard,
   Truck,
   MessageSquare,
+  Tag,
 } from "lucide-react"
 
 const navSections: Array<{
@@ -39,6 +40,7 @@ const navSections: Array<{
       { href: "/admin/abandoned-carts", icon: ShoppingBag, label: "Abandoned carts" },
       { href: "/admin/products", icon: Package, label: "Products" },
       { href: "/admin/customers", icon: Users, label: "Customers" },
+      { href: "/admin/coupons", icon: Tag, label: "Coupons" },
     ],
   },
   {

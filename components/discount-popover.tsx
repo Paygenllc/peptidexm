@@ -173,7 +173,46 @@ export function DiscountPopover() {
         </div>
 
         <div className="px-5 py-4">
-          <NewsletterForm source="home_floating_promo" />
+          <NewsletterForm
+            source="home_floating_promo"
+            // After a successful subscribe, show the actual coupon
+            // code the server minted instead of the generic "thanks"
+            // message. Email also goes out, but seeing the code on
+            // screen lets the user copy it immediately and head to
+            // the catalog without context-switching to their inbox.
+            renderSuccess={({ couponCode }) =>
+              couponCode ? (
+                <div className="flex flex-col gap-1.5">
+                  <span className="text-foreground font-medium">
+                    Your code is ready — we&apos;ve also emailed it to you.
+                  </span>
+                  <code className="inline-flex items-center justify-center rounded-md border border-dashed border-primary/40 bg-primary/5 px-3 py-2 font-mono text-sm tracking-wider text-foreground">
+                    {couponCode}
+                  </code>
+                  <span className="text-muted-foreground text-[11px] leading-relaxed">
+                    Single-use, locked to this email. Apply at checkout.
+                  </span>
+                </div>
+              ) : (
+                <span className="text-muted-foreground">
+                  Thanks for subscribing — check your inbox for your code.
+                </span>
+              )
+            }
+            // Auto-suppress the popover for 30 days once they've
+            // subscribed; matches the dismiss-cooldown behaviour so
+            // converted users aren't pestered.
+            onSuccess={() => {
+              try {
+                localStorage.setItem(
+                  STORAGE_KEY,
+                  String(Date.now() + 30 * 24 * 60 * 60 * 1000),
+                )
+              } catch {
+                /* localStorage unavailable; fine to ignore */
+              }
+            }}
+          />
         </div>
 
         <p className="px-5 pb-4 text-[11px] text-muted-foreground leading-relaxed">
