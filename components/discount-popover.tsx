@@ -67,41 +67,6 @@ export function DiscountPopover() {
     return () => document.removeEventListener("keydown", onKey)
   }, [open])
 
-  // Watch for the subscribe form's success state. The NewsletterForm
-  // doesn't expose a callback, but the server action causes its
-  // internal state to flip and the form re-renders a "Subscribed"
-  // pill. We listen for the visible success text via a MutationObserver
-  // on the panel — cheaper than threading a prop through, and resilient
-  // if the form's internal markup changes.
-  //
-  // (We could also set the localStorage flag from inside NewsletterForm,
-  // but doing it here keeps that component generic for the footer use.)
-  useEffect(() => {
-    if (!open) return
-    const panel = document.getElementById("pxm-discount-panel")
-    if (!panel) return
-    const observer = new MutationObserver(() => {
-      // The form renders a paragraph containing "Thanks for subscribing"
-      // when the action returns success — that's our trigger.
-      if (panel.textContent?.includes("Thanks for subscribing")) {
-        try {
-          window.localStorage.setItem(SUBSCRIBED_KEY, "1")
-        } catch {
-          /* ignore */
-        }
-        // Auto-close shortly after success so the visitor can keep
-        // shopping. Long enough to read the confirmation.
-        const t = window.setTimeout(() => {
-          setOpen(false)
-          setHidden(true)
-        }, 2000)
-        return () => window.clearTimeout(t)
-      }
-    })
-    observer.observe(panel, { childList: true, subtree: true, characterData: true })
-    return () => observer.disconnect()
-  }, [open])
-
   function handleDismiss() {
     try {
       window.localStorage.setItem(DISMISS_KEY, String(Date.now()))
@@ -203,11 +168,14 @@ export function DiscountPopover() {
             // subscribed; matches the dismiss-cooldown behaviour so
             // converted users aren't pestered.
             onSuccess={() => {
+              // Mark this visitor as subscribed so the floating CTA
+              // doesn't reappear on future visits. We deliberately do
+              // NOT auto-close the panel — the user almost certainly
+              // wants a beat to copy the code we just rendered, and
+              // the button now reads "Subscribed" so it's clear the
+              // form succeeded. They can dismiss when ready.
               try {
-                localStorage.setItem(
-                  STORAGE_KEY,
-                  String(Date.now() + 30 * 24 * 60 * 60 * 1000),
-                )
+                window.localStorage.setItem(SUBSCRIBED_KEY, "1")
               } catch {
                 /* localStorage unavailable; fine to ignore */
               }
