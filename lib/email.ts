@@ -60,6 +60,69 @@ export async function sendEmail({ to, subject, html, text, replyTo, from }: Send
 
 // ---------- Templates ----------
 
+/**
+ * Welcome email with a personalized 10%-off coupon code.
+ *
+ * Single-purpose, plain template — we keep it short on purpose so it
+ * lands in the primary inbox tab and doesn't trip Gmail's promotions
+ * heuristics. The coupon code is rendered as a copy-friendly mono
+ * block; the CTA button drops the visitor into /products with the
+ * code in the URL hash so a future enhancement can auto-apply it.
+ */
+export async function sendWelcomeCouponEmail(input: {
+  to: string
+  code: string
+  expiresAtIso?: string | null
+}) {
+  const expiry = input.expiresAtIso
+    ? new Date(input.expiresAtIso).toLocaleDateString("en-US", {
+        month: "long",
+        day: "numeric",
+        year: "numeric",
+      })
+    : null
+
+  const html = shell(`
+    <h1 style="margin:0 0 12px;font-family:Georgia,serif;font-size:22px;font-weight:500;color:#111827;">
+      Welcome — here's 10% off your first order
+    </h1>
+    <p style="margin:0 0 16px;font-size:14px;line-height:1.6;color:#374151;">
+      Thanks for joining the journal. Your one-time discount code is below.
+      Apply it at checkout to take 10% off your first order.
+    </p>
+    <table role="presentation" cellpadding="0" cellspacing="0" style="margin:8px 0 20px;">
+      <tr><td style="padding:14px 18px;border:1px dashed ${borderColor};border-radius:8px;background:#faf7f3;font-family:Menlo,Consolas,monospace;font-size:18px;letter-spacing:0.04em;color:#111827;">
+        ${input.code}
+      </td></tr>
+    </table>
+    <p style="margin:0 0 24px;font-size:12px;color:${mutedText};">
+      ${
+        expiry
+          ? `Valid for one use, single customer, until ${expiry}.`
+          : "Valid for one use per customer."
+      }
+    </p>
+    <a href="https://peptidexm.com/products" style="display:inline-block;background:${brandColor};color:#ffffff;text-decoration:none;padding:12px 20px;border-radius:8px;font-size:14px;font-weight:500;">
+      Shop the catalog
+    </a>
+  `)
+
+  const text = `Welcome — here's 10% off your first order
+
+Your one-time code: ${input.code}
+${expiry ? `Valid until ${expiry}.\n` : ""}
+Apply it at checkout: https://peptidexm.com/products
+`
+
+  return sendEmail({
+    to: input.to,
+    subject: "Your 10% off code from PeptideXM",
+    html,
+    text,
+  })
+}
+
+
 const brandColor = "#8b5e34" // warm terra cotta accent, matches site
 const mutedText = "#6b7280"
 const borderColor = "#e5e7eb"

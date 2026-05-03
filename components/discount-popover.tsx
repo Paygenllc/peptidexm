@@ -67,41 +67,6 @@ export function DiscountPopover() {
     return () => document.removeEventListener("keydown", onKey)
   }, [open])
 
-  // Watch for the subscribe form's success state. The NewsletterForm
-  // doesn't expose a callback, but the server action causes its
-  // internal state to flip and the form re-renders a "Subscribed"
-  // pill. We listen for the visible success text via a MutationObserver
-  // on the panel — cheaper than threading a prop through, and resilient
-  // if the form's internal markup changes.
-  //
-  // (We could also set the localStorage flag from inside NewsletterForm,
-  // but doing it here keeps that component generic for the footer use.)
-  useEffect(() => {
-    if (!open) return
-    const panel = document.getElementById("pxm-discount-panel")
-    if (!panel) return
-    const observer = new MutationObserver(() => {
-      // The form renders a paragraph containing "Thanks for subscribing"
-      // when the action returns success — that's our trigger.
-      if (panel.textContent?.includes("Thanks for subscribing")) {
-        try {
-          window.localStorage.setItem(SUBSCRIBED_KEY, "1")
-        } catch {
-          /* ignore */
-        }
-        // Auto-close shortly after success so the visitor can keep
-        // shopping. Long enough to read the confirmation.
-        const t = window.setTimeout(() => {
-          setOpen(false)
-          setHidden(true)
-        }, 2000)
-        return () => window.clearTimeout(t)
-      }
-    })
-    observer.observe(panel, { childList: true, subtree: true, characterData: true })
-    return () => observer.disconnect()
-  }, [open])
-
   function handleDismiss() {
     try {
       window.localStorage.setItem(DISMISS_KEY, String(Date.now()))
@@ -173,7 +138,49 @@ export function DiscountPopover() {
         </div>
 
         <div className="px-5 py-4">
-          <NewsletterForm source="home_floating_promo" />
+          <NewsletterForm
+            source="home_floating_promo"
+            // After a successful subscribe, show the actual coupon
+            // code the server minted instead of the generic "thanks"
+            // message. Email also goes out, but seeing the code on
+            // screen lets the user copy it immediately and head to
+            // the catalog without context-switching to their inbox.
+            renderSuccess={({ couponCode }) =>
+              couponCode ? (
+                <div className="flex flex-col gap-1.5">
+                  <span className="text-foreground font-medium">
+                    Your code is ready — we&apos;ve also emailed it to you.
+                  </span>
+                  <code className="inline-flex items-center justify-center rounded-md border border-dashed border-primary/40 bg-primary/5 px-3 py-2 font-mono text-sm tracking-wider text-foreground">
+                    {couponCode}
+                  </code>
+                  <span className="text-muted-foreground text-[11px] leading-relaxed">
+                    Single-use, locked to this email. Apply at checkout.
+                  </span>
+                </div>
+              ) : (
+                <span className="text-muted-foreground">
+                  Thanks for subscribing — check your inbox for your code.
+                </span>
+              )
+            }
+            // Auto-suppress the popover for 30 days once they've
+            // subscribed; matches the dismiss-cooldown behaviour so
+            // converted users aren't pestered.
+            onSuccess={() => {
+              // Mark this visitor as subscribed so the floating CTA
+              // doesn't reappear on future visits. We deliberately do
+              // NOT auto-close the panel — the user almost certainly
+              // wants a beat to copy the code we just rendered, and
+              // the button now reads "Subscribed" so it's clear the
+              // form succeeded. They can dismiss when ready.
+              try {
+                window.localStorage.setItem(SUBSCRIBED_KEY, "1")
+              } catch {
+                /* localStorage unavailable; fine to ignore */
+              }
+            }}
+          />
         </div>
 
         <p className="px-5 pb-4 text-[11px] text-muted-foreground leading-relaxed">

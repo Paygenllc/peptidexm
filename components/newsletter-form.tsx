@@ -11,16 +11,46 @@ type Props = {
   className?: string
   /** `dark` is for placement on a dark background (e.g. the footer). */
   tone?: "light" | "dark"
+  /**
+   * Optional success-state renderer. When provided, this is used in
+   * place of the default "Thanks for subscribing" message so the
+   * floating discount popover can show the coupon code returned by
+   * the server action without having to scrape it back out of the DOM.
+   */
+  renderSuccess?: (info: { couponCode?: string }) => React.ReactNode
+  /**
+   * Fired exactly once when the server action transitions to success.
+   * Lets parents react (e.g. set localStorage flags or close a panel)
+   * without having to mirror their own MutationObserver.
+   */
+  onSuccess?: (info: { couponCode?: string }) => void
 }
 
-export function NewsletterForm({ source = "footer", className = "", tone = "light" }: Props) {
+export function NewsletterForm({
+  source = "footer",
+  className = "",
+  tone = "light",
+  renderSuccess,
+  onSuccess,
+}: Props) {
   const [state, formAction, isPending] = useActionState(subscribeToNewsletterAction, null)
   const formRef = useRef<HTMLFormElement>(null)
+  const successFiredRef = useRef(false)
 
-  // Clear the input once the server confirms a successful subscription.
+  // Clear the input once the server confirms a successful subscription
+  // and notify the parent. The ref guard prevents the side-effect from
+  // firing twice if React re-runs the effect after a no-op state
+  // update — important because `onSuccess` may set localStorage and
+  // close a popover.
   useEffect(() => {
-    if (state?.success) formRef.current?.reset()
-  }, [state?.success])
+    if (state?.success) {
+      formRef.current?.reset()
+      if (!successFiredRef.current) {
+        successFiredRef.current = true
+        onSuccess?.({ couponCode: state.couponCode })
+      }
+    }
+  }, [state?.success, state?.couponCode, onSuccess])
 
   const isDark = tone === "dark"
   const iconClass = isDark
@@ -74,9 +104,13 @@ export function NewsletterForm({ source = "footer", className = "", tone = "ligh
       <div aria-live="polite" className="min-h-[1.25rem] text-xs">
         {state?.error && <span className="text-destructive">{state.error}</span>}
         {state?.success && (
-          <span className={successTextClass}>
-            Thanks for subscribing — you&apos;ll hear from us soon.
-          </span>
+          renderSuccess ? (
+            renderSuccess({ couponCode: state.couponCode })
+          ) : (
+            <span className={successTextClass}>
+              Thanks for subscribing — you&apos;ll hear from us soon.
+            </span>
+          )
         )}
       </div>
     </form>
