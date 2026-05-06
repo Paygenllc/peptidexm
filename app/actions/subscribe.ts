@@ -77,11 +77,19 @@ export async function subscribeToNewsletterAction(
       // Fire-and-forget — subscribe response is what the visitor is
       // waiting for. The email is a bonus channel; if Resend hiccups
       // we still showed the code on-screen.
+      //
+      // `issue_welcome_coupon` mints a flat 10% percent coupon
+      // expiring 60 days out, so we hard-code those labels for the
+      // email body. If we ever add other welcome variants, we should
+      // select the row back from `public.coupons` and derive these
+      // from the actual columns instead.
       void sendWelcomeCouponEmail({
-        to: raw,
+        email: raw,
         code,
-        // Coupons created by issue_welcome_coupon get a 60-day expiry.
-        expiresAtIso: null,
+        valueLabel: "10%",
+        expiresAt: new Date(Date.now() + 60 * 24 * 60 * 60 * 1000),
+      }).catch((err) => {
+        console.error("[v0] welcome coupon email send error:", err)
       })
     }
   }
