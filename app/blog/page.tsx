@@ -120,7 +120,10 @@ export default async function BlogIndexPage({
     <main id="main-content" tabIndex={-1} className="min-h-screen focus:outline-none">
       <Header />
 
-      <section className="pt-28 sm:pt-32 pb-10 sm:pb-12 bg-secondary/30 border-b border-border">
+      {/* Hero — pure intro copy. The filter controls live in their own
+          band below so they get full visual weight as a tool rather than
+          competing with the headline. */}
+      <section className="pt-28 sm:pt-32 pb-10 sm:pb-14 bg-secondary/30">
         <div className="mx-auto max-w-4xl px-4 sm:px-6 lg:px-8">
           <p className="text-xs uppercase tracking-[0.2em] text-muted-foreground mb-3">Journal</p>
           <h1 className="font-serif text-4xl sm:text-5xl lg:text-6xl font-medium tracking-tight text-balance">
@@ -130,14 +133,16 @@ export default async function BlogIndexPage({
             Occasional writing from our lab team on peptide science, handling, and the practical
             side of high-quality research chemistry.
           </p>
-
-          <div className="mt-8">
-            <BlogFilters allTags={allTags} />
-          </div>
         </div>
       </section>
 
-      <section className="py-12 sm:py-16">
+      {/* Sticky filter bar — search + category chips immediately below
+          the hero, persistent as the user scrolls the post list. */}
+      <div className="mx-auto max-w-4xl px-4 sm:px-6 lg:px-8">
+        <BlogFilters allTags={allTags} />
+      </div>
+
+      <section className="py-10 sm:py-14">
         <div className="mx-auto max-w-4xl px-4 sm:px-6 lg:px-8">
           {hasFilters && (
             <div
