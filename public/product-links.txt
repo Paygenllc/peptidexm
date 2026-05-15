@@ -1,0 +1,95 @@
+PeptideXM — Product Catalog Links
+Generated from public.products (active=true) — 47 products across 12 categories.
+Base URL: https://peptidexm.com/products/<slug>
+
+================================================================
+ACCESSORIES
+================================================================
+Bacteriostatic Water 30ml         https://peptidexm.com/products/bac-water
+Bacteriostatic Water 3ml          https://peptidexm.com/products/bacteriostatic-water-3ml
+Insulin Syringes                  https://peptidexm.com/products/insulin-syringes
+Starter Bundle                    https://peptidexm.com/products/starter-kit
+
+================================================================
+ANTI-AGING
+================================================================
+Epithalon                         https://peptidexm.com/products/epithalon
+MOTS-C                            https://peptidexm.com/products/mots-c
+NAD+                              https://peptidexm.com/products/nad-plus
+NMN                               https://peptidexm.com/products/nmn
+PE 22-28                          https://peptidexm.com/products/pe-22-28
+SS31                              https://peptidexm.com/products/ss31
+
+================================================================
+COGNITIVE
+================================================================
+Pinealon                          https://peptidexm.com/products/pinealon
+Selank                            https://peptidexm.com/products/selank
+Semax                             https://peptidexm.com/products/semax
+
+================================================================
+FERTILITY & HORMONAL
+================================================================
+HCG                               https://peptidexm.com/products/hcg
+HMG                               https://peptidexm.com/products/hmg
+Kisspeptin-10                     https://peptidexm.com/products/kisspeptin-10
+
+================================================================
+GLP-1
+================================================================
+AOD-9604                          https://peptidexm.com/products/aod-9604
+XM-C (Amylin Support)             https://peptidexm.com/products/xm-c
+XM-R (Triple Pathway)             https://peptidexm.com/products/xm-r
+XM-S (GLP-1 Pathway)              https://peptidexm.com/products/xm-s
+XM-T (Dual Pathway)               https://peptidexm.com/products/xm-t
+
+================================================================
+GROWTH HORMONE
+================================================================
+CJC-1295 (no DAC)                 https://peptidexm.com/products/cjc-1295
+CJC-1295 (with DAC)               https://peptidexm.com/products/cjc-1295-dac
+GHRP-2                            https://peptidexm.com/products/ghrp-2
+Hexarelin                         https://peptidexm.com/products/hexarelin
+HGH                               https://peptidexm.com/products/hgh
+IGF-1 LR3                         https://peptidexm.com/products/igf-1-lr3
+Ipamorelin                        https://peptidexm.com/products/ipamorelin
+MK-677 (Ibutamoren)               https://peptidexm.com/products/mk-677
+PEG MGF                           https://peptidexm.com/products/peg-mgf
+Sermorelin                        https://peptidexm.com/products/sermorelin
+Tesamorelin                       https://peptidexm.com/products/tesamorelin
+
+================================================================
+PERFORMANCE & MUSCLE
+================================================================
+FST344                            https://peptidexm.com/products/fst344
+GDF-8 (Myostatin)                 https://peptidexm.com/products/gdf-8
+GW501516 (Cardarine)              https://peptidexm.com/products/gw501516
+SLU-PP-332                        https://peptidexm.com/products/slu-pp-332
+
+================================================================
+RECOVERY
+================================================================
+BPC-157                           https://peptidexm.com/products/bpc-157
+KPV                               https://peptidexm.com/products/kpv
+Thymosin Alpha 1                  https://peptidexm.com/products/thymosin-alpha-1
+Thymosin Beta-4 (TB-500)          https://peptidexm.com/products/thymosin-beta-4-tb-500
+Thymulin                          https://peptidexm.com/products/thymulin
+
+================================================================
+SEXUAL HEALTH
+================================================================
+Oxytocin Acetate                  https://peptidexm.com/products/oxytocin
+PT-141                            https://peptidexm.com/products/pt-141
+
+================================================================
+SKIN & BEAUTY
+================================================================
+GHK-Cu                            https://peptidexm.com/products/ghk-cu
+GLOW Blend                        https://peptidexm.com/products/glow-blend
+Melanotan 2                       https://peptidexm.com/products/melanotan-2
+Snap-8                            https://peptidexm.com/products/snap-8
+
+================================================================
+SLEEP
+================================================================
+DSIP                              https://peptidexm.com/products/dsip
