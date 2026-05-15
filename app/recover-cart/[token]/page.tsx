@@ -47,7 +47,7 @@ export default async function RecoverCartPage({
         <p className="text-sm text-muted-foreground leading-relaxed">
           Restoring your cart and taking you to checkout…
         </p>
-        <RecoverCartClient items={items} email={data.email ?? ""} />
+        <RecoverCartClient cartId={data.id} items={items} email={data.email ?? ""} />
       </div>
     </main>
   )

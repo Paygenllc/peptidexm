@@ -14,9 +14,12 @@ import type { AbandonedCartItemSnapshot } from "@/lib/abandoned-carts"
  * Strict Mode's double-invoke in dev would add each item twice.
  */
 export function RecoverCartClient({
+  cartId,
   items,
   email,
 }: {
+  /** The abandoned_carts row ID so place-order can mark the exact row recovered. */
+  cartId: string
   items: AbandonedCartItemSnapshot[]
   email: string
 }) {
@@ -43,11 +46,13 @@ export function RecoverCartClient({
       addItem(cartItem)
     }
 
-    // Stash the email so /checkout can prefill its form. Scoped to this
-    // session only so we don't leak between devices.
-    if (typeof window !== "undefined" && email) {
+    // Stash the email + cart ID so /checkout can (a) prefill the form
+    // and (b) tell place-order which exact abandoned_carts row to mark
+    // recovered. Scoped to this session only so it doesn't leak.
+    if (typeof window !== "undefined") {
       try {
-        sessionStorage.setItem("peptidexm-recovered-email", email)
+        if (email) sessionStorage.setItem("peptidexm-recovered-email", email)
+        if (cartId) sessionStorage.setItem("peptidexm-recovered-cart-id", cartId)
       } catch {
         // sessionStorage disabled in private tabs — fine to swallow.
       }

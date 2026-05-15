@@ -127,9 +127,10 @@ export default function CheckoutPage() {
   const [isProcessing, setIsProcessing] = useState(false)
 
   // When a shopper arrives here via the abandoned-cart recovery link,
-  // the companion client component drops their email into sessionStorage
-  // so we can prefill the form and save them a step. Consume-and-forget
-  // so it doesn't stick around for unrelated future sessions.
+  // the companion client component drops their email + cart ID into
+  // sessionStorage so we can (a) prefill the form and (b) tell
+  // place-order which exact row to mark recovered. Consume-and-forget.
+  const [recoveredCartId, setRecoveredCartId] = useState<string | null>(null)
   useEffect(() => {
     if (typeof window === 'undefined') return
     try {
@@ -137,6 +138,11 @@ export default function CheckoutPage() {
       if (recoveredEmail) {
         setCustomerInfo((prev) => (prev.email ? prev : { ...prev, email: recoveredEmail }))
         window.sessionStorage.removeItem('peptidexm-recovered-email')
+      }
+      const cartId = window.sessionStorage.getItem('peptidexm-recovered-cart-id')
+      if (cartId) {
+        setRecoveredCartId(cartId)
+        window.sessionStorage.removeItem('peptidexm-recovered-cart-id')
       }
     } catch {
       // sessionStorage disabled (private tabs etc) — silent no-op.
@@ -582,6 +588,7 @@ export default function CheckoutPage() {
           items: orderItems,
           paymentMethod: 'card',
           couponCode: appliedCoupon?.code,
+          recoveredCartId: recoveredCartId ?? undefined,
         })
 
         if ('error' in orderResult) {
@@ -704,6 +711,7 @@ export default function CheckoutPage() {
           items: orderItems,
           paymentMethod: 'paypal',
           couponCode: appliedCoupon?.code,
+          recoveredCartId: recoveredCartId ?? undefined,
         })
 
         if ('error' in orderResult) {
@@ -768,6 +776,7 @@ export default function CheckoutPage() {
         zipCode: customerInfo.zipCode,
         country: customerInfo.country,
         couponCode: appliedCoupon?.code,
+        recoveredCartId: recoveredCartId ?? undefined,
         items: items.map((item) => ({
           productName: item.name,
           variantName: item.variant,

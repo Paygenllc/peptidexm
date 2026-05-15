@@ -80,6 +80,13 @@ interface PlaceOrderInput {
    * surfaced via the response so the UI can flag it.
    */
   couponCode?: string
+  /**
+   * If the shopper arrived via a recovery link, this holds the exact
+   * `abandoned_carts.id` to mark recovered. Matching by ID guarantees
+   * we close out the right row even if the customer changed their email
+   * on the checkout form.
+   */
+  recoveredCartId?: string
 }
 
 const ALLOWED_PAYMENT_METHODS = new Set<PlaceOrderInput["paymentMethod"]>(["zelle", "crypto", "card", "paypal"])
@@ -274,22 +281,40 @@ export async function placeOrderAction(input: PlaceOrderInput) {
   revalidatePath("/admin")
   if (user?.id) revalidatePath("/account")
 
-  // Close out any open abandoned-cart row for this email so the cron
-  // doesn't keep sending reminders to a shopper who's already paid.
-  // Matched case-insensitively (`ilike`) because the capture endpoint
-  // stores the email lowercased but the checkout form preserves case.
-  // Errors here are not fatal — the order already succeeded.
+  // Close out any open abandoned-cart row so the cron doesn't keep
+  // sending reminders to a shopper who's already paid.
+  //
+  // If the checkout received a `recoveredCartId` from the recovery link,
+  // we match by that exact ID — this handles the case where the customer
+  // edits the email on the checkout form (common if they use a different
+  // address than the one they entered earlier). Otherwise we fall back
+  // to a case-insensitive email match (captures regular checkouts where
+  // an abandoned-cart row happened to share the same email).
   const normalizedEmail = input.email.trim().toLowerCase()
-  const { error: recoverErr } = await admin
-    .from("abandoned_carts")
-    .update({
-      recovered_at: new Date().toISOString(),
-      recovered_order_id: order.id,
-    })
-    .ilike("email", normalizedEmail)
-    .is("recovered_at", null)
-  if (recoverErr) {
-    console.log("[v0] abandoned-cart recover mark error:", recoverErr)
+  if (input.recoveredCartId) {
+    const { error: recoverByIdErr } = await admin
+      .from("abandoned_carts")
+      .update({
+        recovered_at: new Date().toISOString(),
+        recovered_order_id: order.id,
+      })
+      .eq("id", input.recoveredCartId)
+      .is("recovered_at", null)
+    if (recoverByIdErr) {
+      console.log("[v0] abandoned-cart recover-by-id error:", recoverByIdErr)
+    }
+  } else {
+    const { error: recoverByEmailErr } = await admin
+      .from("abandoned_carts")
+      .update({
+        recovered_at: new Date().toISOString(),
+        recovered_order_id: order.id,
+      })
+      .ilike("email", normalizedEmail)
+      .is("recovered_at", null)
+    if (recoverByEmailErr) {
+      console.log("[v0] abandoned-cart recover-by-email error:", recoverByEmailErr)
+    }
   }
   revalidatePath("/admin/abandoned-carts")
 
