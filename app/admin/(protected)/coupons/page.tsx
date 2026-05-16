@@ -29,7 +29,7 @@ export default async function AdminCouponsPage() {
   const { data: coupons, error } = await admin
     .from("coupons")
     .select(
-      "id, code, type, value, max_uses, max_per_customer, min_order_subtotal, starts_at, expires_at, active, customer_email, source, notes, redemption_count, created_at, updated_at",
+      "id, code, type, value, max_uses, max_per_customer, min_order_subtotal, starts_at, expires_at, active, customer_email, source, notes, redemption_count, affiliate_name, affiliate_email, commission_rate_percent, created_at, updated_at",
     )
     .order("created_at", { ascending: false })
     .limit(200)
@@ -77,6 +77,10 @@ export default async function AdminCouponsPage() {
     notes: (c.notes as string | null) ?? null,
     redemption_count: Number(c.redemption_count ?? 0),
     total_amount_off: totalsByCoupon.get(c.id as string) ?? 0,
+    affiliate_name: (c.affiliate_name as string | null) ?? null,
+    affiliate_email: (c.affiliate_email as string | null) ?? null,
+    commission_rate_percent:
+      c.commission_rate_percent == null ? null : Number(c.commission_rate_percent),
     created_at: c.created_at as string,
     updated_at: c.updated_at as string,
   }))

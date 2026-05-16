@@ -33,13 +33,19 @@ export type AdminCouponRow = {
   notes: string | null
   redemption_count: number
   total_amount_off: number
+  // Affiliate ownership. All optional — a row with `affiliate_name`
+  // set is treated as an affiliate/partner coupon by the admin UI
+  // (different `source` value, different new-coupon entry point).
+  affiliate_name: string | null
+  affiliate_email: string | null
+  commission_rate_percent: number | null
   created_at: string
   updated_at: string
 }
 
 /** The columns we always select for the admin table. */
 const ROW_COLUMNS =
-  "id, code, type, value, max_uses, max_per_customer, min_order_subtotal, starts_at, expires_at, active, customer_email, source, notes, redemption_count, created_at, updated_at"
+  "id, code, type, value, max_uses, max_per_customer, min_order_subtotal, starts_at, expires_at, active, customer_email, source, notes, redemption_count, affiliate_name, affiliate_email, commission_rate_percent, created_at, updated_at"
 
 /**
  * Convert a raw Supabase row + an optional total_amount_off aggregate
@@ -67,6 +73,12 @@ function toRow(
     notes: (raw.notes as string | null) ?? null,
     redemption_count: Number(raw.redemption_count ?? 0),
     total_amount_off: Number(totalAmountOff ?? 0),
+    affiliate_name: (raw.affiliate_name as string | null) ?? null,
+    affiliate_email: (raw.affiliate_email as string | null) ?? null,
+    commission_rate_percent:
+      raw.commission_rate_percent == null
+        ? null
+        : Number(raw.commission_rate_percent),
     created_at: raw.created_at as string,
     updated_at: raw.updated_at as string,
   }
@@ -114,6 +126,16 @@ interface CouponInput {
   customerEmail?: string | null
   notes?: string | null
   active: boolean
+  /** Affiliate/partner metadata. Optional on all coupons. */
+  affiliateName?: string | null
+  affiliateEmail?: string | null
+  commissionRatePercent?: number | null
+  /**
+   * Explicit source override. Defaults to `"manual"` for admin-created
+   * coupons; the new-affiliate-coupon UI passes `"affiliate"` so we
+   * can segment reporting later.
+   */
+  source?: string | null
 }
 
 function normalizeCode(raw: string): string {
@@ -150,6 +172,13 @@ function inputToRow(input: CouponInput) {
     customer_email: input.customerEmail?.trim().toLowerCase() || null,
     notes: input.notes?.trim() || null,
     active: input.active,
+    affiliate_name: input.affiliateName?.trim() || null,
+    affiliate_email: input.affiliateEmail?.trim().toLowerCase() || null,
+    commission_rate_percent:
+      input.commissionRatePercent == null ||
+      !Number.isFinite(input.commissionRatePercent)
+        ? null
+        : input.commissionRatePercent,
   }
 }
 
@@ -165,10 +194,11 @@ export async function createCouponAction(
     .from("coupons")
     .insert({
       ...inputToRow(input),
-      // Source `manual` distinguishes admin-authored codes from the
-      // welcome codes minted by `issue_welcome_coupon` so reports can
-      // segment by origin without parsing notes.
-      source: "manual",
+      // `source` defaults to `manual` for admin-authored codes, but
+      // the affiliate-coupon quick-create passes `"affiliate"` so we
+      // can segment reporting later. Welcome codes minted by
+      // `issue_welcome_coupon` use `"welcome"` separately.
+      source: input.source?.trim() || "manual",
     })
     .select(ROW_COLUMNS)
     .single()
