@@ -12,6 +12,8 @@ import {
   Search,
   Tag,
   Ticket,
+  Users,
+  Copy,
 } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
@@ -78,6 +80,14 @@ type FormState = {
   customerEmail: string
   notes: string
   active: boolean
+  // Affiliate metadata. Always sent through the form so we don't
+  // need a separate code path; the dialog hides the fields when
+  // they're irrelevant.
+  affiliateName: string
+  affiliateEmail: string
+  commissionRatePercent: string
+  /** Tells `createCouponAction` to tag the row's `source` column. */
+  source: "manual" | "affiliate"
 }
 
 const EMPTY_FORM: FormState = {
@@ -91,6 +101,38 @@ const EMPTY_FORM: FormState = {
   customerEmail: "",
   notes: "",
   active: true,
+  affiliateName: "",
+  affiliateEmail: "",
+  commissionRatePercent: "",
+  source: "manual",
+}
+
+/**
+ * Default form state for a brand-new affiliate coupon. Affiliates
+ * typically get 20% off for their audience, no max-uses cap (the
+ * cap is on commission, not redemptions), one-per-customer to stop
+ * stacking, and the `source = "affiliate"` tag for reporting.
+ */
+const EMPTY_AFFILIATE_FORM: FormState = {
+  ...EMPTY_FORM,
+  value: "20",
+  maxPerCustomer: "1",
+  commissionRatePercent: "10",
+  source: "affiliate",
+}
+
+/**
+ * Generate a readable affiliate code from a name, e.g. "Jane Doe" →
+ * "JANE20". Falls back to a short random suffix so two affiliates
+ * with the same first name don't collide. The admin can always
+ * override the suggestion before submitting.
+ */
+function suggestAffiliateCode(name: string, percent: string): string {
+  const first = name.trim().split(/\s+/)[0] ?? ""
+  const clean = first.replace(/[^a-zA-Z0-9]/g, "").toUpperCase()
+  const pct = percent.trim() || "20"
+  if (!clean) return ""
+  return `${clean}${pct}`
 }
 
 /** Convert a row from the DB into the form-state shape. */
@@ -108,6 +150,16 @@ function rowToForm(row: AdminCouponRow): FormState {
     customerEmail: row.customer_email ?? "",
     notes: row.notes ?? "",
     active: row.active,
+    affiliateName: row.affiliate_name ?? "",
+    affiliateEmail: row.affiliate_email ?? "",
+    commissionRatePercent:
+      row.commission_rate_percent != null
+        ? String(row.commission_rate_percent)
+        : "",
+    // Preserve the original `source` on edit so admins can't
+    // accidentally re-tag a manual coupon as affiliate (or vice
+    // versa) without explicitly meaning to.
+    source: (row.source === "affiliate" ? "affiliate" : "manual"),
   }
 }
 
@@ -155,8 +207,12 @@ export function CouponsClient({ initialCoupons }: Props) {
   const [coupons, setCoupons] = useState<AdminCouponRow[]>(initialCoupons)
   const [search, setSearch] = useState("")
   const [editingRow, setEditingRow] = useState<AdminCouponRow | null>(null)
-  const [creating, setCreating] = useState(false)
+  // `creating` carries which preset to open with: `null` = closed,
+  // `"manual"` = blank standard coupon, `"affiliate"` = pre-filled
+  // 20%-off affiliate template.
+  const [creating, setCreating] = useState<"manual" | "affiliate" | null>(null)
   const [deleteTarget, setDeleteTarget] = useState<AdminCouponRow | null>(null)
+  const [copiedCode, setCopiedCode] = useState<string | null>(null)
 
   // Status messages live above the table — same pattern the rest of
   // the admin uses (see abandoned-carts-client.tsx). No toaster is
@@ -255,10 +311,23 @@ export function CouponsClient({ initialCoupons }: Props) {
             redemptions.
           </p>
         </div>
-        <Button onClick={() => setCreating(true)} className="gap-2">
-          <Plus className="h-4 w-4" />
-          New coupon
-        </Button>
+        <div className="flex items-center gap-2">
+          {/* Quick-create for partner / influencer codes. Pre-fills 20%
+              off, 1-per-customer, and tags source = "affiliate" so the
+              row shows up in the affiliate column and reports later. */}
+          <Button
+            variant="outline"
+            onClick={() => setCreating("affiliate")}
+            className="gap-2"
+          >
+            <Users className="h-4 w-4" />
+            New affiliate coupon
+          </Button>
+          <Button onClick={() => setCreating("manual")} className="gap-2">
+            <Plus className="h-4 w-4" />
+            New coupon
+          </Button>
+        </div>
       </div>
 
       <div className="grid gap-3 sm:grid-cols-3">
@@ -312,6 +381,7 @@ export function CouponsClient({ initialCoupons }: Props) {
               <TableHead>Code</TableHead>
               <TableHead>Discount</TableHead>
               <TableHead>Status</TableHead>
+              <TableHead>Affiliate</TableHead>
               <TableHead>Locked to</TableHead>
               <TableHead className="text-right">Uses</TableHead>
               <TableHead>Expires</TableHead>
@@ -322,7 +392,7 @@ export function CouponsClient({ initialCoupons }: Props) {
             {filtered.length === 0 ? (
               <TableRow>
                 <TableCell
-                  colSpan={7}
+                  colSpan={8}
                   className="text-center text-sm text-muted-foreground py-10"
                 >
                   {coupons.length === 0
@@ -340,6 +410,20 @@ export function CouponsClient({ initialCoupons }: Props) {
                     <TableCell>
                       <Badge variant={status.variant}>{status.label}</Badge>
                     </TableCell>
+                    <TableCell className="text-sm">
+                      {row.affiliate_name ? (
+                        <div className="flex flex-col">
+                          <span className="text-foreground">{row.affiliate_name}</span>
+                          {row.commission_rate_percent != null && (
+                            <span className="text-xs text-muted-foreground">
+                              {row.commission_rate_percent}% commission
+                            </span>
+                          )}
+                        </div>
+                      ) : (
+                        <span className="text-muted-foreground italic">—</span>
+                      )}
+                    </TableCell>
                     <TableCell className="text-sm text-muted-foreground">
                       {row.customer_email ?? (
                         <span className="italic">Anyone</span>
@@ -354,6 +438,28 @@ export function CouponsClient({ initialCoupons }: Props) {
                     </TableCell>
                     <TableCell className="text-right">
                       <div className="flex items-center justify-end gap-1">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          aria-label="Copy code"
+                          title={copiedCode === row.code ? "Copied!" : "Copy code"}
+                          onClick={() => {
+                            try {
+                              navigator.clipboard?.writeText(row.code)
+                              setCopiedCode(row.code)
+                              window.setTimeout(() => setCopiedCode(null), 1500)
+                            } catch {
+                              // Older browsers / non-secure contexts: silently
+                              // skip rather than throw on the admin UI.
+                            }
+                          }}
+                        >
+                          {copiedCode === row.code ? (
+                            <Check className="h-4 w-4 text-emerald-600" />
+                          ) : (
+                            <Copy className="h-4 w-4" />
+                          )}
+                        </Button>
                         <Button
                           variant="ghost"
                           size="icon"
@@ -401,20 +507,26 @@ export function CouponsClient({ initialCoupons }: Props) {
       {/* Create / edit dialogs are the same component — switching on
           whether `editingRow` is set determines update vs insert. */}
       <CouponFormDialog
-        open={creating}
+        open={creating !== null}
         onOpenChange={(o) => {
-          if (!o) setCreating(false)
+          if (!o) setCreating(null)
         }}
-        title="New coupon"
-        description="Create a new discount code. Codes are case-insensitive and unique."
-        submitLabel="Create coupon"
+        title={creating === "affiliate" ? "New affiliate coupon" : "New coupon"}
+        description={
+          creating === "affiliate"
+            ? "Create a discount code for an affiliate or partner. Defaults to 20% off, one redemption per customer."
+            : "Create a new discount code. Codes are case-insensitive and unique."
+        }
+        submitLabel={creating === "affiliate" ? "Create affiliate coupon" : "Create coupon"}
+        initial={creating === "affiliate" ? EMPTY_AFFILIATE_FORM : EMPTY_FORM}
+        showAffiliateFields={creating === "affiliate"}
         onSubmit={async (form) => {
           const res = await createCouponAction(formToInput(form))
           if (res.error) return res.error
           if (res.row) {
             upsertLocal(res.row)
             setFlash({ kind: "success", message: `${res.row.code} created.` })
-            setCreating(false)
+            setCreating(null)
           }
           return null
         }}
@@ -430,6 +542,10 @@ export function CouponsClient({ initialCoupons }: Props) {
         submitLabel="Save changes"
         initial={editingRow ? rowToForm(editingRow) : undefined}
         codeLocked={!!editingRow && editingRow.redemption_count > 0}
+        // Show affiliate fields when editing an existing affiliate
+        // coupon, so the admin can update commission rate or partner
+        // contact without re-creating. Regular coupons stay simple.
+        showAffiliateFields={editingRow?.source === "affiliate"}
         onSubmit={async (form) => {
           if (!editingRow) return null
           const res = await updateCouponAction(editingRow.id, formToInput(form))
@@ -518,6 +634,10 @@ function formToInput(form: FormState) {
     customerEmail: form.customerEmail.trim() || null,
     notes: form.notes.trim() || null,
     active: form.active,
+    affiliateName: form.affiliateName.trim() || null,
+    affiliateEmail: form.affiliateEmail.trim() || null,
+    commissionRatePercent: num(form.commissionRatePercent),
+    source: form.source,
   }
 }
 
@@ -554,6 +674,8 @@ interface FormDialogProps {
   initial?: FormState
   /** When true, the code field is disabled (used during edit-after-redeem). */
   codeLocked?: boolean
+  /** When true, the dialog renders the affiliate / partner section. */
+  showAffiliateFields?: boolean
   /** Returns an error string if submission fails, null on success. */
   onSubmit: (form: FormState) => Promise<string | null>
 }
@@ -566,6 +688,7 @@ function CouponFormDialog({
   submitLabel,
   initial,
   codeLocked,
+  showAffiliateFields,
   onSubmit,
 }: FormDialogProps) {
   const [form, setForm] = useState<FormState>(initial ?? EMPTY_FORM)
@@ -664,7 +787,25 @@ function CouponFormDialog({
                 min="0"
                 max={form.type === "percent" ? "100" : undefined}
                 value={form.value}
-                onChange={(e) => setForm((f) => ({ ...f, value: e.target.value }))}
+                onChange={(e) => {
+                  const next = e.target.value
+                  setForm((f) => {
+                    // Mirror the affiliate-name handler: keep the code in
+                    // sync (e.g. JANE20 → JANE25) as long as the admin
+                    // hasn't manually edited it.
+                    const codeShouldFollow =
+                      showAffiliateFields &&
+                      f.affiliateName.trim() !== "" &&
+                      f.code === suggestAffiliateCode(f.affiliateName, f.value)
+                    return {
+                      ...f,
+                      value: next,
+                      code: codeShouldFollow
+                        ? suggestAffiliateCode(f.affiliateName, next)
+                        : f.code,
+                    }
+                  })
+                }}
                 required
               />
             </div>
@@ -715,6 +856,86 @@ function CouponFormDialog({
               />
             </div>
           </div>
+
+          {showAffiliateFields && (
+            <div className="rounded-md border border-border bg-muted/30 p-3 space-y-3">
+              <div className="flex items-center gap-2">
+                <Users className="h-4 w-4 text-muted-foreground" />
+                <span className="text-sm font-medium text-foreground">
+                  Affiliate / partner
+                </span>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Used so you can attribute redemptions and pay commission. The
+                affiliate&apos;s buyers redeem the code at checkout like any
+                other discount.
+              </p>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1.5">
+                  <Label htmlFor="coupon-aff-name">Name</Label>
+                  <Input
+                    id="coupon-aff-name"
+                    value={form.affiliateName}
+                    onChange={(e) => {
+                      const next = e.target.value
+                      setForm((f) => {
+                        // Auto-suggest the code when the admin hasn't typed
+                        // their own yet. Once they edit the code field
+                        // manually, we stop overwriting.
+                        const suggested = suggestAffiliateCode(next, f.value)
+                        const codeShouldFollow =
+                          f.code === "" ||
+                          f.code === suggestAffiliateCode(f.affiliateName, f.value)
+                        return {
+                          ...f,
+                          affiliateName: next,
+                          code: codeShouldFollow ? suggested : f.code,
+                        }
+                      })
+                    }}
+                    placeholder="Jane Doe"
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="coupon-aff-email">Contact email</Label>
+                  <Input
+                    id="coupon-aff-email"
+                    type="email"
+                    value={form.affiliateEmail}
+                    onChange={(e) =>
+                      setForm((f) => ({ ...f, affiliateEmail: e.target.value }))
+                    }
+                    placeholder="jane@example.com"
+                  />
+                </div>
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="coupon-aff-commission">
+                  Commission rate (%)
+                </Label>
+                <Input
+                  id="coupon-aff-commission"
+                  type="number"
+                  inputMode="decimal"
+                  step="0.5"
+                  min="0"
+                  max="100"
+                  value={form.commissionRatePercent}
+                  onChange={(e) =>
+                    setForm((f) => ({
+                      ...f,
+                      commissionRatePercent: e.target.value,
+                    }))
+                  }
+                  placeholder="e.g. 10"
+                />
+                <p className="text-xs text-muted-foreground">
+                  Stored for your records — commission is computed against
+                  this coupon&apos;s redemptions in reports.
+                </p>
+              </div>
+            </div>
+          )}
 
           <div className="space-y-1.5">
             <Label htmlFor="coupon-email">Lock to customer email</Label>
