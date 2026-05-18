@@ -8,8 +8,8 @@ import { Pagination, parsePage } from "@/components/admin/pagination"
 import { BlogFilters } from "./blog-filters"
 
 export const metadata: Metadata = {
-  title: "Journal — PeptideXM",
-  description: "Research notes, protocols, and quality updates from the PeptideXM lab team.",
+  title: "Research Journal — PeptideXM",
+  description: "Lab research notes, protocols, and peptide science insights. Peer-reviewed findings and practical research guidance from the PeptideXM team.",
 }
 
 // Always fetch fresh on request so new posts appear immediately after publish
@@ -125,13 +125,13 @@ export default async function BlogIndexPage({
           competing with the headline. */}
       <section className="pt-28 sm:pt-32 pb-10 sm:pb-14 bg-secondary/30">
         <div className="mx-auto max-w-4xl px-4 sm:px-6 lg:px-8">
-          <p className="text-xs uppercase tracking-[0.2em] text-muted-foreground mb-3">Journal</p>
+          <p className="text-xs uppercase tracking-[0.2em] text-muted-foreground mb-3">Research Journal</p>
           <h1 className="font-serif text-4xl sm:text-5xl lg:text-6xl font-medium tracking-tight text-balance">
-            Research notes & protocols
+            Peptide science & protocols
           </h1>
           <p className="mt-4 text-base sm:text-lg text-muted-foreground max-w-2xl text-pretty">
-            Occasional writing from our lab team on peptide science, handling, and the practical
-            side of high-quality research chemistry.
+            Lab research notes, peer-reviewed findings, and practical protocols from our chemistry team. 
+            Deep dives into peptide purity, receptor pathways, handling best practices, and research methodology.
           </p>
         </div>
       </section>
