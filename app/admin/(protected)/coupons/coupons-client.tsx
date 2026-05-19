@@ -543,9 +543,15 @@ export function CouponsClient({ initialCoupons }: Props) {
         initial={editingRow ? rowToForm(editingRow) : undefined}
         codeLocked={!!editingRow && editingRow.redemption_count > 0}
         // Show affiliate fields when editing an existing affiliate
-        // coupon, so the admin can update commission rate or partner
-        // contact without re-creating. Regular coupons stay simple.
-        showAffiliateFields={editingRow?.source === "affiliate"}
+        // coupon. We check both the `source` tag AND whether any
+        // affiliate metadata exists — handles legacy rows that were
+        // created before the `source = "affiliate"` convention.
+        showAffiliateFields={
+          editingRow?.source === "affiliate" ||
+          !!editingRow?.affiliate_name ||
+          !!editingRow?.affiliate_email ||
+          editingRow?.commission_rate_percent != null
+        }
         onSubmit={async (form) => {
           if (!editingRow) return null
           const res = await updateCouponAction(editingRow.id, formToInput(form))
