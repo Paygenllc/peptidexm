@@ -1,6 +1,6 @@
 "use client"
 
-import { useMemo, useState, useTransition } from "react"
+import { useEffect, useMemo, useState, useTransition } from "react"
 import {
   Plus,
   Pencil,
@@ -700,6 +700,14 @@ function CouponFormDialog({
   const [form, setForm] = useState<FormState>(initial ?? EMPTY_FORM)
   const [error, setError] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
+
+  // Sync form state whenever `initial` changes — this handles clicking
+  // Edit on a different row. Without this effect the closure in
+  // `handleOpenChange` holds a stale `initial` reference.
+  useEffect(() => {
+    setForm(initial ?? EMPTY_FORM)
+    setError(null)
+  }, [initial])
 
   // Reset the form whenever the dialog opens so reused state from a
   // prior open doesn't leak through. Using a layout effect would be
